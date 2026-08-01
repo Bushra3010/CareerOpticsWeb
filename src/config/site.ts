@@ -10,8 +10,11 @@ export const siteConfig = {
     "Discover colleges, courses and exams across India. Free admission counselling for students after 10th, 12th, graduation and post-graduation.",
   url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
   locale: "en_IN",
-  phone: process.env.NEXT_PUBLIC_PHONE ?? "+919999999999",
-  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "919999999999",
+  /** E.164, used for tel: and wa.me links. */
+  phone: process.env.NEXT_PUBLIC_PHONE ?? "+918252532179",
+  /** How the number is shown to users. */
+  phoneDisplay: "+91 82525 32179",
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "918252532179",
   leadEmail: "leads@careeroptics.in",
   supportEmail: "info@careeroptics.in",
   social: {

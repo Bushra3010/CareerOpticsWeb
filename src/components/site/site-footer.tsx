@@ -9,7 +9,7 @@ import {
   LinkedinIcon,
   YoutubeIcon,
 } from "@/components/site/social-icons";
-import { footerNav, offices } from "@/config/nav";
+import { footerNav, mapQuery, offices } from "@/config/nav";
 import { siteConfig, telHref } from "@/config/site";
 
 const socials = [
@@ -67,7 +67,7 @@ export function SiteFooter() {
             <div className="mt-6 space-y-2 text-sm">
               <a href={telHref} className="flex items-center gap-2 hover:text-brand-amber">
                 <Phone className="size-4 shrink-0" aria-hidden />
-                {siteConfig.phone}
+                {siteConfig.phoneDisplay}
               </a>
               <a
                 href={`mailto:${siteConfig.supportEmail}`}
@@ -96,8 +96,8 @@ export function SiteFooter() {
 
           <div className="overflow-hidden rounded-xl">
             <iframe
-              title="CareerOptics head office location"
-              src="https://www.google.com/maps?q=Exhibition%20Road%2C%20Patna%2C%20Bihar&output=embed"
+              title={`${siteConfig.name} head office location`}
+              src={`https://www.google.com/maps?q=${encodeURIComponent(mapQuery)}&output=embed`}
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
               className="h-48 w-full border-0"

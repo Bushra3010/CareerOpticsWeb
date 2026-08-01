@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Menu, Phone } from "lucide-react";
 
+import { Logo } from "@/components/site/logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,10 +37,8 @@ export function MobileNav() {
       </SheetTrigger>
       <SheetContent side="right" className="w-[300px] p-0">
         <SheetHeader className="border-b">
-          <SheetTitle className="font-display text-h3">
-            <span className="text-brand-blue">Career</span>
-            <span className="text-brand-red">Optics</span>
-          </SheetTitle>
+          <SheetTitle className="sr-only">{siteConfig.name} menu</SheetTitle>
+          <Logo onClick={() => setOpen(false)} />
         </SheetHeader>
 
         <nav className="flex flex-col p-4" aria-label="Main">
@@ -79,7 +78,7 @@ export function MobileNav() {
           <Button asChild size="lg" className="w-full">
             <a href={telHref}>
               <Phone />
-              Call {siteConfig.phone}
+              Call {siteConfig.phoneDisplay}
             </a>
           </Button>
         </div>

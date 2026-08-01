@@ -23,7 +23,7 @@ export function SiteHeader() {
             className="flex items-center gap-1.5 hover:text-brand-amber"
           >
             <Phone className="size-3.5" aria-hidden />
-            {siteConfig.phone}
+            {siteConfig.phoneDisplay}
           </a>
           <a
             href={whatsappHref("Hi CareerOptics, I need admission guidance.")}
@@ -43,7 +43,7 @@ export function SiteHeader() {
       {/* 2. Sticky header — h-16, white, shadow appears on scroll */}
       <header className="site-header sticky top-0 z-40 h-16 bg-white">
         <div className="container-site flex h-16 items-center gap-4">
-          <Logo />
+          <Logo priority />
 
           {/* Goal & city selector (P3 makes it a real dropdown) */}
           <button

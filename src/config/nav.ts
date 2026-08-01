@@ -77,11 +77,12 @@ export const footerNav: { title: string; links: NavLink[] }[] = [
 
 export const offices = [
   {
-    city: "Patna (Head Office)",
-    address: "2nd Floor, Exhibition Road, Patna, Bihar 800001",
-  },
-  {
-    city: "Muzaffarpur",
-    address: "Club Road, Muzaffarpur, Bihar 842001",
+    city: "Arrah (Head Office)",
+    address:
+      "Near Kshatriya School Road, Bandhan Tola, Maharaja Hata, Nawada, Thana, Arrah, Bihar 802301",
   },
 ];
+
+/** Query string for the footer's Google Maps embed. */
+export const mapQuery =
+  "Kshatriya School Road, Maharaja Hata, Nawada, Arrah, Bihar 802301";
