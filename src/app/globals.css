@@ -1,26 +1,240 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:is(.dark *));
+
+/* ────────────────────────────────────────────────────────────────
+   CareerOptics design tokens — PRD §6
+   Single source of truth for color/type/space. No raw hex in components.
+   ──────────────────────────────────────────────────────────────── */
+@theme {
+  /* Brand palette (§6.1) */
+  --color-brand-blue-900: #082c6b; /* deep navy — headers, footer */
+  --color-brand-blue: #0b3b8c; /* "Career" blue — primary */
+  --color-brand-blue-400: #3d6fd1; /* hover / links */
+  --color-brand-blue-50: #eef3fc; /* tinted section bg */
+  --color-brand-red: #d01e26; /* "Optics" red — primary CTA */
+  --color-brand-red-600: #a9151c; /* CTA hover */
+  --color-brand-orange: #f26a21; /* arrow accent — badges, "Select Goal", NEW */
+  --color-brand-amber: #fbbf24; /* rating stars */
+
+  /* Neutrals */
+  --color-ink: #0f172a; /* headings */
+  --color-body: #475569; /* body text */
+  --color-muted-ink: #64748b; /* de-emphasised text (shadcn: muted-foreground) */
+  --color-surface: #f8fafc;
+  --color-success: #16a34a;
+
+  /* Typography (§6.2) — Plus Jakarta Sans display, Inter body/UI */
+  --font-sans: var(--font-inter, ui-sans-serif), system-ui, sans-serif;
+  --font-display:
+    var(--font-plus-jakarta-sans, var(--font-inter, ui-sans-serif)), system-ui,
+    sans-serif;
+
+  --text-h1: 2.5rem; /* 40 / 48 */
+  --text-h1--line-height: 3rem;
+  --text-h1--font-weight: 800;
+  --text-h1-lg: 3.5rem; /* 56 / 60 */
+  --text-h1-lg--line-height: 3.75rem;
+  --text-h1-lg--font-weight: 800;
+  --text-h2: 1.875rem; /* 30 / 36 */
+  --text-h2--line-height: 2.25rem;
+  --text-h2--font-weight: 700;
+  --text-h3: 1.375rem; /* 22 / 28 */
+  --text-h3--line-height: 1.75rem;
+  --text-h3--font-weight: 700;
+  /* body 15/24 and small 13/20 override the default base/sm steps, so the
+     scale stays on Tailwind's standard names (`--text-body` would collide
+     with the `--color-body` token on the `text-*` utility). */
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.5rem;
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+
+  /* Layout & elevation (§6.3) */
+  --container-site: 1280px;
+  --shadow-card: 0 1px 3px rgb(15 23 42 / 0.08);
+  --shadow-card-hover: 0 8px 24px rgb(11 59 140 / 0.12);
+
+  /* Motion — 200ms ease-out only */
+  --default-transition-duration: 200ms;
+  --default-transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
 
+/* shadcn semantic tokens mapped onto the brand palette.
+   primary = brand-red (CTA), secondary/accent = brand-blue-50 (§6.1 usage rules). */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-display);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius); /* buttons */
+  --radius-xl: calc(var(--radius) * 1.4); /* cards */
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: var(--color-ink);
+  --card: #ffffff;
+  --card-foreground: var(--color-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-ink);
+
+  --primary: var(--color-brand-red);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-brand-blue-50);
+  --secondary-foreground: var(--color-brand-blue);
+  --muted: var(--color-surface);
+  --muted-foreground: var(--color-muted-ink);
+  --accent: var(--color-brand-blue-50);
+  --accent-foreground: var(--color-brand-blue);
+  --destructive: var(--color-brand-red);
+
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: var(--color-brand-blue-400);
+
+  --chart-1: var(--color-brand-blue);
+  --chart-2: var(--color-brand-blue-400);
+  --chart-3: var(--color-brand-orange);
+  --chart-4: var(--color-brand-red);
+  --chart-5: var(--color-brand-amber);
+
+  /* admin shell (§5.5) */
+  --sidebar: var(--color-brand-blue-900);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--color-brand-red);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ffffff1a;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #ffffff1f;
+  --sidebar-ring: var(--color-brand-blue-400);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-base text-body antialiased;
+  }
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display text-ink;
+  }
+  /* Numbers/data (fees, packages, ranks) — §6.2 */
+  th,
+  td {
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection {
+    @apply bg-brand-blue text-white;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Signature blue→red diagonal gradient (§6.1).
+   Allowed ONLY on the College Finder band and section heading underlines. */
+@utility bg-brand-gradient {
+  background-image: linear-gradient(
+    115deg,
+    var(--color-brand-blue) 0%,
+    var(--color-brand-blue) 45%,
+    var(--color-brand-red) 100%
+  );
+}
+
+/* 4px underline that fades blue→red, 56px wide, left-aligned (§6.1). */
+@utility heading-underline {
+  &::after {
+    content: "";
+    display: block;
+    width: 56px;
+    height: 4px;
+    margin-top: 0.75rem;
+    border-radius: 9999px;
+    background-image: linear-gradient(
+      90deg,
+      var(--color-brand-blue) 0%,
+      var(--color-brand-red) 100%
+    );
+  }
+}
+
+/* Page container — max-w-[1280px] px-4 lg:px-6 (§6.3) */
+@utility container-site {
+  width: 100%;
+  max-width: var(--container-site);
+  margin-inline: auto;
+  padding-inline: --spacing(4);
+  @variant lg {
+    padding-inline: --spacing(6);
+  }
+}
+
+/* Card hover lift (§6.3) */
+@utility card-lift {
+  box-shadow: var(--shadow-card);
+  transition-property: box-shadow, transform;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
