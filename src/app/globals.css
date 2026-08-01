@@ -216,6 +216,27 @@
   }
 }
 
+/* Sticky header: flat at the top of the page, shadow once scrolled (§5.1).
+   Done with a scroll-driven animation so the header stays a Server Component;
+   browsers without support keep the border and simply never gain the shadow. */
+@utility site-header {
+  border-bottom: 1px solid var(--color-border);
+  @supports (animation-timeline: scroll()) {
+    animation: site-header-shadow linear both;
+    animation-timeline: scroll();
+    animation-range: 0 64px;
+  }
+}
+
+@keyframes site-header-shadow {
+  from {
+    box-shadow: 0 0 0 0 rgb(15 23 42 / 0);
+  }
+  to {
+    box-shadow: var(--shadow-card);
+  }
+}
+
 /* Card hover lift (§6.3) */
 @utility card-lift {
   box-shadow: var(--shadow-card);

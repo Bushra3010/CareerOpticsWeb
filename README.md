@@ -42,7 +42,7 @@ pnpm db:push
 pnpm db:types
 ```
 
-Then visit `/db-check` to confirm the tables are readable and that `leads` is correctly blocked for anonymous users.
+Then visit `/db-check` to confirm the tables are readable and that `leads` is correctly blocked for anonymous users. `/style-guide` shows every UI component in brand colours.
 
 > The college metrics in `seed.sql` (NAAC grades, NIRF ranks, packages, fees) are **placeholder demo values**. Replace them with verified partner data before launch.
 
@@ -65,7 +65,7 @@ One phase per session — see `PRD.md` §16.
 
 - [x] **P0** Foundation: scaffold, Tailwind v4 + shadcn, fonts, brand tokens, env, site config
 - [x] **P1** Supabase schema, RLS, storage buckets, seed data, typed clients
-- [ ] **P2** Design system + `/style-guide`
-- [ ] **P3** Home sections
+- [x] **P2** Design system + `/style-guide`
+- [ ] **P3** Home sections (§5.1 items 4–17) with real DB data
 - [ ] **P4** Lead engine
 - [ ] **P5**–**P12** listing, detail, taxonomy, finder, content, admin, SEO, launch

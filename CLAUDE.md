@@ -19,9 +19,14 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 
 - **P0 — done.** Next.js 15 + TS + Tailwind v4 + shadcn/ui, Plus Jakarta Sans + Inter, brand tokens in `src/app/globals.css`, `src/config/site.ts`, `.env.example`, `(site)` route group with a placeholder home.
 - **P1 — done (not yet applied to a live project).** Migrations `0001_init` / `0002_rls` / `0003_storage`, `supabase/seed.sql`, `src/types/database.types.ts`, the three Supabase clients, and `/db-check`. Verified with `pnpm db:verify`. Still to do on your side: create the Supabase project, `pnpm supabase link`, `pnpm db:push`, then regenerate types with `pnpm db:types`.
-- **P2 — next.** Design system: every §6.4 primitive plus `SiteHeader`, `CourseChipNav`, `SiteFooter`, `MobileStickyBar`, `WhatsAppFab`, shown on `/style-guide`.
+- **P2 — done.** Every §6.4 primitive in `components/ui`, site chrome in `components/site`, mounted in the `(site)` layout, all shown on `/style-guide`.
+- **P3 — next.** Home sections 4–17 of §5.1 with real DB data.
 
-`/db-check` is a temporary P1 verification page — delete it when P3 lands.
+`/db-check` and `/style-guide` are temporary — `/db-check` goes when P3 lands; keep `/style-guide` as long as it's useful, it's `noindex`.
+
+### Carried into P11 (perf pass)
+
+Home is at 155 kB First Load JS against the §11 budget of 180 kB. The `(site)` layout pulls in the mobile-nav Sheet and the sonner Toaster on every route. §11 wants modals/sheets/carousels behind `dynamic(…, {ssr:false})`, which needs a client boundary since the layout is a Server Component. Do this before P3's carousels push the budget over.
 
 ## §2 Tech stack (fixed — do not substitute)
 
@@ -79,7 +84,14 @@ Tokens live in `src/app/globals.css`. Use the utility, never the hex.
 
 **Layout:** `container-site` (max-w-1280, px-4 lg:px-6). Section padding `py-12 lg:py-16`. Cards `rounded-xl`, buttons `rounded-lg`, chips `rounded-full`. Elevation `shadow-card` → `card-lift` on hover. Motion 200ms ease-out only; `prefers-reduced-motion` is already handled globally.
 
-**Component build order (§6.4):** `Button · Input · Select · Badge · Chip · Card · Tabs · Accordion · Dialog · Sheet · Carousel · Rating · Breadcrumb · Pagination · Skeleton · Toast`, then composites `SiteHeader · GoalCitySelector · MegaSearch · CourseChipNav · HeroCarousel · StudyGoalCards · StatsStrip · CollegeCard · CollegeCarousel · FilterSidebar · ExamCard · TestimonialCarousel · GalleryGrid · PressStrip · FaqAccordion · LeadForm · QuickEnquiryModal · CallbackWidget · WhatsAppFab · MobileStickyBar · SiteFooter`.
+**Components already built (P2)** — see them all on `/style-guide`:
+
+- `components/ui`: `Button` (variants: default=red CTA, outline=blue, secondary, ghost, inverse, destructive, link; sizes sm→xl), `Badge` (default, secondary, outline, new, urgent, success, rating), `Chip` (default, solid, onDark; `asChild` for links), `Rating`, plus shadcn `Input · Label · Select · Card · Tabs · Accordion · Dialog · Sheet · Carousel · Breadcrumb · Pagination · Skeleton · Separator · Toaster(sonner)`.
+- `components/site`: `Logo · SiteHeader · MobileNav · CourseChipNav · SiteFooter · MobileStickyBar · WhatsAppFab · social-icons`.
+
+Notes: lucide-react v1 has **no brand icons** — social marks are local SVGs in `components/site/social-icons.tsx`. `Chip` with `asChild` takes exactly one element child (Radix Slot), so the remove button only exists on the `<button>` form. Tabs use `variant="line"` for the §6.1 orange active underline.
+
+**Still to build:** `GoalCitySelector · MegaSearch` (P3) · `HeroCarousel · StudyGoalCards · StatsStrip · CollegeCard · CollegeCarousel · ExamCard · TestimonialCarousel · GalleryGrid · PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWidget` (P4) · `FilterSidebar` (P5).
 
 **A11y floor:** contrast ≥ 4.5:1, visible focus ring `ring-2 ring-brand-blue-400 ring-offset-2`, keyboard-navigable carousels, alt on every image, real labels on every field.
 
