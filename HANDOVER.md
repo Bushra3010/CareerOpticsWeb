@@ -38,13 +38,17 @@ Built in phases (PRD §16), one phase per working session.
 | **P0** | Next.js 15 + TS + Tailwind v4 + shadcn/ui, fonts, brand tokens, env, site config | ✅ Done |
 | **P1** | Supabase schema, RLS, storage buckets, seed data, typed clients | ✅ Done, applied to the live project |
 | **P2** | Design system: all §6.4 primitives + site chrome + `/style-guide` | ✅ Done |
-| **P3** | Home sections 4–17 of §5.1 with real DB data | ⬅ **Next** |
-| P4 | Lead engine: `LeadForm`, `QuickEnquiryModal`, `/api/leads`, Resend, rate limit | Not started |
+| **P3** | Home sections 4–17 of §5.1 with real DB data | ✅ Done |
+| P4 | Lead engine: `LeadForm`, `QuickEnquiryModal`, `/api/leads`, Resend, rate limit | ⬅ **Next** |
 | P5–P12 | Listing, college detail, taxonomy, finder, content, admin, SEO, launch | Not started |
 
-**Routes that exist today:** `/` (placeholder home), `/style-guide`, `/db-check`.
-The last two are `noindex` scaffolding — `/db-check` should be deleted when P3
-lands; keep `/style-guide` as long as it is useful.
+**Routes that exist today:** `/` (full home) and `/style-guide`. `/db-check` was
+deleted when P3 landed; `/style-guide` is `noindex` scaffolding, keep it as long
+as it is useful.
+
+Home is statically prerendered with `revalidate = 300` at **161 kB** First Load
+JS, inside the 180 kB budget. Every section is DB-driven and hides itself when
+its table is empty, so the page degrades rather than breaking.
 
 **Not set up yet:** Vercel project, custom domain, GA4/GTM, Resend, Upstash.
 
@@ -117,9 +121,14 @@ src/
   config/
     site.ts           name, tagline, phone, WhatsApp, social links
     nav.ts            course chips, main/level nav, footer columns, office address
+  components/
+    home/             the §5.1 home sections + the Section/ScrollRow shells
+    college/          CollegeCard — shared with the P5 listing
   lib/
-    supabase/         client (browser) · server (SSR) · admin (service role)
+    supabase/         client (browser) · server (SSR) · public (anon, no cookies) · admin (service role)
     queries/          ALL database reads live here — pages never call Supabase inline
+    seo/              JSON-LD builders (§10)
+    media.ts          image fallbacks + INR formatting for DB values
     env.ts            env accessors that fail loudly instead of passing undefined
   types/
     database.types.ts generated — do not hand-edit
@@ -150,7 +159,8 @@ supabase/
 | File | Key | Use |
 |---|---|---|
 | `lib/supabase/client.ts` | anon | Browser, read-only public data |
-| `lib/supabase/server.ts` | anon + request cookies | Server Components, admin Server Actions (RLS enforces role) |
+| `lib/supabase/server.ts` | anon + request cookies | Server Components, admin Server Actions (RLS enforces role). **Reading cookies opts the route into dynamic rendering** |
+| `lib/supabase/public.ts` | anon, no cookies | Published public content on the server — keeps ISR pages static |
 | `lib/supabase/admin.ts` | **service role** | Route Handlers / Server Actions only. Guarded by `import "server-only"` so importing it into a client component is a build error |
 
 All lead writes go through `/api/leads` (service role + rate limit + honeypot).
@@ -291,10 +301,11 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 | Item | Severity | Notes |
 |---|---|---|
 | **Seed college metrics are invented** | 🔴 Blocks launch | Replace with verified partner data. See §6 above and PRD §17 |
-| **Home is at 160 kB First Load JS vs the 180 kB budget** (PRD §11) | 🟠 Do before P3 | The `(site)` layout pulls the mobile-nav Sheet and the sonner Toaster into every route. §11 wants modals/sheets/carousels behind `dynamic(…, {ssr:false})`, which needs a client boundary since the layout is a Server Component. P3's carousels will blow the budget if this isn't handled first |
+| **No real imagery anywhere** | 🟠 Do before launch | `banners`, `colleges.cover_url/logo_url`, `gallery`, `press_releases` and `testimonials` all hold `/seed/...` paths for files that were never uploaded. `lib/media.ts#imageSrc` turns those into branded placeholders, so the site looks deliberate rather than broken — but the hero, college cards and gallery are all type-only until real files land in Supabase Storage |
 | **Logo asset is not production-ready** | 🟠 | `public/logo.webp` is a 534×433 square lockup on an **opaque** background (white → `#D4E6E9` gradient). No transparency, so on the navy footer it sits on a white plaque. At 48px tall in a 64px header the wordmark is illegible. PRD specs a 150×44 (≈3.4:1) logo. Needs a **transparent, horizontal PNG or SVG** |
 | `migration repair` not yet run | 🟠 | See §6. Will break the first `db:push` |
-| `/db-check` still present | 🟡 | Delete when P3 lands |
+| Header `GoalCitySelector` / `MegaSearch` are static shells | 🟡 | The search form posts to `/search`, which does not exist until P9. The goal/city button does nothing yet |
+| Home CTAs point at pages that don't exist yet | 🟡 | `/colleges`, `/courses/*`, `/streams/*`, `/exams/*`, `/college-finder`, `/contact` land in P4–P9. They 404 today by design, not by oversight |
 | Node 20 | 🟡 | `@supabase/supabase-js` warns it is deprecated; upgrade to Node 22 |
 | Vercel not connected | 🟡 | PRD §16 P0 wanted a green preview deploy |
 | `profiles`-on-signup trigger untested | 🟡 | Created, but unverified until the first admin account in P10 |

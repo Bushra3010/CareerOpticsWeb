@@ -1,8 +1,8 @@
+import { DeferredToaster } from "@/components/site/deferred-toaster";
 import { MobileStickyBar } from "@/components/site/mobile-sticky-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { WhatsAppFab } from "@/components/site/whatsapp-fab";
-import { Toaster } from "@/components/ui/sonner";
 
 /** Public site shell — PRD §4. */
 export default function SiteLayout({
@@ -18,7 +18,7 @@ export default function SiteLayout({
       <SiteFooter />
       <WhatsAppFab />
       <MobileStickyBar />
-      <Toaster position="top-center" richColors />
+      <DeferredToaster />
     </div>
   );
 }

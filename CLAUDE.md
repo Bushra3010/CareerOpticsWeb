@@ -20,13 +20,18 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P0 — done.** Next.js 15 + TS + Tailwind v4 + shadcn/ui, Plus Jakarta Sans + Inter, brand tokens in `src/app/globals.css`, `src/config/site.ts`, `.env.example`, `(site)` route group with a placeholder home.
 - **P1 — done (not yet applied to a live project).** Migrations `0001_init` / `0002_rls` / `0003_storage`, `supabase/seed.sql`, `src/types/database.types.ts`, the three Supabase clients, and `/db-check`. Verified with `pnpm db:verify`. Still to do on your side: create the Supabase project, `pnpm supabase link`, `pnpm db:push`, then regenerate types with `pnpm db:types`.
 - **P2 — done.** Every §6.4 primitive in `components/ui`, site chrome in `components/site`, mounted in the `(site)` layout, all shown on `/style-guide`.
-- **P3 — next.** Home sections 4–17 of §5.1 with real DB data.
+- **P3 — done.** Home sections 3–16 of §5.1 with live DB data, `lib/queries/home.ts`, `components/home/*`, `CollegeCard`, `FAQPage` JSON-LD, `revalidate = 300`. Home builds static at **161 kB** First Load JS (§11 budget 180 kB). `/db-check` deleted.
+- **P4 — next.** Lead engine: `LeadForm`, `QuickEnquiryModal`, `CallbackWidget`, `/api/leads`, Resend, rate limit, GTM events.
 
-`/db-check` and `/style-guide` are temporary — `/db-check` goes when P3 lands; keep `/style-guide` as long as it's useful, it's `noindex`.
+`/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
-### Carried into P11 (perf pass)
+### P3 notes worth carrying forward
 
-Home is at 155 kB First Load JS against the §11 budget of 180 kB. The `(site)` layout pulls in the mobile-nav Sheet and the sonner Toaster on every route. §11 wants modals/sheets/carousels behind `dynamic(…, {ssr:false})`, which needs a client boundary since the layout is a Server Component. Do this before P3's carousels push the budget over.
+- The §11 layout debt is fixed: the mobile-nav Sheet and the sonner Toaster are both behind `dynamic(…, {ssr:false})` (`site/mobile-nav-sheet.tsx`, `site/deferred-toaster.tsx`). Keep new modals on that pattern.
+- Public content reads go through `lib/supabase/public.ts` (anon, **no cookie binding**) so pages stay statically renderable. `server.ts` reads cookies and forces dynamic rendering — use it only when the query depends on the session.
+- `lib/media.ts#imageSrc` maps the `/seed/...` paths in `seed.sql` to `null`, so sections fall back to branded placeholders instead of broken images. Real Storage URLs render with no code change.
+- The stats strip counts only real rows (colleges/courses/exams/cities). §5.1's "Students Guided" counter is deliberately absent — there is no verified figure and inventing one is the trust problem flagged in `seed.sql`.
+- `Apply Now` on `CollegeCard` links to the college page for now; P4 repoints it at the lead modal.
 
 ## §2 Tech stack (fixed — do not substitute)
 
@@ -91,7 +96,9 @@ Tokens live in `src/app/globals.css`. Use the utility, never the hex.
 
 Notes: lucide-react v1 has **no brand icons** — social marks are local SVGs in `components/site/social-icons.tsx`. `Chip` with `asChild` takes exactly one element child (Radix Slot), so the remove button only exists on the `<button>` form. Tabs use `variant="line"` for the §6.1 orange active underline.
 
-**Still to build:** `GoalCitySelector · MegaSearch` (P3) · `HeroCarousel · StudyGoalCards · StatsStrip · CollegeCard · CollegeCarousel · ExamCard · TestimonialCarousel · GalleryGrid · PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWidget` (P4) · `FilterSidebar` (P5).
+**Components added in P3** — `components/home`: `Section · ScrollRow · StreamIcon · HeroCarousel · StudyGoalCards · StatsStrip · CollegeCarousel · CollegeFinderBand · LevelCourseTabs · ExamCard · ScholarshipSection · TestimonialCarousel · WhyUs · GalleryGrid · PressStrip · FaqAccordion`; `components/college/CollegeCard` (reused by the P5 listing).
+
+**Still to build:** `GoalCitySelector · MegaSearch` (header shells are static until `/api/search` lands) · `LeadForm · QuickEnquiryModal · CallbackWidget` (P4) · `FilterSidebar` (P5).
 
 **A11y floor:** contrast ≥ 4.5:1, visible focus ring `ring-2 ring-brand-blue-400 ring-offset-2`, keyboard-navigable carousels, alt on every image, real labels on every field.
 

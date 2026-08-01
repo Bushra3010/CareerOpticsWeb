@@ -1,119 +1,194 @@
-import Link from "next/link";
+import type { Metadata } from "next";
 
+import { CollegeCarousel } from "@/components/home/college-carousel";
+import { CollegeFinderBand } from "@/components/home/college-finder-band";
+import { ExamCard } from "@/components/home/exam-card";
+import { FaqAccordion } from "@/components/home/faq-accordion";
+import { GalleryGrid } from "@/components/home/gallery-grid";
+import { HeroCarousel } from "@/components/home/hero-carousel";
+import { LevelCourseTabs } from "@/components/home/level-course-tabs";
+import { PressStrip } from "@/components/home/press-strip";
+import { ScholarshipSection } from "@/components/home/scholarship-section";
+import { Section } from "@/components/home/section";
+import { StatsStrip } from "@/components/home/stats-strip";
+import { StudyGoalCards } from "@/components/home/study-goal-cards";
+import { TestimonialCarousel } from "@/components/home/testimonial-carousel";
+import { WhyUs } from "@/components/home/why-us";
 import { CourseChipNav } from "@/components/site/course-chip-nav";
-import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config/site";
+import {
+  getCoursesByLevel,
+  getFeaturedColleges,
+  getFeaturedScholarship,
+  getGalleryItems,
+  getHeroBanners,
+  getHomeFaqs,
+  getPressReleases,
+  getSiteStats,
+  getTestimonials,
+  getStudyGoals,
+  getUpcomingExams,
+} from "@/lib/queries/home";
+import { faqPageSchema, JsonLd } from "@/lib/seo/json-ld";
 
-/**
- * P0–P2 placeholder home. Sections 4–17 of §5.1 are built in P3.
- */
-export default function HomePage() {
+/** §10 — home revalidates every 5 minutes. */
+export const revalidate = 300;
+
+export const metadata: Metadata = {
+  title: `${siteConfig.name} — ${siteConfig.tagline}`,
+  description: siteConfig.description,
+  alternates: { canonical: "/" },
+};
+
+/** Home — §5.1 sections 3–17. */
+export default async function HomePage() {
+  const [
+    banners,
+    goals,
+    stats,
+    colleges,
+    levelTabs,
+    exams,
+    scholarship,
+    testimonials,
+    gallery,
+    press,
+    faqs,
+  ] = await Promise.all([
+    getHeroBanners(),
+    getStudyGoals(),
+    getSiteStats(),
+    getFeaturedColleges(),
+    getCoursesByLevel(),
+    getUpcomingExams(),
+    getFeaturedScholarship(),
+    getTestimonials(),
+    getGalleryItems(),
+    getPressReleases(),
+    getHomeFaqs(),
+  ]);
+
   return (
     <>
-      <div className="relative">
-        <section className="bg-brand-blue-900 py-16 text-center text-white lg:py-24">
-          <div className="container-site">
-            <h1 className="text-h1 lg:text-h1-lg text-balance text-white">
-              Find Your Right College in 2 Minutes
-            </h1>
-            <p className="mx-auto mt-4 max-w-xl text-pretty text-white/80">
-              {siteConfig.description}
-            </p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Button asChild size="xl">
-                <Link href="/contact">Need Counselling</Link>
-              </Button>
-              <Button asChild size="xl" variant="inverse">
-                <Link href="/colleges">Explore Colleges</Link>
-              </Button>
-            </div>
-          </div>
-        </section>
-        <CourseChipNav />
-      </div>
+      {/* 3 — course chip bar, then 4 — hero carousel */}
+      <CourseChipNav />
+      <HeroCarousel banners={banners} />
 
-      <section className="py-12 lg:py-16">
-        <div className="container-site">
-          <h2 className="heading-underline text-h2">Build progress</h2>
-          <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {phases.map((phase) => (
-              <article
-                key={phase.id}
-                className="card-lift rounded-xl border bg-card p-5"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="rounded-full bg-brand-blue-50 px-2.5 py-0.5 text-sm font-semibold text-brand-blue">
-                    {phase.id}
-                  </span>
-                  {phase.done ? (
-                    <span className="text-sm font-semibold text-success">
-                      Done
-                    </span>
-                  ) : (
-                    <span className="text-sm text-muted-foreground">
-                      Pending
-                    </span>
-                  )}
-                </div>
-                <h3 className="mt-3 text-h3">{phase.title}</h3>
-                <p className="mt-1 text-body">{phase.scope}</p>
-              </article>
+      {/* 5 — Select Your Study Goal */}
+      {goals.length > 0 ? (
+        <Section
+          id="study-goals"
+          title="Select Your Study Goal"
+          description="Pick a stream to see the colleges, courses and entrance exams that lead into it."
+          action={{ label: "All courses", href: "/courses" }}
+        >
+          <StudyGoalCards goals={goals} />
+        </Section>
+      ) : null}
+
+      {/* 6 — quick stats */}
+      <StatsStrip stats={stats} />
+
+      {/* 7 — Top Universities */}
+      {colleges.length > 0 ? (
+        <Section
+          id="top-universities"
+          title="Top Universities"
+          description="Institutions our counsellors place students in every admission season."
+          action={{ label: "All colleges", href: "/colleges" }}
+        >
+          <CollegeCarousel colleges={colleges} />
+        </Section>
+      ) : null}
+
+      {/* 8 — College Finder band */}
+      <CollegeFinderBand />
+
+      {/* 9 — courses by level */}
+      {levelTabs.length > 0 ? (
+        <Section
+          id="courses-by-level"
+          title="Courses By Level"
+          description="Where you are now decides what you can apply for next. Start from your stage."
+          tinted
+        >
+          <LevelCourseTabs tabs={levelTabs} />
+        </Section>
+      ) : null}
+
+      {/* 10 — Top Exams */}
+      {exams.length > 0 ? (
+        <Section
+          id="top-exams"
+          title="Top Exams"
+          description="Entrance exam dates, eligibility and the colleges that accept each score."
+          action={{ label: "All exams", href: "/exams" }}
+        >
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {exams.map((exam) => (
+              <li key={exam.id}>
+                <ExamCard exam={exam} />
+              </li>
             ))}
-          </div>
-          <p className="mt-8 text-body">
-            Every component is on the{" "}
-            <Link
-              href="/style-guide"
-              className="font-semibold text-brand-blue-400 underline underline-offset-4"
-            >
-              style guide
-            </Link>
-            .
-          </p>
-        </div>
-      </section>
+          </ul>
+        </Section>
+      ) : null}
 
-      <section className="bg-brand-gradient py-12 text-white lg:py-16">
-        <div className="container-site flex flex-wrap items-center justify-between gap-6">
-          <div>
-            <h2 className="text-h2 text-white">Find a college in 2 minutes</h2>
-            <p className="mt-1 text-white/80">
-              Answer 6 quick questions and get a shortlist matched to your
-              marks, budget and city.
-            </p>
+      {/* 11 — scholarship */}
+      {scholarship ? (
+        <Section id="scholarship" title="Scholarships & Education Loans" tinted>
+          <ScholarshipSection scholarship={scholarship} />
+        </Section>
+      ) : null}
+
+      {/* 12 — Placements Given By Us */}
+      {testimonials.length > 0 ? (
+        <Section
+          id="placements"
+          title="Placements Given By Us"
+          description="Students we counselled, where they studied and where they work now."
+          action={{ label: "All stories", href: "/placements" }}
+        >
+          <TestimonialCarousel testimonials={testimonials} />
+        </Section>
+      ) : null}
+
+      {/* 13 — Why We Are Best */}
+      <Section
+        id="why-us"
+        title="Why Students Choose CareerOptics"
+        tinted
+      >
+        <WhyUs />
+      </Section>
+
+      {/* 14 — gallery */}
+      {gallery.length > 0 ? (
+        <Section
+          id="gallery"
+          title="Gallery"
+          description="Counselling camps, campus visits and admission help desks across Bihar."
+        >
+          <GalleryGrid items={gallery} />
+        </Section>
+      ) : null}
+
+      {/* 15 — press */}
+      {press.length > 0 ? (
+        <Section id="press" title="Press Release" tinted>
+          <PressStrip items={press} />
+        </Section>
+      ) : null}
+
+      {/* 16 — FAQ + FAQPage schema */}
+      {faqs.length > 0 ? (
+        <Section id="faq" title="Frequently Asked Questions">
+          <div className="max-w-3xl">
+            <FaqAccordion faqs={faqs} />
           </div>
-          <Button asChild size="xl" variant="inverse">
-            <Link href="/college-finder">Start College Finder</Link>
-          </Button>
-        </div>
-      </section>
+          <JsonLd data={faqPageSchema(faqs)} />
+        </Section>
+      ) : null}
     </>
   );
 }
-
-const phases = [
-  {
-    id: "P0",
-    title: "Foundation",
-    scope: "Next.js 15, Tailwind v4, shadcn/ui, fonts, brand tokens, env.",
-    done: true,
-  },
-  {
-    id: "P1",
-    title: "Database",
-    scope: "Supabase migrations, RLS policies, storage buckets, seed data.",
-    done: true,
-  },
-  {
-    id: "P2",
-    title: "Design system",
-    scope: "UI primitives, site header and footer, /style-guide page.",
-    done: true,
-  },
-  {
-    id: "P3",
-    title: "Home sections",
-    scope: "Hero carousel, study goals, top universities, exams, FAQs.",
-    done: false,
-  },
-] as const;
