@@ -33,6 +33,11 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+# Deliberately committed so a teammate can run the project without a separate
+# credential handoff. This is an explicit decision, not an accident — the file
+# contains SUPABASE_SERVICE_ROLE_KEY, which bypasses RLS on every table.
+# Rotate that key in the Supabase dashboard if this repo's audience changes.
+!.env.local
 
 # claude code local settings
 .claude/settings.local.json

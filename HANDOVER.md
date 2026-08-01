@@ -3,8 +3,12 @@
 Everything you need to pick this project up. Read this once, then work from
 [`PRD.md`](PRD.md) (the full spec) and [`CLAUDE.md`](CLAUDE.md) (the working rules).
 
-> **No credentials are in this repo, and none should ever be committed.** This
-> repository is public. See [Getting the environment variables](#3-getting-the-environment-variables).
+> ⚠ **`.env.local` is committed to this repository, and this repository is
+> public.** That was a deliberate decision to simplify handover, but it means
+> `SUPABASE_SERVICE_ROLE_KEY` — which bypasses row-level security on every
+> table — is world-readable. Treat it as compromised: rotate it in the Supabase
+> dashboard (Settings → API) before this project holds any real student data.
+> See [Environment variables](#3-environment-variables).
 
 ---
 
@@ -46,24 +50,26 @@ lands; keep `/style-guide` as long as it is useful.
 
 ---
 
-## 3. Getting the environment variables
+## 3. Environment variables
 
-`.env.local` is gitignored and **not** in this repo. Copy the template and fill it in:
+`.env.local` **is committed to this repo**, so `pnpm install && pnpm dev` works
+with no extra setup. See the warning at the top of this file about what that
+means for `SUPABASE_SERVICE_ROLE_KEY`.
 
-```bash
-cp .env.example .env.local
-```
+`.env.example` remains the documented template of every variable the project
+uses (PRD §12).
 
-| Variable | Where to get it |
+| Variable | Status |
 |---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API. Project ref is `fnsmnamafnugjyqqghhm` |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same page. Safe to expose — it is designed to be public and RLS constrains it |
-| `SUPABASE_SERVICE_ROLE_KEY` | Same page. **Bypasses RLS entirely.** Server-only, never in a client component, never committed |
-| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally |
-| `NEXT_PUBLIC_PHONE` / `NEXT_PUBLIC_WHATSAPP_NUMBER` | Already defaulted in `.env.example` |
-| Everything else | Not needed until P4+ (Resend, Upstash, GTM) |
+| `NEXT_PUBLIC_SUPABASE_URL` | Set. Project ref `fnsmnamafnugjyqqghhm` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Set. Public by design — it ships in the browser bundle and RLS constrains it |
+| `SUPABASE_SERVICE_ROLE_KEY` | Set. **Bypasses RLS entirely.** Server-only — never import `lib/supabase/admin.ts` into a client component |
+| `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally; set to the real domain on Vercel |
+| `NEXT_PUBLIC_PHONE` / `NEXT_PUBLIC_WHATSAPP_NUMBER` | Set |
+| `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS`, `UPSTASH_*`, `REVALIDATE_SECRET`, `NEXT_PUBLIC_GTM_ID`, `WHATSAPP_*` | Empty — not needed until P4+ |
 
-Ask Bushra for dashboard access. Do not paste keys into chat, issues or PRs.
+Rotating the service-role key: Supabase dashboard → Settings → API → regenerate,
+then update `.env.local` and any Vercel environment variables.
 
 ---
 
@@ -309,8 +315,8 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 
 1. Import the repo at [vercel.com/new](https://vercel.com/new).
 2. Add `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
-   `SUPABASE_SERVICE_ROLE_KEY` in the Vercel project's environment variables —
-   Vercel has none of them, since `.env.local` is correctly not in the repo.
+   `SUPABASE_SERVICE_ROLE_KEY` in the Vercel project's environment variables.
+   Vercel does not read `.env.local` from the repo.
 3. Set `NEXT_PUBLIC_SITE_URL` to the deployed domain.
 4. `main` → production, `dev` → preview.
 5. Before going live, work through the PRD §17 launch checklist — especially
