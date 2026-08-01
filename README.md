@@ -2,7 +2,9 @@
 
 _Your career. Our guidance._
 
-College discovery + admission counselling lead-generation portal for India. Full spec in [`PRD.md`](PRD.md); build rules for agents in [`CLAUDE.md`](CLAUDE.md).
+College discovery + admission counselling lead-generation portal for India.
+
+**New to the project? Start with [`HANDOVER.md`](HANDOVER.md).** Full spec in [`PRD.md`](PRD.md); build rules for agents in [`CLAUDE.md`](CLAUDE.md).
 
 ## Stack
 
