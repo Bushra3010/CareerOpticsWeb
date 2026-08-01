@@ -18,7 +18,10 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 ## Current status
 
 - **P0 — done.** Next.js 15 + TS + Tailwind v4 + shadcn/ui, Plus Jakarta Sans + Inter, brand tokens in `src/app/globals.css`, `src/config/site.ts`, `.env.example`, `(site)` route group with a placeholder home.
-- **P1 — next.** `supabase/migrations/0001_init.sql` + RLS + storage buckets + `seed.sql` + `src/types/database.types.ts`.
+- **P1 — done (not yet applied to a live project).** Migrations `0001_init` / `0002_rls` / `0003_storage`, `supabase/seed.sql`, `src/types/database.types.ts`, the three Supabase clients, and `/db-check`. Verified with `pnpm db:verify`. Still to do on your side: create the Supabase project, `pnpm supabase link`, `pnpm db:push`, then regenerate types with `pnpm db:types`.
+- **P2 — next.** Design system: every §6.4 primitive plus `SiteHeader`, `CourseChipNav`, `SiteFooter`, `MobileStickyBar`, `WhatsAppFab`, shown on `/style-guide`.
+
+`/db-check` is a temporary P1 verification page — delete it when P3 lands.
 
 ## §2 Tech stack (fixed — do not substitute)
 
@@ -88,7 +91,9 @@ Schema, enums and RLS policies are specified verbatim in `PRD.md` §7 — implem
 - Public tables get `select` policies for `anon` gated on `status='published'` (or `is_active` / `is_approved`).
 - `leads`, `finder_sessions`, `lead_activities`, `profiles`, `settings` get **no anon policy at all** — writes only via service role in `/api/*`.
 - Storage buckets (public read, service-role write): `colleges`, `banners`, `gallery`, `blogs`, `testimonials`, `press`, `brochures`.
-- Types are generated: `supabase gen types typescript` → `src/types/database.types.ts`.
+- Types are generated: `pnpm db:types` → `src/types/database.types.ts`. The current file is hand-authored to match the migrations; overwrite it with generated output once the project is linked, don't hand-edit it.
+- `pnpm db:verify` runs the migrations and seed against PGlite and asserts the seed counts, referential integrity and RLS behaviour. Run it after touching any migration.
+- Two deliberate deviations from §7's shorthand: `news` is written out in full rather than `like blogs including all` (keeps the generated types explicit), and `pg_trgm` is created alongside `pgcrypto` since the trigram indexes need it.
 
 ## §16 Phases
 
@@ -97,7 +102,10 @@ Schema, enums and RLS policies are specified verbatim in `PRD.md` §7 — implem
 ## Commands
 
 ```bash
-pnpm dev     # dev server (turbopack)
-pnpm build   # must pass with zero TS errors before every commit
+pnpm dev        # dev server (turbopack)
+pnpm build      # must pass with zero TS errors before every commit
 pnpm lint
+pnpm db:verify  # migrations + seed + RLS against PGlite, no Docker needed
+pnpm db:push    # apply migrations to the linked Supabase project
+pnpm db:types   # regenerate src/types/database.types.ts
 ```

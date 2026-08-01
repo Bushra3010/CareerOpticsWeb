@@ -78,7 +78,7 @@ export default function HomePage() {
         {/* Build status — temporary, removed in P3 */}
         <section className="py-12 lg:py-16">
           <div className="container-site">
-            <h2 className="heading-underline text-h2">Phase P0 complete</h2>
+            <h2 className="heading-underline text-h2">Build progress</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {phases.map((phase) => (
                 <article
@@ -162,8 +162,8 @@ const phases = [
   {
     id: "P1",
     title: "Database",
-    scope: "Supabase migration, RLS policies, storage buckets, seed data.",
-    done: false,
+    scope: "Supabase migrations, RLS policies, storage buckets, seed data.",
+    done: true,
   },
   {
     id: "P2",

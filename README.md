@@ -20,12 +20,31 @@ Open http://localhost:3000.
 
 ## Scripts
 
-| Command      | Purpose                                    |
-| ------------ | ------------------------------------------ |
-| `pnpm dev`   | Dev server (Turbopack)                     |
-| `pnpm build` | Production build — must pass before commit |
-| `pnpm start` | Serve the production build                 |
-| `pnpm lint`  | ESLint                                     |
+| Command          | Purpose                                                        |
+| ---------------- | -------------------------------------------------------------- |
+| `pnpm dev`       | Dev server (Turbopack)                                          |
+| `pnpm build`     | Production build — must pass before commit                      |
+| `pnpm start`     | Serve the production build                                      |
+| `pnpm lint`      | ESLint                                                          |
+| `pnpm db:verify` | Run migrations + seed against PGlite and assert RLS (no Docker) |
+| `pnpm db:push`   | Apply migrations to the linked Supabase project                 |
+| `pnpm db:reset`  | Reset the local Supabase database and reload the seed           |
+| `pnpm db:types`  | Regenerate `src/types/database.types.ts`                        |
+
+## Database
+
+Schema, RLS policies and storage buckets live in `supabase/migrations/`; §14 seed data is in `supabase/seed.sql`.
+
+```bash
+pnpm supabase login
+pnpm supabase link --project-ref <your-project-ref>
+pnpm db:push
+pnpm db:types
+```
+
+Then visit `/db-check` to confirm the tables are readable and that `leads` is correctly blocked for anonymous users.
+
+> The college metrics in `seed.sql` (NAAC grades, NIRF ranks, packages, fees) are **placeholder demo values**. Replace them with verified partner data before launch.
 
 ## Layout
 
@@ -45,7 +64,7 @@ src/
 One phase per session — see `PRD.md` §16.
 
 - [x] **P0** Foundation: scaffold, Tailwind v4 + shadcn, fonts, brand tokens, env, site config
-- [ ] **P1** Supabase schema, RLS, storage buckets, seed data, generated types
+- [x] **P1** Supabase schema, RLS, storage buckets, seed data, typed clients
 - [ ] **P2** Design system + `/style-guide`
 - [ ] **P3** Home sections
 - [ ] **P4** Lead engine
