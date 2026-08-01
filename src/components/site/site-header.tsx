@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Bell, ChevronDown, Grid3x3, MessageCircle, Phone, Search } from "lucide-react";
 
+import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Logo } from "@/components/site/logo";
 import { MobileNav } from "@/components/site/mobile-nav";
 import { Button } from "@/components/ui/button";
@@ -84,9 +85,14 @@ export function SiteHeader() {
             <Button variant="ghost" size="icon" aria-label="Notifications" className="hidden lg:inline-flex">
               <Bell className="size-5" />
             </Button>
-            <Button asChild className="hidden lg:inline-flex">
-              <Link href="/contact">Need Counselling</Link>
-            </Button>
+            <LeadDialog
+              source="contact"
+              title="Get free counselling"
+              description="Tell us what you are looking for and a counsellor will call you back."
+              fields={["city", "level", "message"]}
+            >
+              <Button className="hidden lg:inline-flex">Need Counselling</Button>
+            </LeadDialog>
             <MobileNav />
           </div>
         </div>

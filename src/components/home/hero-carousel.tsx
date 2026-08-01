@@ -6,6 +6,7 @@ import * as React from "react";
 
 import { Search } from "lucide-react";
 
+import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Carousel,
@@ -17,6 +18,7 @@ import type { HeroBanner } from "@/lib/queries/home";
 import { imageSrc } from "@/lib/media";
 
 const AUTOPLAY_MS = 5000;
+const COUNSELLING_LABEL = "Need Counselling";
 
 /**
  * §5.1 item 4. The first slide is server-rendered inside this client component,
@@ -116,6 +118,13 @@ function HeroSlide({
   const src = imageSrc(banner.image_url);
   const Heading = headingLevel;
 
+  // Every slide carries the "Need Counselling" pill, and a banner row may name
+  // its CTA the same thing — render the banner's link only when it adds a
+  // second, different destination.
+  const showBannerCta =
+    Boolean(banner.cta_text && banner.cta_url) &&
+    banner.cta_text!.trim().toLowerCase() !== COUNSELLING_LABEL.toLowerCase();
+
   return (
     <CarouselItem className="pl-0">
       <div className="relative h-[280px] overflow-hidden bg-brand-blue-900 lg:h-[420px]">
@@ -168,12 +177,19 @@ function HeroSlide({
           </form>
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <Button asChild size="lg" className="rounded-full">
-              <Link href="/contact">Need Counselling</Link>
-            </Button>
-            {banner.cta_text && banner.cta_url ? (
+            <LeadDialog
+              source="home_hero"
+              title="Get free counselling"
+              description="Answer three quick fields and a counsellor will call you within 24 hours."
+              fields={["city", "level", "message"]}
+            >
+              <Button size="lg" className="rounded-full">
+                {COUNSELLING_LABEL}
+              </Button>
+            </LeadDialog>
+            {showBannerCta ? (
               <Button asChild size="lg" variant="inverse" className="rounded-full">
-                <Link href={banner.cta_url}>{banner.cta_text}</Link>
+                <Link href={banner.cta_url!}>{banner.cta_text}</Link>
               </Button>
             ) : null}
           </div>

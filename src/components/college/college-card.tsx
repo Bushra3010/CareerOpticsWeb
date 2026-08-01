@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { MapPin } from "lucide-react";
 
+import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Rating } from "@/components/ui/rating";
@@ -139,9 +140,18 @@ export function CollegeCard({
         ) : null}
 
         <div className="mt-4 flex gap-2 pt-1">
-          <Button asChild size="sm" className="flex-1">
-            <Link href={href}>Apply Now</Link>
-          </Button>
+          <LeadDialog
+            source="apply_now"
+            collegeId={college.id}
+            title={`Apply to ${college.short_name ?? college.name}`}
+            description="A counsellor will confirm eligibility, fees and the next admission date."
+            fields={["city", "level", "message"]}
+            submitLabel="Submit Application"
+          >
+            <Button size="sm" className="flex-1">
+              Apply Now
+            </Button>
+          </LeadDialog>
           <Button asChild size="sm" variant="outline" className="flex-1">
             <Link href={href}>Know More</Link>
           </Button>

@@ -1,7 +1,6 @@
-import Link from "next/link";
-
 import { MessageCircle, Phone, Send } from "lucide-react";
 
+import { LeadDialog } from "@/components/forms/lead-dialog";
 import { siteConfig, telHref, whatsappHref } from "@/config/site";
 
 /** §5.1 — mobile-only sticky bar: Call · WhatsApp · Apply Now. */
@@ -24,13 +23,21 @@ export function MobileStickyBar() {
         <MessageCircle className="size-5" aria-hidden />
         WhatsApp
       </a>
-      <Link
-        href="/contact"
-        className="flex flex-col items-center gap-0.5 bg-brand-red py-2.5 text-xs font-semibold text-white"
+      <LeadDialog
+        source="apply_now"
+        title="Apply for admission"
+        description="Share your details and a counsellor will call you with the colleges that fit."
+        fields={["city", "level"]}
+        submitLabel="Submit Application"
       >
-        <Send className="size-5" aria-hidden />
-        Apply Now
-      </Link>
+        <button
+          type="button"
+          className="flex flex-col items-center gap-0.5 bg-brand-red py-2.5 text-xs font-semibold text-white"
+        >
+          <Send className="size-5" aria-hidden />
+          Apply Now
+        </button>
+      </LeadDialog>
     </div>
   );
 }

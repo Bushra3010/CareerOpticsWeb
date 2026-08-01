@@ -37,7 +37,9 @@ export async function getStudyGoals() {
     supabase
       .from("courses")
       .select("id, name, short_name, slug, stream_id, is_featured")
-      .eq("status", "published"),
+      .eq("status", "published")
+      // Ordered so the four courses each card shows are stable across builds.
+      .order("name", { ascending: true }),
     // College counts per stream: 67 mapping rows, cheaper to group in JS than
     // to add a view for one section.
     supabase

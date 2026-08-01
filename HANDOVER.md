@@ -39,16 +39,33 @@ Built in phases (PRD §16), one phase per working session.
 | **P1** | Supabase schema, RLS, storage buckets, seed data, typed clients | ✅ Done, applied to the live project |
 | **P2** | Design system: all §6.4 primitives + site chrome + `/style-guide` | ✅ Done |
 | **P3** | Home sections 4–17 of §5.1 with real DB data | ✅ Done |
-| P4 | Lead engine: `LeadForm`, `QuickEnquiryModal`, `/api/leads`, Resend, rate limit | ⬅ **Next** |
-| P5–P12 | Listing, college detail, taxonomy, finder, content, admin, SEO, launch | Not started |
+| **P4** | Lead engine: `LeadForm`, `QuickEnquiryModal`, `CallbackWidget`, `/api/leads`, Resend, rate limit | ✅ Done |
+| P5 | `/colleges` listing + filters + sort + pagination + compare | ⬅ **Next** |
+| P6–P12 | College detail, taxonomy, finder, content, admin, SEO, launch | Not started |
 
 **Routes that exist today:** `/` (full home) and `/style-guide`. `/db-check` was
 deleted when P3 landed; `/style-guide` is `noindex` scaffolding, keep it as long
 as it is useful.
 
-Home is statically prerendered with `revalidate = 300` at **161 kB** First Load
+Home is statically prerendered with `revalidate = 300` at **162 kB** First Load
 JS, inside the 180 kB budget. Every section is DB-driven and hides itself when
-its table is empty, so the page degrades rather than breaking.
+its table is empty, so the page degrades rather than breaking. The only API
+route is `POST /api/leads`.
+
+### The lead engine (P4)
+
+Every CTA on the site opens the same `LeadForm` through `LeadDialog`, which
+clones its trigger and lazy-loads the dialog on first click — that is why the
+whole engine costs about 1 kB of First Load JS. Wire new CTAs the same way.
+
+`POST /api/leads` runs zod validate → honeypot → rate limit → service-role
+insert → notify. Notifications are env-gated and can never fail a lead that is
+already saved. A repeat phone inside 24 hours still inserts, with
+`answers.duplicate_of` pointing at the earlier row (§9 step 6).
+
+Sources wired today: `home_hero`, `contact` (header), `callback`,
+`quick_enquiry`, `apply_now`. `college_detail`, `college_finder` and `brochure`
+arrive with P6 and P8.
 
 **Not set up yet:** Vercel project, custom domain, GA4/GTM, Resend, Upstash.
 
@@ -70,7 +87,9 @@ uses (PRD §12).
 | `SUPABASE_SERVICE_ROLE_KEY` | Set. **Bypasses RLS entirely.** Server-only — never import `lib/supabase/admin.ts` into a client component |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally; set to the real domain on Vercel |
 | `NEXT_PUBLIC_PHONE` / `NEXT_PUBLIC_WHATSAPP_NUMBER` | Set |
-| `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS`, `UPSTASH_*`, `REVALIDATE_SECRET`, `NEXT_PUBLIC_GTM_ID`, `WHATSAPP_*` | Empty — not needed until P4+ |
+| `RESEND_API_KEY` / `LEAD_NOTIFY_EMAILS` | **Empty. Lead alert emails are only logged, not sent.** Set both before launch |
+| `UPSTASH_REDIS_REST_URL` / `_TOKEN` | **Empty. Rate limiting falls back to a per-instance in-memory limiter** that resets on deploy and does not span serverless instances. Set both before launch |
+| `REVALIDATE_SECRET`, `NEXT_PUBLIC_GTM_ID`, `WHATSAPP_*` | Empty — not needed until P10+ |
 
 Rotating the service-role key: Supabase dashboard → Settings → API → regenerate,
 then update `.env.local` and any Vercel environment variables.
@@ -124,11 +143,16 @@ src/
   components/
     home/             the §5.1 home sections + the Section/ScrollRow shells
     college/          CollegeCard — shared with the P5 listing
+    forms/            LeadForm · LeadDialog · QuickEnquiryModal · CallbackWidget
   lib/
     supabase/         client (browser) · server (SSR) · public (anon, no cookies) · admin (service role)
     queries/          ALL database reads live here — pages never call Supabase inline
+    validations/      zod schemas — all user input goes through these
+    leads/            counsellor notification (Resend + WhatsApp deep link)
     seo/              JSON-LD builders (§10)
     media.ts          image fallbacks + INR formatting for DB values
+    rate-limit.ts     Upstash limiter with an in-memory fallback
+    analytics.ts      GTM / Meta Pixel conversion events (§9 step 4)
     env.ts            env accessors that fail loudly instead of passing undefined
   types/
     database.types.ts generated — do not hand-edit
@@ -304,6 +328,7 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 | **No real imagery anywhere** | 🟠 Do before launch | `banners`, `colleges.cover_url/logo_url`, `gallery`, `press_releases` and `testimonials` all hold `/seed/...` paths for files that were never uploaded. `lib/media.ts#imageSrc` turns those into branded placeholders, so the site looks deliberate rather than broken — but the hero, college cards and gallery are all type-only until real files land in Supabase Storage |
 | **Logo asset is not production-ready** | 🟠 | `public/logo.webp` is a 534×433 square lockup on an **opaque** background (white → `#D4E6E9` gradient). No transparency, so on the navy footer it sits on a white plaque. At 48px tall in a 64px header the wordmark is illegible. PRD specs a 150×44 (≈3.4:1) logo. Needs a **transparent, horizontal PNG or SVG** |
 | `migration repair` not yet run | 🟠 | See §6. Will break the first `db:push` |
+| **Lead alerts and rate limiting are unconfigured** | 🟠 Blocks launch | `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS` and `UPSTASH_*` are empty. Leads save correctly, but nobody is emailed and the 5/10min limit is per-instance only. See §3 |
 | Header `GoalCitySelector` / `MegaSearch` are static shells | 🟡 | The search form posts to `/search`, which does not exist until P9. The goal/city button does nothing yet |
 | Home CTAs point at pages that don't exist yet | 🟡 | `/colleges`, `/courses/*`, `/streams/*`, `/exams/*`, `/college-finder`, `/contact` land in P4–P9. They 404 today by design, not by oversight |
 | Node 20 | 🟡 | `@supabase/supabase-js` warns it is deprecated; upgrade to Node 22 |

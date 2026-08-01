@@ -21,7 +21,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P1 — done (not yet applied to a live project).** Migrations `0001_init` / `0002_rls` / `0003_storage`, `supabase/seed.sql`, `src/types/database.types.ts`, the three Supabase clients, and `/db-check`. Verified with `pnpm db:verify`. Still to do on your side: create the Supabase project, `pnpm supabase link`, `pnpm db:push`, then regenerate types with `pnpm db:types`.
 - **P2 — done.** Every §6.4 primitive in `components/ui`, site chrome in `components/site`, mounted in the `(site)` layout, all shown on `/style-guide`.
 - **P3 — done.** Home sections 3–16 of §5.1 with live DB data, `lib/queries/home.ts`, `components/home/*`, `CollegeCard`, `FAQPage` JSON-LD, `revalidate = 300`. Home builds static at **161 kB** First Load JS (§11 budget 180 kB). `/db-check` deleted.
-- **P4 — next.** Lead engine: `LeadForm`, `QuickEnquiryModal`, `CallbackWidget`, `/api/leads`, Resend, rate limit, GTM events.
+- **P4 — done.** `/api/leads` (zod → honeypot → rate limit → service-role insert → notify), `LeadForm`, `LeadDialog`, `QuickEnquiryModal`, `CallbackWidget`, Resend alerts, GTM/Pixel hooks. Verified: `home_hero`, `callback` and `apply_now` each create a row with the right `source`; `apply_now` carries `college_id`; a repeat phone inside 24h gets `answers.duplicate_of`. Home 162 kB First Load JS.
+- **P5 — next.** `/colleges` listing + filters + sort + pagination + compare.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -31,7 +32,15 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - Public content reads go through `lib/supabase/public.ts` (anon, **no cookie binding**) so pages stay statically renderable. `server.ts` reads cookies and forces dynamic rendering — use it only when the query depends on the session.
 - `lib/media.ts#imageSrc` maps the `/seed/...` paths in `seed.sql` to `null`, so sections fall back to branded placeholders instead of broken images. Real Storage URLs render with no code change.
 - The stats strip counts only real rows (colleges/courses/exams/cities). §5.1's "Students Guided" counter is deliberately absent — there is no verified figure and inventing one is the trust problem flagged in `seed.sql`.
-- `Apply Now` on `CollegeCard` links to the college page for now; P4 repoints it at the lead modal.
+
+### P4 notes worth carrying forward
+
+- **Every lead CTA goes through `LeadDialog`.** Wrap any single element; it clones the trigger with Radix `Slot` and fetches the dialog + form on first click, which is why the whole lead engine cost ~1 kB of First Load JS. Do not import `LeadForm` directly into a page unless the form is meant to be visible on load.
+- **The honeypot deviates from §8 deliberately.** §8 writes `hp: z.string().max(0)`, but rejecting it returns a field error naming `hp` and tells a bot which input is the trap. The schema accepts the field and `/api/leads` drops a filled one with a silent 200 instead. Documented in `lib/validations/lead.ts`.
+- **Rate limiting falls back to memory.** `UPSTASH_*` is still empty, so `lib/rate-limit.ts` uses a per-instance limiter. It resets on deploy and does not span serverless instances — set the Upstash vars before launch or the 5/10min rule is advisory in production.
+- **Notifications never fail a saved lead.** Resend and the WhatsApp deep link are env-gated and return a status the route records; they never throw. `RESEND_API_KEY`/`LEAD_NOTIFY_EMAILS` are unset, so alerts currently only log.
+- **`trackLead` is a no-op today.** GTM and the Meta Pixel are not installed until P12; the call sites are already in place.
+- Sources in use: `home_hero` (hero pill), `contact` (header CTA), `callback` (widget), `quick_enquiry` (exit-intent / 25s modal), `apply_now` (college card + mobile sticky bar). `college_detail`, `college_finder` and `brochure` land in P6/P8.
 
 ## §2 Tech stack (fixed — do not substitute)
 
