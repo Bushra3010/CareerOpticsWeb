@@ -40,12 +40,13 @@ Built in phases (PRD §16), one phase per working session.
 | **P2** | Design system: all §6.4 primitives + site chrome + `/style-guide` | ✅ Done |
 | **P3** | Home sections 4–17 of §5.1 with real DB data | ✅ Done |
 | **P4** | Lead engine: `LeadForm`, `QuickEnquiryModal`, `CallbackWidget`, `/api/leads`, Resend, rate limit | ✅ Done |
-| P5 | `/colleges` listing + filters + sort + pagination + compare | ⬅ **Next** |
-| P6–P12 | College detail, taxonomy, finder, content, admin, SEO, launch | Not started |
+| **P5** | `/colleges` listing + filters + sort + pagination + compare | ✅ Done |
+| P6 | `/colleges/[slug]` detail: tabs, right-rail form, reviews, brochure gate | ⬅ **Next** |
+| P7–P12 | Taxonomy, finder, content, admin, SEO, launch | Not started |
 
-**Routes that exist today:** `/` (full home) and `/style-guide`. `/db-check` was
-deleted when P3 landed; `/style-guide` is `noindex` scaffolding, keep it as long
-as it is useful.
+**Routes that exist today:** `/`, `/colleges`, `/compare`, `POST /api/leads` and
+`/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
+`noindex` scaffolding, keep it as long as it is useful.
 
 Home is statically prerendered with `revalidate = 300` at **162 kB** First Load
 JS, inside the 180 kB budget. Every section is DB-driven and hides itself when
@@ -64,8 +65,23 @@ already saved. A repeat phone inside 24 hours still inserts, with
 `answers.duplicate_of` pointing at the earlier row (§9 step 6).
 
 Sources wired today: `home_hero`, `contact` (header), `callback`,
-`quick_enquiry`, `apply_now`. `college_detail`, `college_finder` and `brochure`
-arrive with P6 and P8.
+`quick_enquiry`, `apply_now`, `college_detail`, `brochure`. `college_finder`
+arrives with P8.
+
+### The colleges listing (P5)
+
+All ten filters, the sort and the page live in the query string via `nuqs`, so
+any view is shareable and back-button correct, and results are rendered on the
+server from them. Filtered and paged URLs are `noindex, follow` (§10).
+
+`listColleges` deliberately runs two queries — see the comment at the top of
+`lib/queries/colleges.ts`. It reads every matching college in the first query,
+capped at 500 with the cap surfaced in the UI. **Move the fee aggregate into a
+database view before the catalogue passes 500 colleges.**
+
+Compare selection is localStorage, not URL state: it has to survive filtering
+and paging without colliding with the filter params. `/compare?ids=a,b,c` reads
+the ids straight from the query string and caps them at three.
 
 **Not set up yet:** Vercel project, custom domain, GA4/GTM, Resend, Upstash.
 
@@ -329,6 +345,8 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 | **Logo asset is not production-ready** | 🟠 | `public/logo.webp` is a 534×433 square lockup on an **opaque** background (white → `#D4E6E9` gradient). No transparency, so on the navy footer it sits on a white plaque. At 48px tall in a 64px header the wordmark is illegible. PRD specs a 150×44 (≈3.4:1) logo. Needs a **transparent, horizontal PNG or SVG** |
 | `migration repair` not yet run | 🟠 | See §6. Will break the first `db:push` |
 | **Lead alerts and rate limiting are unconfigured** | 🟠 Blocks launch | `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS` and `UPSTASH_*` are empty. Leads save correctly, but nobody is emailed and the 5/10min limit is per-instance only. See §3 |
+| **`/colleges` is 186 kB First Load JS** | 🟠 Do in P11 | §11 budgets 180 kB (stated for home, which is 164 kB). The desktop filter sidebar loads the Radix Accordion, Select and nuqs eagerly. Cheapest lever: swap the filter Accordion for native `<details>`, which also makes the panel work without JS |
+| **`listColleges` reads every match, capped at 500** | 🟠 Before 500 colleges | The fee sort needs a child aggregate PostgREST cannot order by. Add a view exposing `min_fee_per_year` on `colleges` and the query collapses to one paged call. See `lib/queries/colleges.ts` |
 | Header `GoalCitySelector` / `MegaSearch` are static shells | 🟡 | The search form posts to `/search`, which does not exist until P9. The goal/city button does nothing yet |
 | Home CTAs point at pages that don't exist yet | 🟡 | `/colleges`, `/courses/*`, `/streams/*`, `/exams/*`, `/college-finder`, `/contact` land in P4–P9. They 404 today by design, not by oversight |
 | Node 20 | 🟡 | `@supabase/supabase-js` warns it is deprecated; upgrade to Node 22 |

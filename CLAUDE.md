@@ -22,7 +22,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P2 — done.** Every §6.4 primitive in `components/ui`, site chrome in `components/site`, mounted in the `(site)` layout, all shown on `/style-guide`.
 - **P3 — done.** Home sections 3–16 of §5.1 with live DB data, `lib/queries/home.ts`, `components/home/*`, `CollegeCard`, `FAQPage` JSON-LD, `revalidate = 300`. Home builds static at **161 kB** First Load JS (§11 budget 180 kB). `/db-check` deleted.
 - **P4 — done.** `/api/leads` (zod → honeypot → rate limit → service-role insert → notify), `LeadForm`, `LeadDialog`, `QuickEnquiryModal`, `CallbackWidget`, Resend alerts, GTM/Pixel hooks. Verified: `home_hero`, `callback` and `apply_now` each create a row with the right `source`; `apply_now` carries `college_id`; a repeat phone inside 24h gets `answers.duplicate_of`. Home 162 kB First Load JS.
-- **P5 — next.** `/colleges` listing + filters + sort + pagination + compare.
+- **P5 — done.** `/colleges` with 10 URL-driven filters (nuqs), 4 sorts, 24/page pagination, mobile filter sheet, inline lead card every 6th result, and `/compare?ids=`. Verified against the live DB: engineering 14, Bihar 10, Patna 6, fee≤₹1L 8, engineering+Bihar 4.
+- **P6 — next.** `/colleges/[slug]` full detail with tabs, right-rail form, reviews and the brochure gate.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -40,7 +41,16 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Rate limiting falls back to memory.** `UPSTASH_*` is still empty, so `lib/rate-limit.ts` uses a per-instance limiter. It resets on deploy and does not span serverless instances — set the Upstash vars before launch or the 5/10min rule is advisory in production.
 - **Notifications never fail a saved lead.** Resend and the WhatsApp deep link are env-gated and return a status the route records; they never throw. `RESEND_API_KEY`/`LEAD_NOTIFY_EMAILS` are unset, so alerts currently only log.
 - **`trackLead` is a no-op today.** GTM and the Meta Pixel are not installed until P12; the call sites are already in place.
-- Sources in use: `home_hero` (hero pill), `contact` (header CTA), `callback` (widget), `quick_enquiry` (exit-intent / 25s modal), `apply_now` (college card + mobile sticky bar). `college_detail`, `college_finder` and `brochure` land in P6/P8.
+- Sources in use: `home_hero` (hero pill), `contact` (header CTA), `callback` (widget), `quick_enquiry` (exit-intent / 25s modal), `apply_now` (college cards + mobile sticky bar), `college_detail` (inline listing lead card), `brochure` (listing, once a college has a `brochure_url`). `college_finder` lands in P8.
+
+### P5 notes worth carrying forward
+
+- **Filter state is nuqs, compare state is localStorage.** Filters belong in the URL (§5.2 — shareable, back-button correct, SSR). The compare selection does not: it has to survive filtering and paging, and would collide with the filter params. See `components/college/compare-provider.tsx`.
+- **`listColleges` runs two queries on purpose.** "Fee: Low to High" sorts on the cheapest `college_courses.fee_per_year`, a child aggregate PostgREST cannot order a parent by. Query one fetches a narrow row per match (sort keys + course fees), sorting and paging happen in JS, query two fetches full rows for the 24 ids on the page. Capped at `MAX_LISTING_ROWS = 500` and the cap is surfaced in the UI, never silent. **Move the fee aggregate into a database view before the catalogue passes 500.**
+- **Pagination, not infinite scroll.** §5.2 asks for infinite scroll; §11 rules out a client fetch waterfall on listing pages, and paged URLs are crawlable and back-button correct on 3G Android. 24/page is unchanged. Documented at the top of `app/(site)/colleges/page.tsx`.
+- **Ownership is derived, not a column.** §5.2 lists Ownership and College Type separately but the schema has one `type` enum, so Ownership is the coarse grouping over it (`config/filters.ts`). Unknown enum values from a hand-edited URL are dropped in `resolveTypes` — Postgres 500s on an unknown enum member otherwise.
+- **"Popularity" is a proxy.** There is no popularity column; it sorts featured first, then review count, then rating.
+- **The nuqs adapter is mounted on `app/(site)/colleges/layout.tsx`, not the root layout.** Keeping it out of the shared chunk is worth ~6 kB on every other route.
 
 ## §2 Tech stack (fixed — do not substitute)
 
