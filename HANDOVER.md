@@ -91,10 +91,25 @@ cap. SVG is refused on purpose. `brochures` is not an upload target — it is
 private and served through a signed URL.
 
 The home hero images live in the `banners` bucket and are editable at
-`/admin/banners`. The three shipped ones are **brand artwork, not photographs**
-— there are no real campus photos for these institutions, and a stock photo
-presented as a campus would misrepresent it. Replace them with real photography
-when it exists.
+`/admin/banners`. The three shipped ones are **licensed stock photography**
+(Unsplash License — free for commercial use, no attribution required),
+1920×840 WebP at 65–155 KB:
+
+| Slide | Subject | Unsplash photo id |
+|---|---|---|
+| 1 — Find Your Right College | Indian university campus and lawn | `photo-1680084521816-cc1ad0433ceb` |
+| 2 — Admissions Open | Indian classroom, students and teacher | `photo-1709290749293-c6152a187b14` |
+| 3 — Bihar Student Credit Card | Indian graduate in cap and gown | `photo-1495995424756-6a5a3f9e7543` |
+
+These are **generic** education photos. That is deliberate: a hero banner
+claims nothing about a specific institution, so stock is honest there. Do not
+reuse this approach on college detail pages — a stock photo presented as a
+named college's campus misrepresents it, which is why `imageSrc` falls back to
+branded placeholders instead. Replace the hero with real CareerOptics
+photography when it exists.
+
+Each was cropped to 2.286:1 with the subject kept clear of the centred H1 and
+search bar, then checked against the 45% navy scrim for text contrast.
 
 ### SEO, perf and consent (P11)
 
