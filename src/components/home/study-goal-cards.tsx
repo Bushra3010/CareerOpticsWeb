@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ArrowRight, Star } from "lucide-react";
+import { ArrowRight, ChevronRight, Star } from "lucide-react";
 
 import { ScrollRow } from "@/components/home/scroll-row";
 import { StreamIcon } from "@/components/home/stream-icon";
@@ -60,6 +60,44 @@ const ACCENTS = [
 /** §5.1 item 5 — "Select Your Study Goal". */
 export function StudyGoalCards({ goals }: { goals: StudyGoal[] }) {
   return (
+    <>
+      {/* Phones get a compact two-column list: the full cards are 270px wide,
+          so on a 375px screen only one fits and the courses inside them are a
+          lot of vertical scroll before the next section. */}
+      <ul className="grid grid-cols-2 gap-3 lg:hidden">
+        {goals.map((goal, index) => {
+          const accent = ACCENTS[index % ACCENTS.length]!;
+          return (
+            <li key={goal.id}>
+              <Link
+                href={`/streams/${goal.slug}`}
+                className="flex h-full items-center gap-2.5 rounded-xl border bg-card p-3 transition-shadow hover:shadow-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+              >
+                <span
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${accent.tint} ${accent.text}`}
+                >
+                  <StreamIcon name={goal.icon} className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold text-ink">
+                    {goal.name}
+                  </span>
+                  <span className="block text-xs text-muted-foreground tabular-nums">
+                    {goal.collegeCount}{" "}
+                    {goal.collegeCount === 1 ? "College" : "Colleges"}
+                  </span>
+                </span>
+                <ChevronRight
+                  className="size-4 shrink-0 text-muted-foreground"
+                  aria-hidden
+                />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden lg:block">
     <ScrollRow label="Study goals" dots className="pt-4">
       {goals.map((goal, index) => {
         const accent = ACCENTS[index % ACCENTS.length]!;
@@ -138,5 +176,7 @@ export function StudyGoalCards({ goals }: { goals: StudyGoal[] }) {
         );
       })}
     </ScrollRow>
+      </div>
+    </>
   );
 }

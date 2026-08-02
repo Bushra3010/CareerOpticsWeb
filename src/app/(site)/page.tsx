@@ -7,6 +7,10 @@ import { FaqAccordion } from "@/components/home/faq-accordion";
 import { GalleryGrid } from "@/components/home/gallery-grid";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { LevelCourseTabs } from "@/components/home/level-course-tabs";
+import {
+  MobileExplore,
+  MobileQuickStart,
+} from "@/components/home/mobile-quick-start";
 import { PressStrip } from "@/components/home/press-strip";
 import { ScholarshipSection } from "@/components/home/scholarship-section";
 import { Section } from "@/components/home/section";
@@ -24,6 +28,7 @@ import {
   getHeroBanners,
   getHomeFaqs,
   getPressReleases,
+  getGoalCityOptions,
   getSiteStats,
   getTestimonials,
   getStudyGoals,
@@ -54,6 +59,7 @@ export default async function HomePage() {
     gallery,
     press,
     faqs,
+    goalCityOptions,
   ] = await Promise.all([
     getHeroBanners(),
     getStudyGoals(),
@@ -66,13 +72,21 @@ export default async function HomePage() {
     getGalleryItems(),
     getPressReleases(),
     getHomeFaqs(),
+    getGoalCityOptions(),
   ]);
 
   return (
     <>
-      {/* 3 — course chip bar, then 4 — hero carousel */}
-      <CourseChipNav />
+      {/* 3 — course chip bar, then 4 — hero carousel.
+          On phones the search and the goal/city pickers sit above the hero
+          (§5.1 item 2), and the four main destinations sit below it. */}
+      {/* The chip bar stays in the HTML for crawlers but is desktop-only:
+          on a phone it pushed the search below the fold, and MobileExplore
+          plus the drawer already cover the same destinations. */}
+      <CourseChipNav className="hidden lg:block" />
+      <MobileQuickStart options={goalCityOptions} />
       <HeroCarousel banners={banners} />
+      <MobileExplore />
 
       {/* 5 — Select Your Study Goal */}
       {goals.length > 0 ? (

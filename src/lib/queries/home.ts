@@ -347,3 +347,42 @@ export async function getHomeFaqs() {
 }
 
 export type HomeFaq = Awaited<ReturnType<typeof getHomeFaqs>>[number];
+
+/**
+ * Options for the mobile "Select Goal" / "Choose City" pickers (§5.1 item 2).
+ *
+ * Cities are limited to those that actually have a published college — offering
+ * all 120 would send students to empty result pages.
+ */
+export async function getGoalCityOptions() {
+  const supabase = createPublicClient();
+
+  const [streams, colleges] = await Promise.all([
+    supabase
+      .from("streams")
+      .select("name, slug")
+      .eq("is_featured", true)
+      .order("sort_order", { ascending: true, nullsFirst: false }),
+    supabase
+      .from("colleges")
+      .select("cities!inner(name, slug)")
+      .eq("status", "published"),
+  ]);
+
+  if (streams.error) throw new Error(`streams: ${streams.error.message}`);
+  if (colleges.error) throw new Error(`colleges: ${colleges.error.message}`);
+
+  const cities = new Map<string, string>();
+  for (const row of colleges.data ?? []) {
+    if (row.cities?.slug) cities.set(row.cities.slug, row.cities.name);
+  }
+
+  return {
+    goals: streams.data ?? [],
+    cities: [...cities.entries()]
+      .map(([slug, name]) => ({ slug, name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+export type GoalCityOptions = Awaited<ReturnType<typeof getGoalCityOptions>>;

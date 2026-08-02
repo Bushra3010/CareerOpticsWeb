@@ -127,7 +127,7 @@ function HeroSlide({
 
   return (
     <CarouselItem className="pl-0">
-      <div className="relative h-[280px] overflow-hidden bg-brand-blue-900 lg:h-[420px]">
+      <div className="relative mx-4 h-[240px] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:h-[420px] lg:rounded-none">
         {src ? (
           <Image
             src={src}
@@ -139,14 +139,17 @@ function HeroSlide({
           />
         ) : null}
         {/* 45% scrim keeps white text over any campus photo above 4.5:1 (§6.5) */}
-        <div className="absolute inset-0 bg-brand-blue-900/45" aria-hidden />
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-brand-blue-900 via-brand-blue-900/80 to-brand-blue-900/30 lg:bg-brand-blue-900/45 lg:bg-none"
+          aria-hidden
+        />
 
-        <div className="relative flex h-full flex-col items-center justify-center px-4 text-center">
+        <div className="relative flex h-full flex-col items-start justify-center px-5 text-left lg:items-center lg:px-4 lg:text-center">
           <Heading
             className={
               headingLevel === "h1"
-                ? "text-h1 lg:text-h1-lg max-w-3xl text-balance font-display text-white"
-                : "text-h2 lg:text-h1 max-w-3xl text-balance font-display font-extrabold text-white"
+                ? "text-h3 lg:text-h1-lg max-w-3xl text-balance font-display text-white lg:text-h1"
+                : "text-h3 lg:text-h1 max-w-3xl text-balance font-display font-extrabold text-white"
             }
           >
             {banner.title}
@@ -155,7 +158,7 @@ function HeroSlide({
           <form
             action="/search"
             role="search"
-            className="mt-6 flex w-full max-w-2xl items-center gap-2 rounded-xl bg-white p-1.5 shadow-card"
+            className="mt-6 hidden w-full max-w-2xl items-center gap-2 rounded-xl bg-white p-1.5 shadow-card lg:flex"
           >
             <label htmlFor={`hero-search-${banner.id}`} className="sr-only">
               Search for colleges, exams and courses
@@ -176,7 +179,7 @@ function HeroSlide({
             </Button>
           </form>
 
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <div className="mt-4 flex flex-wrap items-center gap-3 lg:mt-5 lg:justify-center">
             <LeadDialog
               source="home_hero"
               title="Get free counselling"
