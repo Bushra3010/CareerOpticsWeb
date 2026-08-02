@@ -44,15 +44,22 @@ Built in phases (PRD §16), one phase per working session.
 | **P6** | `/colleges/[slug]` detail: tabs, right-rail form, reviews, brochure gate | ✅ Done |
 | **P7** | `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides` | ✅ Done |
 | **P8** | `/college-finder` 6-step wizard + `/api/finder/step` | ✅ Done |
-| P9 | Blogs, news, gallery, press, placements, scholarships, static pages, search | ⬅ **Next** |
-| P10–P12 | Admin, SEO, launch | Not started |
+| **P9** | Blogs, news, gallery, press, placements, scholarships, static pages, search | ✅ Done |
+| P10 | `/admin`: auth, middleware, leads inbox, CRUD, dashboard | ⬅ **Next** |
+| P11–P12 | SEO/perf/a11y pass, launch | Not started |
 
 **Routes that exist today:** `/`, `/colleges`, `/colleges/[slug]`, `/compare`,
 `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`,
 `/city/[slug]`, `/after-10th`, `/after-12th`, `/after-graduation`, `/after-pg`,
-`/guides/[level]/[slug]`, `/college-finder`, `POST /api/leads`,
-`POST /api/reviews`, `POST /api/brochure`, `POST /api/finder/step` and
-`/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
+`/guides/[level]/[slug]`, `/college-finder`, `/search`, `/blogs`,
+`/blogs/[slug]`, `/news`, `/news/[slug]`, `/gallery`, `/press-release`,
+`/placements`, `/scholarships`, `/scholarships/[slug]`, `/about`, `/contact`,
+`/help-support`, `/privacy-policy`, `/terms-and-conditions`, `/disclaimer`,
+`POST /api/leads`, `POST /api/reviews`, `POST /api/brochure`,
+`POST /api/finder/step`, `GET /api/search` and `/style-guide`.
+
+**Crawling every internal link from `/` reaches 147 URLs with zero 404s.** Keep
+it that way: re-run the crawl after adding routes. `/db-check` was deleted when P3 landed; `/style-guide` is
 `noindex` scaffolding, keep it as long as it is useful.
 
 Home is statically prerendered with `revalidate = 300` at **164 kB** First Load
@@ -400,6 +407,7 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 | `migration repair` not yet run | 🟠 | See §6. Will break the first `db:push` |
 | **Lead alerts and rate limiting are unconfigured** | 🟠 Blocks launch | `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS` and `UPSTASH_*` are empty. Leads save correctly, but nobody is emailed and the 5/10min limit is per-instance only. See §3 |
 | **`/colleges` is 186 kB First Load JS** | 🟠 Do in P11 | §11 budgets 180 kB (stated for home, which is 164 kB). The desktop filter sidebar loads the Radix Accordion, Select and nuqs eagerly. Cheapest lever: swap the filter Accordion for native `<details>`, which also makes the panel work without JS |
+| **Legal pages are an unreviewed draft** | 🔴 Before launch | `/privacy-policy`, `/terms-and-conditions` and `/disclaimer` were written by a developer, not a lawyer. They describe what the code actually does but do not address DPDP Act 2023 obligations. Each carries a visible draft banner driven by `draft: true` in `config/legal.ts` — get a qualified review, then remove the flag |
 | **`0004_review_rating_guard.sql` is not applied to the live project** | 🔴 Apply now | The 0001 trigger let the first *pending* review on a college zero its rating, and `/api/reviews` is public — any visitor could wipe every rating on the site. Fixed in migration 0004 and covered by `pnpm db:verify`, but `migration repair` has never been run so `db push` will not apply it. **Paste `supabase/migrations/0004_review_rating_guard.sql` into the Supabase SQL Editor.** Until then the live database still has the broken trigger |
 | **`listColleges` reads every match, capped at 500** | 🟠 Before 500 colleges | The fee sort needs a child aggregate PostgREST cannot order by. Add a view exposing `min_fee_per_year` on `colleges` and the query collapses to one paged call. See `lib/queries/colleges.ts` |
 | Header `GoalCitySelector` / `MegaSearch` are static shells | 🟡 | The search form posts to `/search`, which does not exist until P9. The goal/city button does nothing yet |

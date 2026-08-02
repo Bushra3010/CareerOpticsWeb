@@ -1,0 +1,11 @@
+import type { Metadata } from "next";
+
+import { StaticPageBody, staticPageMetadata } from "@/components/content/static-page";
+import { TERMS } from "@/config/legal";
+
+export const metadata: Metadata = staticPageMetadata(TERMS);
+
+/** `/terms-and-conditions` — §4. Copy lives in `config/legal.ts`. */
+export default function Page() {
+  return <StaticPageBody page={TERMS} />;
+}

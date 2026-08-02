@@ -26,7 +26,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P6 — done.** `/colleges/[slug]` with hero, action bar, scroll-spy tabs, Courses & Fees table, reviews + submission, sticky right rail, `/api/reviews`, `/api/brochure`, ISR `revalidate = 3600` with 15 featured slugs prerendered, and `CollegeOrUniversity` + `BreadcrumbList` JSON-LD. **Found and fixed a live rating-wipe bug — see below.**
 - **P7 — done.** `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`, `/city/[slug]`, the four level hubs and `/guides/[level]/[slug]`. ~119 pages prerendered at 137 kB each. Crawled the whole site: every remaining 404 belongs to P8/P9.
 - **P8 — done.** `/college-finder` 6-step wizard, `/api/finder/step`, matched-college result view. Verified: a partial funnel lands in `finder_sessions` with no `lead_id`; the final submit creates a lead with `source='college_finder'` and the six answers as jsonb, and links the session to it.
-- **P9 — next.** Blogs, news, gallery, press, placements, scholarships, static pages, global search.
+- **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
+- **P10 — next.** `/admin`: auth + middleware + leads inbox + CRUD + dashboard.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -79,6 +80,15 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **`QuickEnquiryModal` is suppressed on `/college-finder`.** It fired mid-wizard during testing. Add any future funnel route to `SUPPRESSED_PATHS`.
 - **zod and sonner are imported at the call site in the wizard**, not at the top — that is the difference between 220 kB and 142 kB First Load JS. The schema is still the shared one, never re-implemented.
 - **`/api/leads` merges `answers`** from the payload with the §9 `duplicate_of` pointer rather than one overwriting the other.
+
+### P9 notes worth carrying forward
+
+- **🔴 The legal pages are an unreviewed draft.** `/privacy-policy`, `/terms-and-conditions` and `/disclaimer` describe what this codebase actually does, which is the honest starting point, but they were written by a developer and have not been through legal review — DPDP Act 2023 obligations in particular are not addressed. They carry a visible draft banner on the page itself, driven by `draft: true` in `config/legal.ts`. Remove the flag only after a qualified review.
+- **Search uses `ilike '%q%'`, not `similarity()`.** The `gin_trgm_ops` indexes from 0001 serve a contained LIKE directly; similarity ranking needs an RPC, which needs a migration we cannot apply to the live project yet. Substring matching is also what a student typing "patna" expects.
+- **`components/content/prose.tsx` never uses `dangerouslySetInnerHTML`.** Editor-written `content` columns are parsed into React elements, so raw HTML in a row can never become markup. Keep it that way if the content model grows.
+- **Static copy lives in `config/legal.ts`, not the database.** These are legal and editorial pages, not something a counsellor should edit from `/admin`.
+- **`blogs`, `news` and `guides` are still empty.** Their routes render an honest empty state rather than placeholder posts. They come alive the moment an editor publishes in P10.
+- **Footer links are the crawlable nav.** `mainNav` only reaches the mobile drawer, which is lazy-loaded and absent from server HTML — `/blogs` was unreachable for a crawler until it was added to `footerNav`. Add new top-level routes to the footer.
 
 ## §2 Tech stack (fixed — do not substitute)
 

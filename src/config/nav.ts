@@ -61,6 +61,10 @@ export const footerNav: { title: string; links: NavLink[] }[] = [
       { label: "Exams", href: "/exams" },
       { label: "Scholarships", href: "/scholarships" },
       { label: "College Finder", href: "/college-finder" },
+      // The main nav only reaches /blogs through the mobile drawer, which is
+      // lazy-loaded and so absent from the server HTML. Without this link the
+      // blog is unreachable for a crawler.
+      { label: "Blogs", href: "/blogs" },
     ],
   },
   {
