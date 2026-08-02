@@ -6,9 +6,8 @@
  * one shared list + visibility-toggle screen instead of eleven near-identical
  * pages.
  *
- * ⚠ Per-field editing forms are **not** built. This screen publishes,
- * unpublishes and deletes; changing a college's fee or a blog's body still
- * happens in the Supabase table editor. See HANDOVER §9.
+ * The editable columns for each section live in `config/admin-fields.ts`,
+ * which drives the create and edit forms and the server action's validation.
  */
 
 export type VisibilityKind =
@@ -56,7 +55,7 @@ export const CONTENT_SECTIONS: ContentSection[] = [
     table: "colleges",
     title: "Colleges",
     description:
-      "Publish or unpublish a college. Field edits still happen in Supabase.",
+      "Full details, images, packages and publish state for every college.",
     titleColumn: "name",
     columns: [
       { key: "naac_grade", label: "NAAC" },

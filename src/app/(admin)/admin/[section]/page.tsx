@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { ExternalLink, Info } from "lucide-react";
+import { ExternalLink, Pencil, Plus } from "lucide-react";
 
 import { ContentRowActions } from "@/components/admin/content-row-actions";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CONTENT_SECTIONS, findSection } from "@/config/admin-content";
+import { fieldsFor } from "@/config/admin-fields";
 import { can, requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,8 +49,9 @@ function display(value: unknown): string {
 /**
  * `/admin/[section]` — one screen for every managed content table (§5.5).
  *
- * This publishes, unpublishes and deletes. **It does not edit fields** — that
- * still happens in the Supabase table editor. Flagged in HANDOVER §9.
+ * Full CRUD: create via `[section]/new`, edit via `[section]/[id]`, plus the
+ * publish toggle and delete on each row. The columns each section exposes come
+ * from `config/admin-fields.ts`.
  */
 export default async function ContentSectionPage({
   params,
@@ -93,19 +96,24 @@ export default async function ContentSectionPage({
 
   const rows = (data ?? []) as unknown as Record<string, unknown>[];
 
+  const editable = fieldsFor(section.slug).length > 0;
+
   return (
     <div>
-      <h1 className="text-h2">{section.title}</h1>
-      <p className="mt-1 max-w-2xl text-body">{section.description}</p>
-
-      <p className="mt-4 flex max-w-2xl items-start gap-2 rounded-lg bg-brand-blue-50 p-3 text-sm text-ink">
-        <Info className="mt-0.5 size-4 shrink-0 text-brand-blue" aria-hidden />
-        <span>
-          This screen controls what is live. To change a row&apos;s content,
-          edit it in the Supabase table editor — per-field forms are not built
-          yet.
-        </span>
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-h2">{section.title}</h1>
+          <p className="mt-1 max-w-2xl text-body">{section.description}</p>
+        </div>
+        {editable ? (
+          <Button asChild>
+            <Link href={`/admin/${section.slug}/new`}>
+              <Plus />
+              New {section.title.replace(/s$/, "").toLowerCase()}
+            </Link>
+          </Button>
+        ) : null}
+      </div>
 
       {rows.length === 0 ? (
         <p className="mt-8 rounded-xl border border-dashed p-6 text-body">
@@ -150,7 +158,16 @@ export default async function ContentSectionPage({
                 return (
                   <tr key={id} className="border-t align-top">
                     <td className="p-3">
-                      <span className="font-medium text-ink">{label}</span>
+                      {editable ? (
+                        <Link
+                          href={`/admin/${section.slug}/${id}`}
+                          className="font-medium text-ink hover:text-brand-blue"
+                        >
+                          {label}
+                        </Link>
+                      ) : (
+                        <span className="font-medium text-ink">{label}</span>
+                      )}
                       {publicPath ? (
                         <Link
                           href={publicPath}
@@ -179,6 +196,16 @@ export default async function ContentSectionPage({
                     ) : null}
 
                     <td className="p-3">
+                      <div className="flex items-center justify-end gap-1">
+                        {editable ? (
+                          <Button asChild variant="ghost" size="sm">
+                            <Link href={`/admin/${section.slug}/${id}`}>
+                              <Pencil />
+                              Edit
+                            </Link>
+                          </Button>
+                        ) : null}
+                      </div>
                       <ContentRowActions
                         section={section.slug}
                         id={id}

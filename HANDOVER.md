@@ -45,7 +45,7 @@ Built in phases (PRD §16), one phase per working session.
 | **P7** | `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides` | ✅ Done |
 | **P8** | `/college-finder` 6-step wizard + `/api/finder/step` | ✅ Done |
 | **P9** | Blogs, news, gallery, press, placements, scholarships, static pages, search | ✅ Done |
-| **P10** | `/admin`: auth, middleware, leads inbox, moderation, dashboard | ✅ Done (per-field edit forms not built) |
+| **P10** | `/admin`: auth, middleware, leads inbox, moderation, dashboard, full CRUD + image upload | ✅ Done |
 | **P11** | SEO pass, perf pass, a11y pass, cookie consent, 404/500 | ✅ Done |
 | P12 | Domain, DNS, GA4/GTM, Search Console, backup, launch | ⬅ **Next** |
 
@@ -79,6 +79,22 @@ account and every test row were deleted afterwards.
 Every admin read and write goes through the **cookie-bound** Supabase client so
 RLS enforces access. Roles gate the UI only — RLS does not distinguish
 counsellor from editor.
+
+**Editing content.** `/admin/[section]` lists every row with create, edit,
+publish and delete. The editable columns come from `config/admin-fields.ts` —
+one config drives the create form, the edit form and the server action's
+validation, so adding a column is one line rather than a new page.
+
+**Images** upload through `/api/admin/upload` into the §7 Storage buckets and
+the form stores the resulting public URL. JPEG, PNG, WebP and AVIF only, 5 MB
+cap. SVG is refused on purpose. `brochures` is not an upload target — it is
+private and served through a signed URL.
+
+The home hero images live in the `banners` bucket and are editable at
+`/admin/banners`. The three shipped ones are **brand artwork, not photographs**
+— there are no real campus photos for these institutions, and a stock photo
+presented as a campus would misrepresent it. Replace them with real photography
+when it exists.
 
 ### SEO, perf and consent (P11)
 
@@ -446,7 +462,7 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 | `migration repair` not yet run | 🟠 | See §6. Will break the first `db:push` |
 | **Lead alerts and rate limiting are unconfigured** | 🟠 Blocks launch | `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS` and `UPSTASH_*` are empty. Leads save correctly, but nobody is emailed and the 5/10min limit is per-instance only. See §3 |
 | **`/colleges` is 186 kB First Load JS** | 🟠 Do in P11 | §11 budgets 180 kB (stated for home, which is 164 kB). The desktop filter sidebar loads the Radix Accordion, Select and nuqs eagerly. Cheapest lever: swap the filter Accordion for native `<details>`, which also makes the panel work without JS |
-| **`/admin` has no per-field editing forms** | 🟠 | `/admin/[section]` publishes, unpublishes and deletes rows across all eleven content tables, but changing a field still means opening the Supabase table editor. §5.5 also asks for image upload and course mapping, which are not built |
+| **College course mapping is not in the admin** | 🟡 | `/admin/colleges` edits the college itself; the `college_courses` rows (fee, seats, eligibility per course) still need the Supabase table editor. §5.5 asks for it |
 | **Legal pages are an unreviewed draft** | 🔴 Before launch | `/privacy-policy`, `/terms-and-conditions` and `/disclaimer` were written by a developer, not a lawyer. They describe what the code actually does but do not address DPDP Act 2023 obligations. Each carries a visible draft banner driven by `draft: true` in `config/legal.ts` — get a qualified review, then remove the flag |
 | **`0004_review_rating_guard.sql` is not applied to the live project** | 🔴 Apply now | The 0001 trigger let the first *pending* review on a college zero its rating, and `/api/reviews` is public — any visitor could wipe every rating on the site. Fixed in migration 0004 and covered by `pnpm db:verify`, but `migration repair` has never been run so `db push` will not apply it. **Paste `supabase/migrations/0004_review_rating_guard.sql` into the Supabase SQL Editor.** Until then the live database still has the broken trigger |
 | **`listColleges` reads every match, capped at 500** | 🟠 Before 500 colleges | The fee sort needs a child aggregate PostgREST cannot order by. Add a view exposing `min_fee_per_year` on `colleges` and the query collapses to one paged call. See `lib/queries/colleges.ts` |

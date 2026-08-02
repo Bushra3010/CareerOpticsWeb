@@ -27,7 +27,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P7 — done.** `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`, `/city/[slug]`, the four level hubs and `/guides/[level]/[slug]`. ~119 pages prerendered at 137 kB each. Crawled the whole site: every remaining 404 belongs to P8/P9.
 - **P8 — done.** `/college-finder` 6-step wizard, `/api/finder/step`, matched-college result view. Verified: a partial funnel lands in `finder_sessions` with no `lead_id`; the final submit creates a lead with `source='college_finder'` and the six answers as jsonb, and links the session to it.
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
-- **P10 — done (with one gap).** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and a publish/unpublish/delete screen for all eleven content tables. **Per-field editing forms are not built** — see below.
+- **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
@@ -94,7 +94,9 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 
 ### P10 notes worth carrying forward
 
-- **🟠 `/admin/[section]` publishes, it does not edit.** Changing a college's fee or a blog's body still happens in the Supabase table editor. Per-field forms across eleven entities were out of reach in one phase; the screen says so to the user, not just in a comment.
+- **`/admin/[section]` is full CRUD, driven by config.** `config/admin-fields.ts` declares the editable columns per section; the same config renders the create form, the edit form and validates in `saveRow`. A caller cannot write a column the config does not declare. Add a column there, not by writing another page.
+- **Uploads go through `/api/admin/upload`, service role, bucket from an allowlist.** §7 gives the buckets service-role-only write, so unlike the database routes there is no RLS behind this one — the staff check in the route *is* the boundary. `brochures` is deliberately not in the allowlist; it is private.
+- **SVG uploads are refused.** `next/image` blocks remote SVG without `dangerouslyAllowSVG`, and an SVG can carry script — accepting one from any staff account to justify that flag is not a good trade.
 - **Never import from `lib/queries/*` into a client component.** Those modules pull `lib/supabase/server.ts` → `next/headers` → the browser bundle breaks at runtime while `tsc` stays green. Shared constants and types go in `config/` — that is why `config/leads.ts` exists separately from `lib/queries/admin.ts`.
 - **`formData.get()` returns `null`, and zod's `.optional()` only accepts `undefined`.** A missing optional field fails the whole parse. This broke sign-in entirely until `?? undefined` was added. Check every `formData.get()` feeding an optional field.
 - **Admin reads and writes use the cookie-bound client, never the service role.** RLS (`is_staff()`) is the actual authorisation boundary; `requireStaff()` is a fast fail with a useful redirect, not security. Using `createAdminClient()` in an admin page would silently bypass the only check there is.
