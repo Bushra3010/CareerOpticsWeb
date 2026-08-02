@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 
 import { CalendarDays, Globe, MapPin, Users } from "lucide-react";
 
@@ -64,6 +65,14 @@ export function CollegeHero({ college }: { college: College }) {
                 <span className="flex items-center gap-1">
                   <MapPin className="size-4 shrink-0 text-brand-blue-400" aria-hidden />
                   {college.address ?? location}
+                  {college.cities?.slug ? (
+                    <Link
+                      href={`/city/${college.cities.slug}`}
+                      className="font-medium text-brand-blue-400 hover:underline"
+                    >
+                      (all colleges here)
+                    </Link>
+                  ) : null}
                 </span>
               ) : null}
               {college.established_year ? (

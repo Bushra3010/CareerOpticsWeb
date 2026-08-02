@@ -194,7 +194,7 @@ export async function getCollegesByIds(ids: string[]) {
       `id, name, slug, short_name, type, established_year, naac_grade, nirf_rank,
        approvals, logo_url, cover_url, brochure_url, highest_package,
        average_package, total_students, campus_size, facilities, rating,
-       review_count, cities(name, states(name))`,
+       review_count, cities(name, slug, states(name))`,
     )
     .eq("status", "published")
     .in("id", ids);

@@ -129,7 +129,7 @@ export async function getFeaturedColleges(limit = 12) {
     .select(
       `id, name, slug, short_name, type, naac_grade, nirf_rank, approvals,
        logo_url, cover_url, highest_package, average_package, rating,
-       review_count, cities(name, states(name))`,
+       review_count, cities(name, slug, states(name))`,
     )
     .eq("status", "published")
     .eq("is_featured", true)

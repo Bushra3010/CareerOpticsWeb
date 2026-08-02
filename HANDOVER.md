@@ -42,11 +42,15 @@ Built in phases (PRD §16), one phase per working session.
 | **P4** | Lead engine: `LeadForm`, `QuickEnquiryModal`, `CallbackWidget`, `/api/leads`, Resend, rate limit | ✅ Done |
 | **P5** | `/colleges` listing + filters + sort + pagination + compare | ✅ Done |
 | **P6** | `/colleges/[slug]` detail: tabs, right-rail form, reviews, brochure gate | ✅ Done |
-| P7 | `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides` | ⬅ **Next** |
-| P8–P12 | Finder, content, admin, SEO, launch | Not started |
+| **P7** | `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides` | ✅ Done |
+| P8 | `/college-finder` 6-step wizard + `/api/finder/step` | ⬅ **Next** |
+| P9–P12 | Content, admin, SEO, launch | Not started |
 
 **Routes that exist today:** `/`, `/colleges`, `/colleges/[slug]`, `/compare`,
-`POST /api/leads`, `POST /api/reviews`, `POST /api/brochure` and `/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
+`/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`,
+`/city/[slug]`, `/after-10th`, `/after-12th`, `/after-graduation`, `/after-pg`,
+`/guides/[level]/[slug]`, `POST /api/leads`, `POST /api/reviews`,
+`POST /api/brochure` and `/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
 `noindex` scaffolding, keep it as long as it is useful.
 
 Home is statically prerendered with `revalidate = 300` at **164 kB** First Load
@@ -98,6 +102,21 @@ Reviews submit through `POST /api/reviews` as `is_approved = false` and are
 invisible to `anon` until an editor approves them in P10. `POST /api/brochure`
 stores the lead first and returns a 60-second signed URL, but no seeded college
 has a `brochure_url`, so the button does not render yet.
+
+### The taxonomy pages (P7)
+
+`/courses`, `/streams/[slug]`, `/exams`, `/exams/[slug]`, `/city/[slug]` and the
+four level hubs, all ISR at `revalidate = 3600`. The build prerenders about 119
+pages — 60 courses, 18 cities, 12 exams, 10 streams, 15 colleges — each at
+137 kB First Load JS.
+
+These pages are the site's interlinking layer. Crawling every internal link from
+`/` now reaches all of them, and the only remaining 404s are routes that belong
+to P8 (`/college-finder`) and P9 (`/scholarships`, `/gallery`, `/press-release`,
+`/placements`, `/news`, `/contact`, `/about` and the legal pages).
+
+**When you add a page, add the inbound link too.** The city pages rendered fine
+but nothing linked to them until the crawl caught it.
 
 **Not set up yet:** Vercel project, custom domain, GA4/GTM, Resend, Upstash.
 

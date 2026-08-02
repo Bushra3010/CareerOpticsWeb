@@ -58,7 +58,16 @@ export function CollegeListCard({ college }: { college: CollegeListItem }) {
             {location ? (
               <span className="flex items-center gap-1">
                 <MapPin className="size-3.5 shrink-0" aria-hidden />
-                {location}
+                {college.cities?.slug ? (
+                  <Link
+                    href={`/city/${college.cities.slug}`}
+                    className="hover:text-brand-blue-400 hover:underline"
+                  >
+                    {location}
+                  </Link>
+                ) : (
+                  location
+                )}
               </span>
             ) : null}
             {college.established_year ? (

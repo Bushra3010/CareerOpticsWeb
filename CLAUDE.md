@@ -24,7 +24,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P4 — done.** `/api/leads` (zod → honeypot → rate limit → service-role insert → notify), `LeadForm`, `LeadDialog`, `QuickEnquiryModal`, `CallbackWidget`, Resend alerts, GTM/Pixel hooks. Verified: `home_hero`, `callback` and `apply_now` each create a row with the right `source`; `apply_now` carries `college_id`; a repeat phone inside 24h gets `answers.duplicate_of`. Home 162 kB First Load JS.
 - **P5 — done.** `/colleges` with 10 URL-driven filters (nuqs), 4 sorts, 24/page pagination, mobile filter sheet, inline lead card every 6th result, and `/compare?ids=`. Verified against the live DB: engineering 14, Bihar 10, Patna 6, fee≤₹1L 8, engineering+Bihar 4.
 - **P6 — done.** `/colleges/[slug]` with hero, action bar, scroll-spy tabs, Courses & Fees table, reviews + submission, sticky right rail, `/api/reviews`, `/api/brochure`, ISR `revalidate = 3600` with 15 featured slugs prerendered, and `CollegeOrUniversity` + `BreadcrumbList` JSON-LD. **Found and fixed a live rating-wipe bug — see below.**
-- **P7 — next.** `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides`.
+- **P7 — done.** `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`, `/city/[slug]`, the four level hubs and `/guides/[level]/[slug]`. ~119 pages prerendered at 137 kB each. Crawled the whole site: every remaining 404 belongs to P8/P9.
+- **P8 — next.** `/college-finder` 6-step wizard + `/api/finder/step`.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -60,6 +61,14 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **`CollegeHero` needs `relative z-10` on its content block.** The banner above it is `position: relative`, so it paints over non-positioned siblings and swallows the overlapping logo plate. The heading also sits *below* the banner, not over it — `text-ink` on navy fails the §6.5 contrast floor.
 - **AggregateRating is only emitted when approved reviews exist.** Google treats a rating with nothing behind it as a structured-data violation, and the seeded `colleges.rating` values are decorative until the first review is approved.
 - **The brochure gate is dormant.** No seeded college has a `brochure_url`, so the button never renders. `/api/brochure` is complete: it stores the lead first, then mints a 60-second signed URL from the private bucket.
+
+### P7 notes worth carrying forward
+
+- **`CollegeCard` takes a structural `CollegeCardData`, not one query's row type.** Six different queries feed it. `/colleges` uses the wider `CollegeListCard` instead, which carries the compare checkbox — that one only works inside the `CompareProvider` on the `/colleges` subtree, so do not reuse it elsewhere.
+- **Level hubs are one component, four wrappers.** `LEVEL_HUBS` in `lib/queries/taxonomy.ts` maps each hub to its `level_enum` values; the route files are three lines each. Add a hub there, not by copying a page.
+- **`/city/[slug]` only prerenders cities that have a published college** — 18 of the 120 seeded ones. Prerendering all of them would ship empty pages for search engines to index.
+- **A guide whose URL level does not match its row is a 404**, not a second copy of the same article at another path (§10 canonicals). Guide bodies render as plain paragraphs; a markdown renderer arrives with the blog in P9.
+- **Taxonomy pages are the interlinking layer.** Every college card and the detail hero link their city to `/city/[slug]`; courses link to their stream; exams link to the courses they feed and the colleges that accept them. When adding a page, add the inbound link too — the city pages were orphaned until the crawl caught it.
 
 ## §2 Tech stack (fixed — do not substitute)
 

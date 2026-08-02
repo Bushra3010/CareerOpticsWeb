@@ -7,22 +7,44 @@ import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Rating } from "@/components/ui/rating";
-import type { FeaturedCollege } from "@/lib/queries/home";
 import { formatInr, imageSrc, initials } from "@/lib/media";
 import { cn } from "@/lib/utils";
 
 /**
- * §5.1 item 7 card. Also the card the /colleges listing will reuse in P5, so
- * it takes a college row rather than home-specific props.
+ * Structural shape rather than one query's row type — the home carousel, the
+ * stream hubs, the city pages and the course pages all feed this card, and
+ * they select the same columns.
+ */
+export type CollegeCardData = {
+  id: string;
+  name: string;
+  slug: string;
+  short_name: string | null;
+  naac_grade: string | null;
+  nirf_rank: number | null;
+  approvals: string[] | null;
+  logo_url: string | null;
+  cover_url: string | null;
+  highest_package: number | null;
+  average_package: number | null;
+  rating: number | null;
+  review_count: number | null;
+  cities?: { name: string; slug?: string; states?: { name: string } | null } | null;
+};
+
+/**
+ * Compact college card — the home "Top Universities" carousel (§5.1 item 7)
+ * and every taxonomy grid (stream, course, city, exam).
  *
- * `Apply Now` is a link to the college page until the lead modal lands in P4 —
- * §17 requires zero dead `#` links.
+ * `/colleges` uses the wider `CollegeListCard` instead, which adds the compare
+ * checkbox and the fee row. This one has no compare affordance, so it is safe
+ * outside the `CompareProvider` that only wraps the `/colleges` subtree.
  */
 export function CollegeCard({
   college,
   className,
 }: {
-  college: FeaturedCollege;
+  college: CollegeCardData;
   className?: string;
 }) {
   const cover = imageSrc(college.cover_url);
@@ -96,7 +118,16 @@ export function CollegeCard({
         {location ? (
           <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
             <MapPin className="size-3.5 shrink-0" aria-hidden />
-            <span className="truncate">{location}</span>
+            {college.cities?.slug ? (
+              <Link
+                href={`/city/${college.cities.slug}`}
+                className="relative z-10 truncate hover:text-brand-blue-400 hover:underline"
+              >
+                {location}
+              </Link>
+            ) : (
+              <span className="truncate">{location}</span>
+            )}
           </p>
         ) : null}
 
