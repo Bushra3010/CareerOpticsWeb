@@ -116,6 +116,10 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 
 ### P11 notes worth carrying forward
 
+- **`siteConfig.url` falls back to Vercel's injected production domain.** `NEXT_PUBLIC_SITE_URL` was never set on Vercel, so production shipped `http://localhost:3000` for every canonical, `og:url`, `og:image` and the Organization JSON-LD `logo` — breaking indexing and every WhatsApp/Facebook share preview. `config/site.ts#resolveSiteUrl` now falls back to `NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL`. **Still set `NEXT_PUBLIC_SITE_URL` in Vercel once the real domain exists** — the fallback is a safety net, not the answer.
+- The brand logo is one asset used everywhere: `public/logo-full.png` is the transparent master, `public/logo.webp` is what `components/site/logo.tsx` imports (header, footer, mobile drawer, 404, admin shell, admin login), `src/app/{favicon,icon,apple-icon}` are generated from its mark, and `public/logo-og.png` exists because **Satori cannot decode WebP** — the OG card needs a PNG. Regenerate all of them from the master if the logo changes.
+- The OG card puts the logo on a white plaque: the wordmark is dark blue and vanishes on the navy background.
+
 - **A root `error.tsx` ships with every route.** It is a client boundary, so anything it imports is paid for on pages that never error — importing `Button` alone cost ~12 kB site-wide. Keep it dependency-free.
 - **Inline forms use `DeferredLeadForm`, buttons use `LeadDialog`.** Importing `LeadForm` eagerly pulls react-hook-form + zod (~45 kB); that is what made `/contact` 267 kB. Never import `LeadForm` directly into a page.
 - **Native `<details>` and `<select>` beat the Radix equivalents here.** Swapping the filter Accordion and the sort Select for native controls took `/colleges` from 196 to 163 kB, works before hydration, and gives Android its own picker. Reach for a primitive when it needs behaviour the platform lacks, not by default.

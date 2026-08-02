@@ -1,4 +1,26 @@
 /**
+ * Resolves the public origin used for canonicals, og:url, og:image and the
+ * Organization JSON-LD.
+ *
+ * `NEXT_PUBLIC_SITE_URL` wins once a real domain exists. Without it we fall
+ * back to the domain Vercel injects at build time, because the previous
+ * localhost default silently shipped `http://localhost:3000` canonicals and
+ * og:image URLs to production — which breaks indexing and every WhatsApp and
+ * Facebook share preview.
+ */
+function resolveSiteUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  const vercel =
+    process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
+    process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
+
+  return "http://localhost:3000";
+}
+
+/**
  * Global site configuration — PRD §1, §12.
  * Contact details come from env so they can differ per environment without a rebuild.
  */
@@ -8,7 +30,7 @@ export const siteConfig = {
   tagline: "Your career. Our guidance.",
   description:
     "Discover colleges, courses and exams across India. Free admission counselling for students after 10th, 12th, graduation and post-graduation.",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  url: resolveSiteUrl(),
   locale: "en_IN",
   /** E.164, used for tel: and wa.me links. */
   phone: process.env.NEXT_PUBLIC_PHONE ?? "+918252532179",

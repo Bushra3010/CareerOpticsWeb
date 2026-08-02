@@ -109,8 +109,24 @@ export async function GET(
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div style={{ fontSize: 30, fontWeight: 700, display: "flex" }}>
-            {siteConfig.name}
+          {/* On a white plaque: the wordmark is dark blue and would disappear
+              against the navy card. PNG because Satori cannot decode WebP. */}
+          <div
+            style={{
+              display: "flex",
+              padding: "12px 18px",
+              borderRadius: 18,
+              background: "white",
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element --
+                Satori renders this card; next/image does not work inside next/og. */}
+            <img
+              src={new URL("/logo-og.png", siteConfig.url).toString()}
+              width={180}
+              height={138}
+              alt=""
+            />
           </div>
           <div style={{ fontSize: 24, color: "rgba(255,255,255,0.7)", display: "flex" }}>
             Courses · Fees · Admission 2026
