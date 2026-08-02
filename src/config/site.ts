@@ -9,15 +9,21 @@
  * Facebook share preview.
  */
 function resolveSiteUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-
-  const vercel =
+  const vercelDomain =
     process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL?.trim() ||
     process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
-  if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
+  const onVercel = Boolean(process.env.VERCEL || vercelDomain);
 
-  return "http://localhost:3000";
+  const explicit = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+  const explicitIsLocal =
+    !!explicit && /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)(:|\/|$)/i.test(explicit);
+
+  // A localhost origin in a deployed build is always wrong: it produces
+  // localhost canonicals, og:image URLs Google and WhatsApp cannot fetch, and
+  // an OG card whose logo silently fails to load. Prefer Vercel's own domain.
+  if (explicit && !(onVercel && explicitIsLocal)) return explicit;
+  if (vercelDomain) return `https://${vercelDomain.replace(/^https?:\/\//, "")}`;
+  return explicit || "http://localhost:3000";
 }
 
 /**
