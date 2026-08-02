@@ -27,7 +27,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P7 — done.** `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`, `/city/[slug]`, the four level hubs and `/guides/[level]/[slug]`. ~119 pages prerendered at 137 kB each. Crawled the whole site: every remaining 404 belongs to P8/P9.
 - **P8 — done.** `/college-finder` 6-step wizard, `/api/finder/step`, matched-college result view. Verified: a partial funnel lands in `finder_sessions` with no `lead_id`; the final submit creates a lead with `source='college_finder'` and the six answers as jsonb, and links the session to it.
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
-- **P10 — next.** `/admin`: auth + middleware + leads inbox + CRUD + dashboard.
+- **P10 — done (with one gap).** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and a publish/unpublish/delete screen for all eleven content tables. **Per-field editing forms are not built** — see below.
+- **P11 — next.** SEO pass (sitemap, robots, OG images, redirects), perf pass, a11y pass, cookie consent, 404/500.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -89,6 +90,16 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Static copy lives in `config/legal.ts`, not the database.** These are legal and editorial pages, not something a counsellor should edit from `/admin`.
 - **`blogs`, `news` and `guides` are still empty.** Their routes render an honest empty state rather than placeholder posts. They come alive the moment an editor publishes in P10.
 - **Footer links are the crawlable nav.** `mainNav` only reaches the mobile drawer, which is lazy-loaded and absent from server HTML — `/blogs` was unreachable for a crawler until it was added to `footerNav`. Add new top-level routes to the footer.
+
+### P10 notes worth carrying forward
+
+- **🟠 `/admin/[section]` publishes, it does not edit.** Changing a college's fee or a blog's body still happens in the Supabase table editor. Per-field forms across eleven entities were out of reach in one phase; the screen says so to the user, not just in a comment.
+- **Never import from `lib/queries/*` into a client component.** Those modules pull `lib/supabase/server.ts` → `next/headers` → the browser bundle breaks at runtime while `tsc` stays green. Shared constants and types go in `config/` — that is why `config/leads.ts` exists separately from `lib/queries/admin.ts`.
+- **`formData.get()` returns `null`, and zod's `.optional()` only accepts `undefined`.** A missing optional field fails the whole parse. This broke sign-in entirely until `?? undefined` was added. Check every `formData.get()` feeding an optional field.
+- **Admin reads and writes use the cookie-bound client, never the service role.** RLS (`is_staff()`) is the actual authorisation boundary; `requireStaff()` is a fast fail with a useful redirect, not security. Using `createAdminClient()` in an admin page would silently bypass the only check there is.
+- **Roles are UI affordances, not a boundary.** RLS treats every active profile as staff and does not distinguish counsellor from editor, so `can()` hides nav and redirects — a determined counsellor could still reach a content mutation. Tighten the policies before that matters.
+- **Staff accounts are created in the Supabase dashboard**, not from `/admin/users`. Creating an auth user needs the service-role key, and exposing that path to a browser session turns one compromised admin into account creation. The `on_auth_user_created` trigger writes the profile row; set the role in `profiles`.
+- **CSV export masks phone numbers for the counsellor role (§15)** and prefixes any cell starting with `=`, `+`, `-` or `@` with an apostrophe so a spreadsheet does not execute it as a formula.
 
 ## §2 Tech stack (fixed — do not substitute)
 
