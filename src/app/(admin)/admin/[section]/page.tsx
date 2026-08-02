@@ -66,9 +66,12 @@ export default async function ContentSectionPage({
   if (!section) notFound();
 
   const supabase = await createClient();
+  // `slug` only exists on the sections that have a public page — asking for it
+  // unconditionally made the query fail outright on testimonials, gallery,
+  // press, banners and faqs, which have no such column.
   const columns = [
     "id",
-    "slug",
+    ...(section.publicPath ? ["slug"] : []),
     section.titleColumn,
     ...section.columns.map((column) => column.key),
     ...(section.visibility ? [section.visibility] : []),
@@ -196,7 +199,9 @@ export default async function ContentSectionPage({
                     ) : null}
 
                     <td className="p-3">
-                      <div className="flex items-center justify-end gap-1">
+                      {/* Edit, publish toggle and delete sit on one row — they
+                          are the same decision surface for a given item. */}
+                      <div className="flex flex-wrap items-center justify-end gap-1">
                         {editable ? (
                           <Button asChild variant="ghost" size="sm">
                             <Link href={`/admin/${section.slug}/${id}`}>
@@ -205,14 +210,14 @@ export default async function ContentSectionPage({
                             </Link>
                           </Button>
                         ) : null}
-                      </div>
-                      <ContentRowActions
+                        <ContentRowActions
                         section={section.slug}
                         id={id}
                         label={label}
                         visibility={section.visibility}
                         visible={visible}
-                      />
+                        />
+                      </div>
                     </td>
                   </tr>
                 );
