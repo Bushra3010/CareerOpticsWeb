@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { Check, ImageIcon } from "lucide-react";
@@ -75,7 +76,14 @@ export async function generateMetadata({
     title: { absolute: title },
     description,
     alternates: { canonical: `/colleges/${college.slug}` },
-    openGraph: { title, description, type: "website" },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      // §10 — dynamic OG card so a WhatsApp share shows the college, not a
+      // generic banner. 85% of this traffic shares links on WhatsApp (§15).
+      images: [{ url: `/api/og/${college.slug}`, width: 1200, height: 630 }],
+    },
   };
 }
 
@@ -222,12 +230,12 @@ export default async function CollegeDetailPage({
                       className="relative aspect-[4/3] overflow-hidden rounded-xl bg-brand-blue-50"
                     >
                       {src ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- gallery URLs are arbitrary storage hosts until next.config remotePatterns is set in P11
-                        <img
+                        <Image
                           src={src}
                           alt={item.caption ?? ""}
-                          loading="lazy"
-                          className="size-full object-cover"
+                          fill
+                          sizes="(min-width: 1024px) 320px, 50vw"
+                          className="object-cover"
                         />
                       ) : (
                         <span className="flex h-full items-center justify-center">

@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 
+import { offices } from "@/config/nav";
 import { siteConfig } from "@/config/site";
+import { JsonLd, organizationSchema, webSiteSchema } from "@/lib/seo/json-ld";
 
 import "./globals.css";
 
@@ -53,7 +55,12 @@ export default function RootLayout({
     // Font variables live on <html> so `--font-sans`/`--font-display`,
     // which Tailwind emits on :root, can resolve them.
     <html lang="en" className={`${inter.variable} ${plusJakartaSans.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        {/* §10 — site-level graph, emitted once for every page. */}
+        <JsonLd data={organizationSchema(siteConfig, offices[0]?.address ?? "")} />
+        <JsonLd data={webSiteSchema(siteConfig)} />
+      </body>
     </html>
   );
 }

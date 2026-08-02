@@ -46,8 +46,8 @@ Built in phases (PRD §16), one phase per working session.
 | **P8** | `/college-finder` 6-step wizard + `/api/finder/step` | ✅ Done |
 | **P9** | Blogs, news, gallery, press, placements, scholarships, static pages, search | ✅ Done |
 | **P10** | `/admin`: auth, middleware, leads inbox, moderation, dashboard | ✅ Done (per-field edit forms not built) |
-| P11 | SEO pass, perf pass, a11y pass, cookie consent, 404/500 | ⬅ **Next** |
-| P12 | Domain, DNS, GA4/GTM, Search Console, launch | Not started |
+| **P11** | SEO pass, perf pass, a11y pass, cookie consent, 404/500 | ✅ Done |
+| P12 | Domain, DNS, GA4/GTM, Search Console, backup, launch | ⬅ **Next** |
 
 **Routes that exist today:** `/`, `/colleges`, `/colleges/[slug]`, `/compare`,
 `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`,
@@ -78,7 +78,27 @@ account and every test row were deleted afterwards.
 
 Every admin read and write goes through the **cookie-bound** Supabase client so
 RLS enforces access. Roles gate the UI only — RLS does not distinguish
-counsellor from editor. `/db-check` was deleted when P3 landed; `/style-guide` is
+counsellor from editor.
+
+### SEO, perf and consent (P11)
+
+`/sitemap.xml` lists 147 URLs and deliberately excludes `/search`, `/compare`,
+filtered listing views, `/style-guide` and `/admin` — all `noindex`.
+`/robots.txt` disallows the same set. `/api/og/[slug]` renders a branded OG card
+per college for WhatsApp shares.
+
+**Every route is now inside the 180 kB First Load JS budget.** Home 176 kB,
+`/colleges` 163 kB, `/colleges/[slug]` 167 kB, taxonomy pages 150 kB. The three
+levers that got it there, all worth preserving:
+
+1. A root `error.tsx` ships with every route — keep it dependency-free.
+2. Inline forms use `DeferredLeadForm`; never import `LeadForm` into a page.
+3. Native `<details>` and `<select>` instead of the Radix equivalents in the
+   listing filters and sort.
+
+Cookie consent is in place and **actually gates analytics**: P12's GTM loader
+must call `hasAnalyticsConsent()` or listen for the `careeroptics:consent`
+event before loading anything. `/db-check` was deleted when P3 landed; `/style-guide` is
 `noindex` scaffolding, keep it as long as it is useful.
 
 Home is statically prerendered with `revalidate = 300` at **164 kB** First Load

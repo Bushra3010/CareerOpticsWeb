@@ -1,5 +1,6 @@
 import { CallbackWidget } from "@/components/forms/callback-widget";
 import { QuickEnquiryModal } from "@/components/forms/quick-enquiry-modal";
+import { CookieConsent } from "@/components/site/cookie-consent";
 import { DeferredToaster } from "@/components/site/deferred-toaster";
 import { MobileStickyBar } from "@/components/site/mobile-sticky-bar";
 import { SiteFooter } from "@/components/site/site-footer";
@@ -27,6 +28,7 @@ export default async function SiteLayout({
       <CallbackWidget />
       <MobileStickyBar />
       <QuickEnquiryModal options={leadOptions} />
+      <CookieConsent />
       <DeferredToaster />
     </div>
   );

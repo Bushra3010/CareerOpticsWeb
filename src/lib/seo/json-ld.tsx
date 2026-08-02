@@ -12,6 +12,59 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+/**
+ * §10 — Organization and WebSite + SearchAction, emitted once from the root
+ * layout so every page carries the site-level graph.
+ */
+export function organizationSchema(site: {
+  name: string;
+  legalName: string;
+  url: string;
+  phone: string;
+  supportEmail: string;
+  social: Record<string, string>;
+}, address: string) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: site.legalName,
+    alternateName: site.name,
+    url: site.url,
+    logo: new URL("/logo.webp", site.url).toString(),
+    email: site.supportEmail,
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: address,
+      addressCountry: "IN",
+    },
+    contactPoint: {
+      "@type": "ContactPoint",
+      telephone: site.phone,
+      contactType: "customer service",
+      areaServed: "IN",
+      availableLanguage: ["en", "hi"],
+    },
+    sameAs: Object.values(site.social),
+  };
+}
+
+export function webSiteSchema(site: { name: string; url: string }) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: site.name,
+    url: site.url,
+    potentialAction: {
+      "@type": "SearchAction",
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: new URL("/search?q={search_term_string}", site.url).toString(),
+      },
+      "query-input": "required name=search_term_string",
+    },
+  };
+}
+
 /** §10 — BreadcrumbList. Paths are absolute so the graph resolves. */
 export function breadcrumbSchema(
   crumbs: { name: string; path: string }[],

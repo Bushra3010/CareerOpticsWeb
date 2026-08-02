@@ -3,14 +3,8 @@
 import * as React from "react";
 
 import { useQueryStates } from "nuqs";
-import { X } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   APPROVALS,
@@ -89,11 +83,8 @@ export function FilterPanel({
         </Button>
       </div>
 
-      <Accordion
-        type="multiple"
-        defaultValue={["stream", "location", "type", "fee"]}
-      >
-        <Group value="stream" label="Stream">
+      <div>
+        <Group value="stream" defaultOpen label="Stream">
           <Radio
             name="stream"
             options={options.streams.map((s) => ({ value: s.slug, label: s.name }))}
@@ -111,7 +102,7 @@ export function FilterPanel({
           />
         </Group>
 
-        <Group value="location" label="State & city">
+        <Group value="location" defaultOpen label="State & city">
           <p className="pb-1 text-sm font-semibold text-ink">State</p>
           <Radio
             name="state"
@@ -130,7 +121,7 @@ export function FilterPanel({
           />
         </Group>
 
-        <Group value="type" label="College type">
+        <Group value="type" defaultOpen label="College type">
           <p className="pb-1 text-sm font-semibold text-ink">Ownership</p>
           <Radio
             name="ownership"
@@ -154,7 +145,7 @@ export function FilterPanel({
           />
         </Group>
 
-        <Group value="fee" label="Fee per year">
+        <Group value="fee" defaultOpen label="Fee per year">
           <Radio
             name="fee"
             options={FEE_BANDS}
@@ -181,31 +172,47 @@ export function FilterPanel({
             onSelect={(value) => update({ rating: value ? Number(value) : null })}
           />
         </Group>
-      </Accordion>
+      </div>
     </div>
   );
 }
 
+/**
+ * A filter group.
+ *
+ * Native `<details>` rather than the Radix Accordion: it drops ~8 kB of JS
+ * from the listing page's first load, and the panel expands and collapses
+ * before React hydrates — which matters most on the slow Android connections
+ * this is built for (§11, §15).
+ */
 function Group({
   value,
   label,
+  defaultOpen = false,
   children,
 }: {
   value: string;
   label: string;
+  defaultOpen?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <AccordionItem value={value}>
-      <AccordionTrigger className="text-base font-semibold text-ink">
+    <details
+      open={defaultOpen}
+      className="group not-last:border-b"
+      data-group={value}
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between py-3 text-base font-semibold text-ink marker:content-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
         {label}
-      </AccordionTrigger>
-      <AccordionContent>
-        {/* Long option lists scroll inside the group rather than pushing the
-            rest of the sidebar off-screen. */}
-        <div className="max-h-56 overflow-y-auto pr-1">{children}</div>
-      </AccordionContent>
-    </AccordionItem>
+        <ChevronDown
+          className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+          aria-hidden
+        />
+      </summary>
+      {/* Long option lists scroll inside the group rather than pushing the
+          rest of the sidebar off-screen. */}
+      <div className="max-h-56 overflow-y-auto pr-1 pb-3">{children}</div>
+    </details>
   );
 }
 

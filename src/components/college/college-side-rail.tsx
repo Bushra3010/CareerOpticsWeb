@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { SideRailLeadForm } from "@/components/college/side-rail-lead-form";
+import { DeferredLeadForm } from "@/components/forms/deferred-lead-form";
 import { Rating } from "@/components/ui/rating";
 import type { SimilarCollege } from "@/lib/queries/college-detail";
 import { initials } from "@/lib/media";
@@ -29,7 +29,12 @@ export function CollegeSideRail({
           Ask about {collegeName} admission, fees and cut-offs. No charge, no
           obligation.
         </p>
-        <SideRailLeadForm collegeId={collegeId} />
+        <DeferredLeadForm
+          source="college_detail"
+          collegeId={collegeId}
+          fields={["city", "level"]}
+          className="mt-4"
+        />
       </section>
 
       {similar.length > 0 ? (

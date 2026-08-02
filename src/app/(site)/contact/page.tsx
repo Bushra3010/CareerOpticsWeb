@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 import { Clock, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 
-import { LeadForm } from "@/components/forms/lead-form";
+import { DeferredLeadForm } from "@/components/forms/deferred-lead-form";
 import { PageHeader } from "@/components/taxonomy/page-header";
 import { mapQuery, offices } from "@/config/nav";
 import { siteConfig, telHref, whatsappHref } from "@/config/site";
@@ -126,7 +126,7 @@ export default async function ContactPage() {
               <p className="mt-1 text-sm text-body">
                 Tell us what you are looking for and a counsellor will call you.
               </p>
-              <LeadForm
+              <DeferredLeadForm
                 source="contact"
                 fields={["email", "city", "level", "course", "message"]}
                 courses={options.courses}

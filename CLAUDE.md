@@ -28,7 +28,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P8 — done.** `/college-finder` 6-step wizard, `/api/finder/step`, matched-college result view. Verified: a partial funnel lands in `finder_sessions` with no `lead_id`; the final submit creates a lead with `source='college_finder'` and the six answers as jsonb, and links the session to it.
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done (with one gap).** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and a publish/unpublish/delete screen for all eleven content tables. **Per-field editing forms are not built** — see below.
-- **P11 — next.** SEO pass (sitemap, robots, OG images, redirects), perf pass, a11y pass, cookie consent, 404/500.
+- **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
+- **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -100,6 +101,16 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Roles are UI affordances, not a boundary.** RLS treats every active profile as staff and does not distinguish counsellor from editor, so `can()` hides nav and redirects — a determined counsellor could still reach a content mutation. Tighten the policies before that matters.
 - **Staff accounts are created in the Supabase dashboard**, not from `/admin/users`. Creating an auth user needs the service-role key, and exposing that path to a browser session turns one compromised admin into account creation. The `on_auth_user_created` trigger writes the profile row; set the role in `profiles`.
 - **CSV export masks phone numbers for the counsellor role (§15)** and prefixes any cell starting with `=`, `+`, `-` or `@` with an apostrophe so a spreadsheet does not execute it as a formula.
+
+### P11 notes worth carrying forward
+
+- **A root `error.tsx` ships with every route.** It is a client boundary, so anything it imports is paid for on pages that never error — importing `Button` alone cost ~12 kB site-wide. Keep it dependency-free.
+- **Inline forms use `DeferredLeadForm`, buttons use `LeadDialog`.** Importing `LeadForm` eagerly pulls react-hook-form + zod (~45 kB); that is what made `/contact` 267 kB. Never import `LeadForm` directly into a page.
+- **Native `<details>` and `<select>` beat the Radix equivalents here.** Swapping the filter Accordion and the sort Select for native controls took `/colleges` from 196 to 163 kB, works before hydration, and gives Android its own picker. Reach for a primitive when it needs behaviour the platform lacks, not by default.
+- **`hasAnalyticsConsent()` is the real gate.** Nothing tracking-related may run before it returns true — P12's GTM loader must check it, or listen for the `careeroptics:consent` event. The finder session cookie and the admin auth session are strictly necessary and do not wait.
+- **Both consent buttons carry the same visual weight** on purpose. Consent that was nudged is not consent.
+- **Slugs are immutable.** A rename goes in `next.config.ts` redirects, not by editing the row — otherwise every indexed URL and inbound link breaks. The table is wired and currently holds only the legacy `/tenth`, `/twelve`, `/ug`, `/pg` paths.
+- **No CSP yet.** Baseline headers are set; a full policy needs the GTM and Meta domains from P12, and a wrong CSP that blocks the site is worse than none.
 
 ## §2 Tech stack (fixed — do not substitute)
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 import { ImageIcon } from "lucide-react";
 
@@ -56,12 +57,12 @@ export default async function GalleryPage() {
                   <figure className="card-lift overflow-hidden rounded-xl border bg-card">
                     <div className="relative aspect-[4/3] bg-brand-blue-50">
                       {src ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- gallery URLs are arbitrary storage hosts until next.config remotePatterns is set in P11
-                        <img
+                        <Image
                           src={src}
                           alt={item.caption ?? ""}
-                          loading="lazy"
-                          className="size-full object-cover"
+                          fill
+                          sizes="(min-width: 1024px) 380px, 100vw"
+                          className="object-cover"
                         />
                       ) : (
                         <span className="flex h-full items-center justify-center">
