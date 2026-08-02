@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { Phone } from "lucide-react";
+import { MessageCircle, Phone } from "lucide-react";
 
 import { Logo } from "@/components/site/logo";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { levelNav, mainNav } from "@/config/nav";
-import { siteConfig, telHref } from "@/config/site";
+import { siteConfig, telHref, whatsappHref } from "@/config/site";
 
 /**
  * Drawer body for MobileNav. Split into its own module so the Radix Dialog
@@ -77,6 +77,18 @@ export function MobileNavSheet({
             <a href={telHref}>
               <Phone />
               Call {siteConfig.phoneDisplay}
+            </a>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="mt-2 w-full">
+            <a
+              href={whatsappHref(
+                `Hi ${siteConfig.name}, I need admission guidance.`,
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <MessageCircle />
+              WhatsApp us
             </a>
           </Button>
         </div>

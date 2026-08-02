@@ -2,7 +2,8 @@ import { CallbackWidget } from "@/components/forms/callback-widget";
 import { QuickEnquiryModal } from "@/components/forms/quick-enquiry-modal";
 import { CookieConsent } from "@/components/site/cookie-consent";
 import { DeferredToaster } from "@/components/site/deferred-toaster";
-import { MobileStickyBar } from "@/components/site/mobile-sticky-bar";
+import { MobileMenuProvider } from "@/components/site/mobile-menu";
+import { MobileTabBar } from "@/components/site/mobile-tab-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { WhatsAppFab } from "@/components/site/whatsapp-fab";
@@ -19,17 +20,21 @@ export default async function SiteLayout({
   const leadOptions = await getLeadFormOptions();
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <SiteHeader />
-      {/* pb-14 keeps the mobile sticky bar from covering the last section */}
-      <main className="flex-1 pb-14 lg:pb-0">{children}</main>
-      <SiteFooter />
-      <WhatsAppFab />
-      <CallbackWidget />
-      <MobileStickyBar />
-      <QuickEnquiryModal options={leadOptions} />
-      <CookieConsent />
-      <DeferredToaster />
-    </div>
+    // Provider wraps the shell so the header's account button and the bottom
+    // bar's Profile tab open the same drawer.
+    <MobileMenuProvider>
+      <div className="flex min-h-dvh flex-col">
+        <SiteHeader />
+        {/* pb-16 keeps the mobile tab bar from covering the last section */}
+        <main className="flex-1 pb-16 lg:pb-0">{children}</main>
+        <SiteFooter />
+        <WhatsAppFab />
+        <CallbackWidget />
+        <MobileTabBar />
+        <QuickEnquiryModal options={leadOptions} />
+        <CookieConsent />
+        <DeferredToaster />
+      </div>
+    </MobileMenuProvider>
   );
 }

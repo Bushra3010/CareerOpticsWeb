@@ -4,12 +4,16 @@ import { Bell, ChevronDown, Grid3x3, MessageCircle, Phone, Search } from "lucide
 
 import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Logo } from "@/components/site/logo";
-import { MobileNav } from "@/components/site/mobile-nav";
+import {
+  AccountButton,
+  NotificationsButton,
+} from "@/components/site/mobile-menu";
 import { Button } from "@/components/ui/button";
 import { siteConfig, telHref, whatsappHref } from "@/config/site";
 
 /**
- * §5.1 items 1–2. Server-rendered; MobileNav is the only client leaf.
+ * §5.1 items 1–2. Server-rendered; the bell and account controls are the only
+ * client leaves, and the account button opens the shared mobile drawer.
  * The functional GoalCitySelector and MegaSearch land in P3 — the header
  * currently renders their static shells so the layout is final.
  */
@@ -93,7 +97,8 @@ export function SiteHeader() {
             >
               <Button className="hidden lg:inline-flex">Need Counselling</Button>
             </LeadDialog>
-            <MobileNav />
+            <NotificationsButton />
+            <AccountButton />
           </div>
         </div>
       </header>
