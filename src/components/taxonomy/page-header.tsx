@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 
 import {
   Breadcrumb,
@@ -33,17 +34,22 @@ export function PageHeader({
                 <Link href="/">Home</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
+            {/* The separator is a sibling of the item, never a child: both
+                render an <li>, and a nested <li> is invalid HTML that trips a
+                hydration error on every page using this header. */}
             {crumbs.map((crumb) => (
-              <BreadcrumbItem key={crumb.name}>
+              <Fragment key={crumb.name}>
                 <BreadcrumbSeparator />
-                {crumb.href ? (
-                  <BreadcrumbLink asChild>
-                    <Link href={crumb.href}>{crumb.name}</Link>
-                  </BreadcrumbLink>
-                ) : (
-                  <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
-                )}
-              </BreadcrumbItem>
+                <BreadcrumbItem>
+                  {crumb.href ? (
+                    <BreadcrumbLink asChild>
+                      <Link href={crumb.href}>{crumb.name}</Link>
+                    </BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
+                  )}
+                </BreadcrumbItem>
+              </Fragment>
             ))}
           </BreadcrumbList>
         </Breadcrumb>

@@ -66,6 +66,12 @@ export const leadSchema = z.object({
   utm_campaign: z.string().max(120).optional().or(z.literal("")),
   utm_content: z.string().max(120).optional().or(z.literal("")),
   /**
+   * Structured payload attached to the lead — the College Finder's six answers
+   * (§5.4). Bounded to plain scalars so a client cannot post an arbitrary blob
+   * into the column.
+   */
+  answers: z.record(z.string().max(40), z.string().max(200)).optional(),
+  /**
    * Honeypot — bots fill it, humans never see it. Must stay empty.
    *
    * §8 writes this as `z.string().max(0)`, but rejecting it here returns a

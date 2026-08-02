@@ -25,7 +25,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P5 — done.** `/colleges` with 10 URL-driven filters (nuqs), 4 sorts, 24/page pagination, mobile filter sheet, inline lead card every 6th result, and `/compare?ids=`. Verified against the live DB: engineering 14, Bihar 10, Patna 6, fee≤₹1L 8, engineering+Bihar 4.
 - **P6 — done.** `/colleges/[slug]` with hero, action bar, scroll-spy tabs, Courses & Fees table, reviews + submission, sticky right rail, `/api/reviews`, `/api/brochure`, ISR `revalidate = 3600` with 15 featured slugs prerendered, and `CollegeOrUniversity` + `BreadcrumbList` JSON-LD. **Found and fixed a live rating-wipe bug — see below.**
 - **P7 — done.** `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`, `/city/[slug]`, the four level hubs and `/guides/[level]/[slug]`. ~119 pages prerendered at 137 kB each. Crawled the whole site: every remaining 404 belongs to P8/P9.
-- **P8 — next.** `/college-finder` 6-step wizard + `/api/finder/step`.
+- **P8 — done.** `/college-finder` 6-step wizard, `/api/finder/step`, matched-college result view. Verified: a partial funnel lands in `finder_sessions` with no `lead_id`; the final submit creates a lead with `source='college_finder'` and the six answers as jsonb, and links the session to it.
+- **P9 — next.** Blogs, news, gallery, press, placements, scholarships, static pages, global search.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -69,6 +70,15 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **`/city/[slug]` only prerenders cities that have a published college** — 18 of the 120 seeded ones. Prerendering all of them would ship empty pages for search engines to index.
 - **A guide whose URL level does not match its row is a 404**, not a second copy of the same article at another path (§10 canonicals). Guide bodies render as plain paragraphs; a markdown renderer arrives with the blog in P9.
 - **Taxonomy pages are the interlinking layer.** Every college card and the detail hero link their city to `/city/[slug]`; courses link to their stream; exams link to the courses they feed and the colleges that accept them. When adding a page, add the inbound link too — the city pages were orphaned until the crawl caught it.
+
+### P8 notes worth carrying forward
+
+- **`PageHeader` puts the breadcrumb separator as a *sibling* of the item, never a child.** Both render an `<li>`, and a nested `<li>` is invalid HTML that trips a hydration error on every page using the header. Caught by the browser console during P8, after it had shipped across all of P7.
+- **The result view is a URL, not client state.** The wizard pushes `/college-finder?matched=1&stream=…`, and the server renders the shortlist through the existing `listColleges` — no second endpoint and no client fetch. The result view is `noindex, follow` (§10).
+- **Matches relax progressively.** City → state → budget → course are dropped in that order until something matches, and the UI says plainly which preference was widened. A student who answered six questions must never see an empty page.
+- **`QuickEnquiryModal` is suppressed on `/college-finder`.** It fired mid-wizard during testing. Add any future funnel route to `SUPPRESSED_PATHS`.
+- **zod and sonner are imported at the call site in the wizard**, not at the top — that is the difference between 220 kB and 142 kB First Load JS. The schema is still the shared one, never re-implemented.
+- **`/api/leads` merges `answers`** from the payload with the §9 `duplicate_of` pointer rather than one overwriting the other.
 
 ## §2 Tech stack (fixed — do not substitute)
 

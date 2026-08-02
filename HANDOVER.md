@@ -43,14 +43,16 @@ Built in phases (PRD §16), one phase per working session.
 | **P5** | `/colleges` listing + filters + sort + pagination + compare | ✅ Done |
 | **P6** | `/colleges/[slug]` detail: tabs, right-rail form, reviews, brochure gate | ✅ Done |
 | **P7** | `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides` | ✅ Done |
-| P8 | `/college-finder` 6-step wizard + `/api/finder/step` | ⬅ **Next** |
-| P9–P12 | Content, admin, SEO, launch | Not started |
+| **P8** | `/college-finder` 6-step wizard + `/api/finder/step` | ✅ Done |
+| P9 | Blogs, news, gallery, press, placements, scholarships, static pages, search | ⬅ **Next** |
+| P10–P12 | Admin, SEO, launch | Not started |
 
 **Routes that exist today:** `/`, `/colleges`, `/colleges/[slug]`, `/compare`,
 `/courses`, `/courses/[slug]`, `/streams/[slug]`, `/exams`, `/exams/[slug]`,
 `/city/[slug]`, `/after-10th`, `/after-12th`, `/after-graduation`, `/after-pg`,
-`/guides/[level]/[slug]`, `POST /api/leads`, `POST /api/reviews`,
-`POST /api/brochure` and `/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
+`/guides/[level]/[slug]`, `/college-finder`, `POST /api/leads`,
+`POST /api/reviews`, `POST /api/brochure`, `POST /api/finder/step` and
+`/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
 `noindex` scaffolding, keep it as long as it is useful.
 
 Home is statically prerendered with `revalidate = 300` at **164 kB** First Load
@@ -117,6 +119,21 @@ to P8 (`/college-finder`) and P9 (`/scholarships`, `/gallery`, `/press-release`,
 
 **When you add a page, add the inbound link too.** The city pages rendered fine
 but nothing linked to them until the crawl caught it.
+
+### The College Finder (P8)
+
+Six steps, each saved to `finder_sessions` against an anonymous cookie, so a
+student who drops out at step 4 still leaves a recoverable funnel with no
+`lead_id`. The final step creates a lead with `source='college_finder'` and the
+six answers attached as jsonb, then links the session to it.
+
+The shortlist is a URL, not client state: the wizard pushes
+`/college-finder?matched=1&stream=…` and the server renders matches through the
+existing `listColleges`. When nothing matches exactly it relaxes city → state →
+budget → course in that order and says which preference it widened.
+
+`QuickEnquiryModal` is suppressed on this route — it fired mid-wizard during
+testing. Add future funnel routes to `SUPPRESSED_PATHS`.
 
 **Not set up yet:** Vercel project, custom domain, GA4/GTM, Resend, Upstash.
 

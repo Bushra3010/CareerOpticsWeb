@@ -110,7 +110,13 @@ export async function POST(request: NextRequest) {
     utm_medium: emptyToNull(lead.utm_medium),
     utm_campaign: emptyToNull(lead.utm_campaign),
     utm_content: emptyToNull(lead.utm_content),
-    answers: earlier ? { duplicate_of: earlier.id } : null,
+    // §5.4 attaches the finder's answers here; §9 step 6 adds the duplicate
+    // pointer. Both can apply to the same row, so they are merged rather than
+    // one overwriting the other.
+    answers:
+      lead.answers || earlier
+        ? { ...(lead.answers ?? {}), ...(earlier ? { duplicate_of: earlier.id } : {}) }
+        : null,
     ip: asInet(ip),
     user_agent: request.headers.get("user-agent")?.slice(0, 500) ?? null,
   };

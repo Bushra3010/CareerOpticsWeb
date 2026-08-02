@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import * as React from "react";
 
 import type { LeadFormOptions } from "@/lib/queries/leads";
@@ -18,6 +19,13 @@ const MOBILE_DELAY_MS = 25_000;
 const SESSION_KEY = "careeroptics:quick-enquiry-shown";
 
 /**
+ * Routes that are already a lead funnel. Interrupting a student halfway
+ * through the College Finder with a second enquiry form costs the conversion
+ * we are in the middle of collecting.
+ */
+const SUPPRESSED_PATHS = ["/college-finder"];
+
+/**
  * Quick Enquiry modal (§5.1 floating UI). Opens once per browser session so a
  * visitor who dismisses it is not nagged on every page.
  *
@@ -28,8 +36,10 @@ const SESSION_KEY = "careeroptics:quick-enquiry-shown";
 export function QuickEnquiryModal({ options }: { options: LeadFormOptions }) {
   const [open, setOpen] = React.useState(false);
   const [loaded, setLoaded] = React.useState(false);
+  const pathname = usePathname();
 
   React.useEffect(() => {
+    if (SUPPRESSED_PATHS.some((path) => pathname?.startsWith(path))) return;
     if (sessionStorage.getItem(SESSION_KEY)) return;
 
     let timer: number | undefined;
@@ -63,7 +73,7 @@ export function QuickEnquiryModal({ options }: { options: LeadFormOptions }) {
     }
 
     return cleanup;
-  }, []);
+  }, [pathname]);
 
   if (!loaded) return null;
 
