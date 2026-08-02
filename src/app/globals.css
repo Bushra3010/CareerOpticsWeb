@@ -26,6 +26,24 @@
   --color-surface: #f8fafc;
   --color-success: #16a34a;
 
+  /* Stream accents — a scoped extension of §6.1, used ONLY to colour-code the
+     study-goal cards. §6.1's own palette cannot do this job: brand-orange
+     (3.0:1), success (3.3:1) and brand-amber (1.8:1) all fail the §6.5 4.5:1
+     floor for small text on white, and spreading brand-red across nine cards
+     would break the "red is ≤10% of any viewport" rule. Each pair below is a
+     text-safe shade plus its tint; every text shade clears 4.5:1 on white.
+     Do not reach for these anywhere else — the rest of the site is brand-only. */
+  --color-stream-violet: #6d28d9; /* 8.4:1 */
+  --color-stream-violet-tint: #f3f0ff;
+  --color-stream-orange: #c2410c; /* 6.0:1 */
+  --color-stream-orange-tint: #fff3ea;
+  --color-stream-green: #15803d; /* 4.8:1 */
+  --color-stream-green-tint: #ecfdf3;
+  --color-stream-blue: #0b3b8c; /* brand-blue, 10.9:1 */
+  --color-stream-blue-tint: #eef3fc;
+  --color-stream-pink: #be185d; /* 6.2:1 */
+  --color-stream-pink-tint: #fdf2f8;
+
   /* Typography (§6.2) — Plus Jakarta Sans display, Inter body/UI */
   --font-sans: var(--font-inter, ui-sans-serif), system-ui, sans-serif;
   --font-display:

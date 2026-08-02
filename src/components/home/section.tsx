@@ -11,16 +11,22 @@ import { cn } from "@/lib/utils";
 export function Section({
   id,
   title,
+  titleAccent,
   description,
   action,
+  actionStyle = "link",
   tinted = false,
   className,
   children,
 }: {
   id?: string;
   title: string;
+  /** Trailing words rendered in brand blue, e.g. "Select Your" + "Study Goal". */
+  titleAccent?: string;
   description?: string;
   action?: { label: string; href: string };
+  /** "button" renders the action as a raised white pill instead of a text link. */
+  actionStyle?: "link" | "button";
   tinted?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -39,6 +45,12 @@ export function Section({
               className="heading-underline text-h2"
             >
               {title}
+              {titleAccent ? (
+                <>
+                  {" "}
+                  <span className="text-brand-blue-400">{titleAccent}</span>
+                </>
+              ) : null}
             </h2>
             {description ? (
               <p className="mt-4 max-w-2xl text-pretty text-body">
@@ -49,7 +61,12 @@ export function Section({
           {action ? (
             <Link
               href={action.href}
-              className="inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-brand-blue-400 hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+              className={cn(
+                "inline-flex items-center gap-1 text-sm font-semibold text-brand-blue-400 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none",
+                actionStyle === "button"
+                  ? "h-11 gap-2 rounded-full border bg-white px-5 shadow-card transition-shadow hover:shadow-card-hover"
+                  : "rounded-lg hover:underline",
+              )}
             >
               {action.label}
               <ArrowRight className="size-4" aria-hidden />

@@ -78,9 +78,11 @@ export default async function HomePage() {
       {goals.length > 0 ? (
         <Section
           id="study-goals"
-          title="Select Your Study Goal"
-          description="Pick a stream to see the colleges, courses and entrance exams that lead into it."
-          action={{ label: "All courses", href: "/courses" }}
+          title="Select Your"
+          titleAccent="Study Goal"
+          description="Pick a stream to explore top colleges, courses and entrance exams that lead into your dream career."
+          action={{ label: "View All Courses", href: "/courses" }}
+          actionStyle="button"
         >
           <StudyGoalCards goals={goals} />
         </Section>

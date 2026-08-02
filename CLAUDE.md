@@ -38,7 +38,11 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - The §11 layout debt is fixed: the mobile-nav Sheet and the sonner Toaster are both behind `dynamic(…, {ssr:false})` (`site/mobile-nav-sheet.tsx`, `site/deferred-toaster.tsx`). Keep new modals on that pattern.
 - Public content reads go through `lib/supabase/public.ts` (anon, **no cookie binding**) so pages stay statically renderable. `server.ts` reads cookies and forces dynamic rendering — use it only when the query depends on the session.
 - `lib/media.ts#imageSrc` maps the `/seed/...` paths in `seed.sql` to `null`, so sections fall back to branded placeholders instead of broken images. Real Storage URLs render with no code change.
-- The stats strip counts only real rows (colleges/courses/exams/cities). §5.1's "Students Guided" counter is deliberately absent — there is no verified figure and inventing one is the trust problem flagged in `seed.sql`.
+- The stats strip counts only real rows (colleges/courses/exams/cities). §5.1's "Students Guided" counter is deliberately absent — there is no verified figure and inventing one is the trust problem flagged in `seed.sql`. The same reasoning rules out "Students Helped" and "Success Rate": a design comp asked for both and they were left out rather than invented.
+- **`--color-stream-*` is a scoped extension of §6.1, for the study-goal cards only.** Colour-coding nine streams cannot be done with the brand palette: `brand-orange` (3.0:1), `success` (3.3:1) and `brand-amber` (1.8:1) all fail the §6.5 4.5:1 floor for small text on white, and spreading `brand-red` across nine cards would break "red is ≤10% of any viewport". Five accents rotate so no two neighbours match, and every text shade clears 4.5:1. Do not use these tokens anywhere else.
+- `Section` takes optional `titleAccent` (trailing words in `brand-blue-400`) and `actionStyle="button"` (raised white pill instead of a text link). Both default off, so the other twelve sections are untouched.
+- `ScrollRow` takes optional `dots`. They are `aria-hidden` on purpose — the rail itself is already keyboard-reachable, so exposing them would duplicate the same navigation to assistive tech.
+- **Home is 176 kB First Load JS, not the 161 kB recorded above** — that figure predates the P4–P11 shared code. Measured against a clean worktree build of the previous commit, so 176 kB is the real baseline. Only ~4 kB of headroom against the §11 budget.
 
 ### P4 notes worth carrying forward
 
