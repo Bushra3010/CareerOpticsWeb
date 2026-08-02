@@ -19,6 +19,8 @@ export type LeadDialogProps = {
   courses?: CourseOption[];
   colleges?: CollegeOption[];
   collegeId?: string;
+  /** Pre-selects a course, e.g. the Apply button on a Courses & Fees row. */
+  courseId?: string;
   submitLabel?: string;
 };
 
@@ -36,6 +38,7 @@ export function LeadDialogContent({
   courses,
   colleges,
   collegeId,
+  courseId,
   submitLabel,
 }: LeadDialogProps & {
   open: boolean;
@@ -57,6 +60,7 @@ export function LeadDialogContent({
           courses={courses}
           colleges={colleges}
           collegeId={collegeId}
+          courseId={courseId}
           submitLabel={submitLabel}
         />
       </DialogContent>

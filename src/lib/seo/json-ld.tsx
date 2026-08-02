@@ -12,6 +12,82 @@ export function JsonLd({ data }: { data: Record<string, unknown> }) {
   );
 }
 
+/** §10 — BreadcrumbList. Paths are absolute so the graph resolves. */
+export function breadcrumbSchema(
+  crumbs: { name: string; path: string }[],
+  siteUrl: string,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((crumb, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: crumb.name,
+      item: new URL(crumb.path, siteUrl).toString(),
+    })),
+  };
+}
+
+/**
+ * §10 — CollegeOrUniversity with AggregateRating.
+ *
+ * The rating block is emitted **only** when approved reviews exist. Google
+ * treats an AggregateRating with no reviews behind it as a structured-data
+ * violation, and the seeded `colleges.rating` values are decorative until the
+ * first review is approved.
+ */
+export function collegeSchema(
+  college: {
+    name: string;
+    slug: string;
+    about: string | null;
+    website: string | null;
+    logo_url: string | null;
+    address: string | null;
+    rating: number | null;
+    review_count: number | null;
+    cities?: { name: string; states?: { name: string } | null } | null;
+  },
+  siteUrl: string,
+) {
+  const hasReviews = (college.review_count ?? 0) > 0 && (college.rating ?? 0) > 0;
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "CollegeOrUniversity",
+    name: college.name,
+    url: new URL(`/colleges/${college.slug}`, siteUrl).toString(),
+    ...(college.about ? { description: college.about } : {}),
+    ...(college.website ? { sameAs: [college.website] } : {}),
+    ...(college.logo_url ? { logo: college.logo_url } : {}),
+    ...(college.address || college.cities
+      ? {
+          address: {
+            "@type": "PostalAddress",
+            ...(college.address ? { streetAddress: college.address } : {}),
+            ...(college.cities?.name ? { addressLocality: college.cities.name } : {}),
+            ...(college.cities?.states?.name
+              ? { addressRegion: college.cities.states.name }
+              : {}),
+            addressCountry: "IN",
+          },
+        }
+      : {}),
+    ...(hasReviews
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: Number(college.rating),
+            reviewCount: college.review_count,
+            bestRating: 5,
+            worstRating: 1,
+          },
+        }
+      : {}),
+  };
+}
+
 /** §10 — FAQPage, emitted by any page that renders an FAQ accordion. */
 export function faqPageSchema(
   faqs: { question: string | null; answer: string | null }[],

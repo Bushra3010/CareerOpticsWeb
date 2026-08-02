@@ -80,6 +80,7 @@ async function boot() {
     "migrations/0001_init.sql",
     "migrations/0002_rls.sql",
     "migrations/0003_storage.sql",
+    "migrations/0004_review_rating_guard.sql",
     "seed.sql",
   ]) {
     try {
@@ -132,6 +133,25 @@ const { rows: anonPolicies } = await db.query(`
     and roles::text like '%anon%'
 `);
 check(anonPolicies.length === 0, "no anon policy on private tables", anonPolicies.map((p) => `${p.tablename}.${p.policyname}`).join(", "));
+
+// Regression for 0004: a *pending* review on a college that has no approved
+// reviews must leave the existing rating alone. Before the guard this zeroed
+// the rating, which any visitor could trigger through the public /api/reviews.
+const { rows: seeded } = await db.query(
+  `select rating::float8 as rating from colleges where slug = 'nit-patna'`,
+);
+await db.exec(`
+  insert into reviews (college_id, name, rating, body, is_approved)
+  select id, 'Pending', 1, 'spam', false from colleges where slug = 'nit-patna';
+`);
+const { rows: afterPending } = await db.query(
+  `select rating::float8 as rating, review_count from colleges where slug = 'nit-patna'`,
+);
+check(
+  afterPending[0].rating === seeded[0].rating && afterPending[0].review_count === 0,
+  "pending review does not touch college rating",
+  `rating ${afterPending[0].rating} (seeded ${seeded[0].rating}), count ${afterPending[0].review_count}`,
+);
 
 await db.exec(`
   insert into reviews (college_id, name, rating, body, is_approved)

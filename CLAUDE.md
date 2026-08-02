@@ -23,7 +23,8 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P3 — done.** Home sections 3–16 of §5.1 with live DB data, `lib/queries/home.ts`, `components/home/*`, `CollegeCard`, `FAQPage` JSON-LD, `revalidate = 300`. Home builds static at **161 kB** First Load JS (§11 budget 180 kB). `/db-check` deleted.
 - **P4 — done.** `/api/leads` (zod → honeypot → rate limit → service-role insert → notify), `LeadForm`, `LeadDialog`, `QuickEnquiryModal`, `CallbackWidget`, Resend alerts, GTM/Pixel hooks. Verified: `home_hero`, `callback` and `apply_now` each create a row with the right `source`; `apply_now` carries `college_id`; a repeat phone inside 24h gets `answers.duplicate_of`. Home 162 kB First Load JS.
 - **P5 — done.** `/colleges` with 10 URL-driven filters (nuqs), 4 sorts, 24/page pagination, mobile filter sheet, inline lead card every 6th result, and `/compare?ids=`. Verified against the live DB: engineering 14, Bihar 10, Patna 6, fee≤₹1L 8, engineering+Bihar 4.
-- **P6 — next.** `/colleges/[slug]` full detail with tabs, right-rail form, reviews and the brochure gate.
+- **P6 — done.** `/colleges/[slug]` with hero, action bar, scroll-spy tabs, Courses & Fees table, reviews + submission, sticky right rail, `/api/reviews`, `/api/brochure`, ISR `revalidate = 3600` with 15 featured slugs prerendered, and `CollegeOrUniversity` + `BreadcrumbList` JSON-LD. **Found and fixed a live rating-wipe bug — see below.**
+- **P7 — next.** `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides`.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
 
@@ -51,6 +52,14 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Ownership is derived, not a column.** §5.2 lists Ownership and College Type separately but the schema has one `type` enum, so Ownership is the coarse grouping over it (`config/filters.ts`). Unknown enum values from a hand-edited URL are dropped in `resolveTypes` — Postgres 500s on an unknown enum member otherwise.
 - **"Popularity" is a proxy.** There is no popularity column; it sorts featured first, then review count, then rating.
 - **The nuqs adapter is mounted on `app/(site)/colleges/layout.tsx`, not the root layout.** Keeping it out of the shared chunk is worth ~6 kB on every other route.
+
+### P6 notes worth carrying forward
+
+- **🔴 `0004_review_rating_guard.sql` must be applied to the live project by hand.** The 0001 trigger recomputed `colleges.rating` on *every* review write, so the first **pending** review on a college averaged over zero approved rows and set the rating to 0. Because `/api/reviews` is public, any visitor could zero every rating on the site. Reproduced against the live database during P6, fixed by a guard in the function body, and covered by a `db:verify` regression. `supabase migration repair` still has not been run, so `db push` will not apply it — paste the file into the Supabase SQL Editor.
+- **Two dynamic imports keep the detail page inside budget.** The right-rail `LeadForm` and the review form pull react-hook-form + zod (~45 kB); loading both behind `dynamic(…, {ssr:false})` took the page from **264 kB to 155 kB**. The rail form still appears without a click, behind a matching skeleton. Do not import `LeadForm` eagerly into a page.
+- **`CollegeHero` needs `relative z-10` on its content block.** The banner above it is `position: relative`, so it paints over non-positioned siblings and swallows the overlapping logo plate. The heading also sits *below* the banner, not over it — `text-ink` on navy fails the §6.5 contrast floor.
+- **AggregateRating is only emitted when approved reviews exist.** Google treats a rating with nothing behind it as a structured-data violation, and the seeded `colleges.rating` values are decorative until the first review is approved.
+- **The brochure gate is dormant.** No seeded college has a `brochure_url`, so the button never renders. `/api/brochure` is complete: it stores the lead first, then mints a 60-second signed URL from the private bucket.
 
 ## §2 Tech stack (fixed — do not substitute)
 

@@ -41,17 +41,17 @@ Built in phases (PRD §16), one phase per working session.
 | **P3** | Home sections 4–17 of §5.1 with real DB data | ✅ Done |
 | **P4** | Lead engine: `LeadForm`, `QuickEnquiryModal`, `CallbackWidget`, `/api/leads`, Resend, rate limit | ✅ Done |
 | **P5** | `/colleges` listing + filters + sort + pagination + compare | ✅ Done |
-| P6 | `/colleges/[slug]` detail: tabs, right-rail form, reviews, brochure gate | ⬅ **Next** |
-| P7–P12 | Taxonomy, finder, content, admin, SEO, launch | Not started |
+| **P6** | `/colleges/[slug]` detail: tabs, right-rail form, reviews, brochure gate | ✅ Done |
+| P7 | `/courses`, `/streams`, `/exams`, `/city`, level hubs, `/guides` | ⬅ **Next** |
+| P8–P12 | Finder, content, admin, SEO, launch | Not started |
 
-**Routes that exist today:** `/`, `/colleges`, `/compare`, `POST /api/leads` and
-`/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
+**Routes that exist today:** `/`, `/colleges`, `/colleges/[slug]`, `/compare`,
+`POST /api/leads`, `POST /api/reviews`, `POST /api/brochure` and `/style-guide`. `/db-check` was deleted when P3 landed; `/style-guide` is
 `noindex` scaffolding, keep it as long as it is useful.
 
-Home is statically prerendered with `revalidate = 300` at **162 kB** First Load
+Home is statically prerendered with `revalidate = 300` at **164 kB** First Load
 JS, inside the 180 kB budget. Every section is DB-driven and hides itself when
-its table is empty, so the page degrades rather than breaking. The only API
-route is `POST /api/leads`.
+its table is empty, so the page degrades rather than breaking.
 
 ### The lead engine (P4)
 
@@ -82,6 +82,22 @@ database view before the catalogue passes 500 colleges.**
 Compare selection is localStorage, not URL state: it has to survive filtering
 and paging without colliding with the filter params. `/compare?ids=a,b,c` reads
 the ids straight from the query string and caps them at three.
+
+### The college detail page (P6)
+
+`/colleges/[slug]` is ISR at `revalidate = 3600`, with the 15 featured colleges
+prerendered by `generateStaticParams` and the rest generated on first request.
+It emits `CollegeOrUniversity` and `BreadcrumbList` JSON-LD; the AggregateRating
+block only appears once approved reviews exist.
+
+It is **155 kB** First Load JS, and stays there only because the right-rail lead
+form and the review form are both behind `dynamic(…, {ssr:false})` — importing
+`LeadForm` eagerly puts it back over 260 kB.
+
+Reviews submit through `POST /api/reviews` as `is_approved = false` and are
+invisible to `anon` until an editor approves them in P10. `POST /api/brochure`
+stores the lead first and returns a 60-second signed URL, but no seeded college
+has a `brochure_url`, so the button does not render yet.
 
 **Not set up yet:** Vercel project, custom domain, GA4/GTM, Resend, Upstash.
 
@@ -125,8 +141,10 @@ pnpm dev                       # http://localhost:3000
 
 Sanity checks:
 
-- `/db-check` should show green pills, all row counts populated, and `leads blocked for anon`
+- `/` should render every home section with live data (25 colleges, 12 exams, 8 testimonials)
+- `/colleges?stream=engineering` should return 14 results
 - `/style-guide` should render every UI component in brand colours
+- `pnpm db:verify` should end with "All database checks passed" 
 
 ### Commands
 
@@ -158,7 +176,7 @@ src/
     nav.ts            course chips, main/level nav, footer columns, office address
   components/
     home/             the §5.1 home sections + the Section/ScrollRow shells
-    college/          CollegeCard — shared with the P5 listing
+    college/          listing cards, filters, compare, and the §5.3 detail sections
     forms/            LeadForm · LeadDialog · QuickEnquiryModal · CallbackWidget
   lib/
     supabase/         client (browser) · server (SSR) · public (anon, no cookies) · admin (service role)
@@ -346,6 +364,7 @@ PressStrip · FaqAccordion` (P3) · `LeadForm · QuickEnquiryModal · CallbackWi
 | `migration repair` not yet run | 🟠 | See §6. Will break the first `db:push` |
 | **Lead alerts and rate limiting are unconfigured** | 🟠 Blocks launch | `RESEND_API_KEY`, `LEAD_NOTIFY_EMAILS` and `UPSTASH_*` are empty. Leads save correctly, but nobody is emailed and the 5/10min limit is per-instance only. See §3 |
 | **`/colleges` is 186 kB First Load JS** | 🟠 Do in P11 | §11 budgets 180 kB (stated for home, which is 164 kB). The desktop filter sidebar loads the Radix Accordion, Select and nuqs eagerly. Cheapest lever: swap the filter Accordion for native `<details>`, which also makes the panel work without JS |
+| **`0004_review_rating_guard.sql` is not applied to the live project** | 🔴 Apply now | The 0001 trigger let the first *pending* review on a college zero its rating, and `/api/reviews` is public — any visitor could wipe every rating on the site. Fixed in migration 0004 and covered by `pnpm db:verify`, but `migration repair` has never been run so `db push` will not apply it. **Paste `supabase/migrations/0004_review_rating_guard.sql` into the Supabase SQL Editor.** Until then the live database still has the broken trigger |
 | **`listColleges` reads every match, capped at 500** | 🟠 Before 500 colleges | The fee sort needs a child aggregate PostgREST cannot order by. Add a view exposing `min_fee_per_year` on `colleges` and the query collapses to one paged call. See `lib/queries/colleges.ts` |
 | Header `GoalCitySelector` / `MegaSearch` are static shells | 🟡 | The search form posts to `/search`, which does not exist until P9. The goal/city button does nothing yet |
 | Home CTAs point at pages that don't exist yet | 🟡 | `/colleges`, `/courses/*`, `/streams/*`, `/exams/*`, `/college-finder`, `/contact` land in P4–P9. They 404 today by design, not by oversight |

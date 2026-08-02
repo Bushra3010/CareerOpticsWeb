@@ -40,6 +40,15 @@ const FIELD_HEIGHT = "h-10";
  * On success it swaps to an inline thank-you card with a WhatsApp CTA rather
  * than redirecting — §9 step 5 keeps the pixel event on the same page.
  */
+export type LeadResponse = {
+  ok: boolean;
+  id?: string | null;
+  error?: string;
+  /** Set by /api/brochure — a short-lived signed download link. */
+  url?: string | null;
+  expiresIn?: number;
+};
+
 export function LeadForm({
   source,
   fields = [],
@@ -48,7 +57,9 @@ export function LeadForm({
   collegeId,
   courseId,
   submitLabel = "Get Free Counselling",
+  endpoint = "/api/leads",
   className,
+  successExtra,
   onSuccess,
 }: {
   source: LeadSource;
@@ -59,10 +70,17 @@ export function LeadForm({
   collegeId?: string;
   courseId?: string;
   submitLabel?: string;
+  /** `/api/brochure` reuses this form; it takes the same payload shape. */
+  endpoint?: string;
   className?: string;
-  onSuccess?: (leadId: string | null) => void;
+  /** Extra content in the thank-you card, e.g. the brochure download link. */
+  successExtra?: (result: LeadResponse) => React.ReactNode;
+  onSuccess?: (result: LeadResponse) => void;
 }) {
-  const [submitted, setSubmitted] = React.useState<{ name: string } | null>(null);
+  const [submitted, setSubmitted] = React.useState<{
+    name: string;
+    result: LeadResponse;
+  } | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
 
   const form = useForm<LeadFormValues>({
@@ -98,7 +116,7 @@ export function LeadForm({
     setFormError(null);
 
     try {
-      const response = await fetch("/api/leads", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -109,11 +127,7 @@ export function LeadForm({
         }),
       });
 
-      const result = (await response.json()) as {
-        ok: boolean;
-        id?: string | null;
-        error?: string;
-      };
+      const result = (await response.json()) as LeadResponse;
 
       if (!response.ok || !result.ok) {
         setFormError(result.error ?? "Something went wrong. Please try again.");
@@ -121,8 +135,8 @@ export function LeadForm({
       }
 
       trackLead(source, result.id ?? null);
-      setSubmitted({ name: values.name });
-      onSuccess?.(result.id ?? null);
+      setSubmitted({ name: values.name, result });
+      onSuccess?.(result);
     } catch {
       setFormError(
         `We could not reach the server. Please call ${siteConfig.phoneDisplay} instead.`,
@@ -143,6 +157,9 @@ export function LeadForm({
           A counsellor will call you within 24 hours on working days. Prefer to
           talk now? Message us on WhatsApp.
         </p>
+        {successExtra ? (
+          <div className="mt-4">{successExtra(submitted.result)}</div>
+        ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button asChild>
             <a
