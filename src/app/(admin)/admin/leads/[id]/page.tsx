@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { can, requireStaff } from "@/lib/auth";
 import type { LeadStatus } from "@/config/leads";
 import { getLead, getLeadActivities } from "@/lib/queries/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const metadata: Metadata = {
   title: "Lead",
@@ -43,6 +44,17 @@ export default async function LeadDetailPage({
   const activities = await getLeadActivities(id);
   const dial = `${lead.country_code ?? "+91"}${lead.phone}`;
   const answers = (lead.answers ?? null) as Record<string, string> | null;
+
+  // The photo lives in a private bucket, so it needs a short-lived signed URL.
+  // Minted per page view rather than stored, so nothing linkable leaks into the
+  // page source or a shared screenshot beyond its lifetime.
+  let photoUrl: string | null = null;
+  if (answers?.photo_path) {
+    const { data } = await createAdminClient()
+      .storage.from("applicant-photos")
+      .createSignedUrl(answers.photo_path, 300);
+    photoUrl = data?.signedUrl ?? null;
+  }
 
   const facts: { label: string; value: React.ReactNode }[] = [
     { label: "Received", value: formatWhen(lead.created_at) },
@@ -138,8 +150,32 @@ export default async function LeadDetailPage({
           {answers && Object.keys(answers).length > 0 ? (
             <section className="rounded-xl border bg-card p-5">
               <h2 className="text-h3">Submitted details</h2>
+              {photoUrl ? (
+                <a
+                  href={photoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-4 inline-block overflow-hidden rounded-lg border focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element --
+                      a signed URL that expires in 5 minutes; next/image would
+                      cache it under a key that outlives the signature. */}
+                  <img
+                    src={photoUrl}
+                    alt={`Photograph submitted by ${lead.name}`}
+                    className="h-40 w-32 object-cover"
+                  />
+                </a>
+              ) : answers.photo_path ? (
+                <p className="mt-4 text-sm text-brand-red">
+                  A photo was uploaded but the link could not be generated.
+                </p>
+              ) : null}
+
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-                {Object.entries(answers).map(([key, value]) => (
+                {Object.entries(answers)
+                  .filter(([key]) => key !== "photo_path")
+                  .map(([key, value]) => (
                   <div key={key}>
                     <dt className="text-sm text-muted-foreground capitalize">
                       {key.replace(/_/g, " ")}

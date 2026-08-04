@@ -15,6 +15,8 @@ import { Redis } from "@upstash/redis";
 
 const LIMIT = 5;
 const WINDOW_MS = 10 * 60 * 1000;
+/** Photo uploads get their own, looser budget — see `limitUploads`. */
+const UPLOAD_LIMIT = 12;
 
 export type RateLimitResult = {
   success: boolean;
@@ -40,11 +42,11 @@ const upstash =
 /** Timestamps of recent hits per key. Trimmed on every call. */
 const hits = new Map<string, number[]>();
 
-function memoryLimit(key: string): RateLimitResult {
+function memoryLimit(key: string, limit = LIMIT): RateLimitResult {
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter((at) => now - at < WINDOW_MS);
 
-  if (recent.length >= LIMIT) {
+  if (recent.length >= limit) {
     hits.set(key, recent);
     const retryAfter = Math.ceil((WINDOW_MS - (now - recent[0]!)) / 1000);
     return { success: false, remaining: 0, retryAfter, backend: "memory" };
@@ -62,7 +64,7 @@ function memoryLimit(key: string): RateLimitResult {
 
   return {
     success: true,
-    remaining: LIMIT - recent.length,
+    remaining: limit - recent.length,
     retryAfter: 0,
     backend: "memory",
   };
@@ -72,6 +74,39 @@ export async function limitLeads(identifier: string): Promise<RateLimitResult> {
   if (!upstash) return memoryLimit(identifier);
 
   const { success, remaining, reset } = await upstash.limit(identifier);
+  return {
+    success,
+    remaining,
+    retryAfter: success ? 0 : Math.max(1, Math.ceil((reset - Date.now()) / 1000)),
+    backend: "upstash",
+  };
+}
+
+const uploadUpstash =
+  process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN
+    ? new Ratelimit({
+        redis: new Redis({
+          url: process.env.UPSTASH_REDIS_REST_URL,
+          token: process.env.UPSTASH_REDIS_REST_TOKEN,
+        }),
+        limiter: Ratelimit.slidingWindow(UPLOAD_LIMIT, "10 m"),
+        prefix: "careeroptics:photo",
+        analytics: false,
+      })
+    : null;
+
+/**
+ * Applicant photo uploads, on their own budget.
+ *
+ * Deliberately not sharing `limitLeads`: a student who retries a photo two or
+ * three times would otherwise burn the 5-request lead budget and be blocked
+ * from submitting the application at all. Separate prefix, looser cap, same
+ * per-IP window.
+ */
+export async function limitUploads(identifier: string): Promise<RateLimitResult> {
+  if (!uploadUpstash) return memoryLimit(`photo:${identifier}`, UPLOAD_LIMIT);
+
+  const { success, remaining, reset } = await uploadUpstash.limit(identifier);
   return {
     success,
     remaining,

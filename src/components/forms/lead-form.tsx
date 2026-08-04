@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { CheckCircle2, Loader2, MessageCircle, Phone } from "lucide-react";
 
+import { PhotoUpload } from "@/components/forms/photo-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -118,6 +119,7 @@ export function LeadForm({
       roll_code: "",
       roll_no: "",
       category: "",
+      photo_path: "",
     },
   });
 
@@ -391,6 +393,11 @@ export function LeadForm({
             Optional — it saves time on the call, but a counsellor can fill
             these in with you.
           </p>
+
+          <PhotoUpload
+            value={form.watch("photo_path") ?? ""}
+            onChange={(path) => form.setValue("photo_path", path)}
+          />
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field

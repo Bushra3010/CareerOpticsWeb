@@ -83,6 +83,11 @@ export const admissionFormSchema = z.object({
     .enum(CATEGORY_OPTIONS as unknown as [string, ...string[]])
     .optional()
     .or(z.literal("")),
+  /**
+   * Storage path in the private `applicant-photos` bucket, returned by
+   * /api/upload/photo. Never a URL — the bucket has no public read.
+   */
+  photo_path: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
 /** Keys folded into `answers` before the payload is posted. */
