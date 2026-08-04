@@ -97,6 +97,19 @@ export function SiteHeader() {
             >
               <Button className="hidden lg:inline-flex">Need Counselling</Button>
             </LeadDialog>
+            {/* The hero is image-only now, so the primary CTA lives here on
+                phones too. The bottom bar's Counselling tab stays as the
+                thumb-reachable duplicate. */}
+            <LeadDialog
+              source="home_hero"
+              title="Get free counselling"
+              description="Answer three quick fields and a counsellor will call you within 24 hours."
+              fields={["city", "level", "message"]}
+            >
+              <Button size="sm" className="shrink-0 lg:hidden">
+                Counselling
+              </Button>
+            </LeadDialog>
             <NotificationsButton />
             <AccountButton />
           </div>

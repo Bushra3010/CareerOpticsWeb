@@ -1,11 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import * as React from "react";
 
-import { LeadDialog } from "@/components/forms/lead-dialog";
-import { Button } from "@/components/ui/button";
 import {
   Carousel,
   CarouselContent,
@@ -16,7 +13,6 @@ import type { HeroBanner } from "@/lib/queries/home";
 import { imageSrc } from "@/lib/media";
 
 const AUTOPLAY_MS = 5000;
-const COUNSELLING_LABEL = "Need Counselling";
 
 /**
  * §5.1 item 4. The first slide is server-rendered inside this client component,
@@ -115,13 +111,6 @@ function HeroSlide({
 }) {
   const src = imageSrc(banner.image_url);
 
-  // Every slide carries the "Need Counselling" pill, and a banner row may name
-  // its CTA the same thing — render the banner's link only when it adds a
-  // second, different destination.
-  const showBannerCta =
-    Boolean(banner.cta_text && banner.cta_url) &&
-    banner.cta_text!.trim().toLowerCase() !== COUNSELLING_LABEL.toLowerCase();
-
   return (
     <CarouselItem className="pl-0" aria-label={banner.title ?? undefined}>
       <div className="relative mx-4 h-[240px] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:h-[420px] lg:rounded-none">
@@ -135,37 +124,12 @@ function HeroSlide({
             className="object-cover"
           />
         ) : null}
-        <div className="relative flex h-full flex-col items-start justify-center px-5 text-left lg:items-center lg:px-4 lg:text-center">
-          {/* The banner title is the page's only h1. It is visually removed but
-              kept for the document outline and search results — a home page
-              with no h1 would be an SEO regression. */}
-          {isFirst && banner.title ? (
-            <h1 className="sr-only">{banner.title}</h1>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 lg:mt-5 lg:justify-center">
-            <LeadDialog
-              source="home_hero"
-              title="Get free counselling"
-              description="Answer three quick fields and a counsellor will call you within 24 hours."
-              fields={["city", "level", "message"]}
-            >
-              <Button size="lg" className="rounded-full shadow-on-photo">
-                {COUNSELLING_LABEL}
-              </Button>
-            </LeadDialog>
-            {showBannerCta ? (
-              <Button
-                asChild
-                size="lg"
-                variant="inverse"
-                className="rounded-full shadow-on-photo"
-              >
-                <Link href={banner.cta_url!}>{banner.cta_text}</Link>
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        {/* The banner title is the page's only h1. It is visually removed but
+            kept for the document outline and search results — a home page with
+            no h1 would be an SEO regression. */}
+        {isFirst && banner.title ? (
+          <h1 className="sr-only">{banner.title}</h1>
+        ) : null}
       </div>
     </CarouselItem>
   );
