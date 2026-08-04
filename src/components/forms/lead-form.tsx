@@ -21,6 +21,8 @@ import { readUtmParams, trackLead } from "@/lib/analytics";
 import type { CollegeOption, CourseOption } from "@/lib/queries/leads";
 import { cn } from "@/lib/utils";
 import {
+  ADMISSION_KEYS,
+  CATEGORY_OPTIONS,
   COUNTRY_CODES,
   LEVEL_OPTIONS,
   leadFormSchema,
@@ -29,7 +31,15 @@ import {
 } from "@/lib/validations/lead";
 
 /** Optional fields a caller can switch on. Name and phone are always shown. */
-export type LeadField = "email" | "city" | "level" | "course" | "college" | "message";
+export type LeadField =
+  | "email"
+  | "city"
+  | "level"
+  | "course"
+  | "college"
+  | "message"
+  /** The counsellors' paper admission form (§5.3 Apply). */
+  | "admission";
 
 const FIELD_HEIGHT = "h-10";
 
@@ -96,6 +106,18 @@ export function LeadForm({
       college_id: collegeId ?? "",
       message: "",
       hp: "",
+      father_name: "",
+      dob: "",
+      parent_phone: "",
+      father_occupation: "",
+      address_village: "",
+      address_post: "",
+      address_district: "",
+      address_state: "",
+      student_class: "",
+      roll_code: "",
+      roll_no: "",
+      category: "",
     },
   });
 
@@ -116,11 +138,24 @@ export function LeadForm({
     setFormError(null);
 
     try {
+      // The admission fields are not columns on `leads`; they travel in the
+      // existing `answers` jsonb so no migration or API change is needed.
+      const payload: Record<string, unknown> = { ...values };
+      const answers: Record<string, string> = {};
+      for (const key of ADMISSION_KEYS) {
+        const value = payload[key];
+        if (typeof value === "string" && value.trim()) {
+          answers[key] = value.trim();
+        }
+        delete payload[key];
+      }
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          ...values,
+          ...payload,
+          ...(Object.keys(answers).length > 0 ? { answers } : {}),
           source,
           page_url: window.location.href,
           ...readUtmParams(),
@@ -345,6 +380,136 @@ export function LeadForm({
             </Select>
           )}
         </Field>
+      ) : null}
+
+      {show("admission") ? (
+        <fieldset className="grid gap-4 rounded-xl border bg-surface p-4">
+          <legend className="px-1 text-sm font-semibold text-ink">
+            Admission details
+          </legend>
+          <p className="-mt-1 text-sm text-muted-foreground">
+            Optional — it saves time on the call, but a counsellor can fill
+            these in with you.
+          </p>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              label="Father's name"
+              error={form.formState.errors.father_name?.message}
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  className={FIELD_HEIGHT}
+                  {...form.register("father_name")}
+                />
+              )}
+            </Field>
+            <Field
+              label="Father's occupation"
+              error={form.formState.errors.father_occupation?.message}
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  className={FIELD_HEIGHT}
+                  {...form.register("father_occupation")}
+                />
+              )}
+            </Field>
+            <Field label="Date of birth" error={form.formState.errors.dob?.message}>
+              {(id) => (
+                <Input
+                  id={id}
+                  type="date"
+                  className={FIELD_HEIGHT}
+                  {...form.register("dob")}
+                />
+              )}
+            </Field>
+            <Field
+              label="Parent's mobile"
+              error={form.formState.errors.parent_phone?.message}
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="10-digit mobile"
+                  className={FIELD_HEIGHT}
+                  {...form.register("parent_phone")}
+                />
+              )}
+            </Field>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Village" error={form.formState.errors.address_village?.message}>
+              {(id) => (
+                <Input id={id} className={FIELD_HEIGHT} {...form.register("address_village")} />
+              )}
+            </Field>
+            <Field label="Post" error={form.formState.errors.address_post?.message}>
+              {(id) => (
+                <Input id={id} className={FIELD_HEIGHT} {...form.register("address_post")} />
+              )}
+            </Field>
+            <Field label="District" error={form.formState.errors.address_district?.message}>
+              {(id) => (
+                <Input id={id} className={FIELD_HEIGHT} {...form.register("address_district")} />
+              )}
+            </Field>
+            <Field label="State" error={form.formState.errors.address_state?.message}>
+              {(id) => (
+                <Input id={id} className={FIELD_HEIGHT} {...form.register("address_state")} />
+              )}
+            </Field>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Class" error={form.formState.errors.student_class?.message}>
+              {(id) => (
+                <Input
+                  id={id}
+                  placeholder="e.g. 12th"
+                  className={FIELD_HEIGHT}
+                  {...form.register("student_class")}
+                />
+              )}
+            </Field>
+            <Field label="Roll code" error={form.formState.errors.roll_code?.message}>
+              {(id) => (
+                <Input id={id} className={FIELD_HEIGHT} {...form.register("roll_code")} />
+              )}
+            </Field>
+            <Field label="Roll number" error={form.formState.errors.roll_no?.message}>
+              {(id) => (
+                <Input id={id} className={FIELD_HEIGHT} {...form.register("roll_no")} />
+              )}
+            </Field>
+          </div>
+
+          <Field label="Category">
+            {(id) => (
+              <Select
+                value={form.watch("category") || undefined}
+                onValueChange={(value) => form.setValue("category", value)}
+              >
+                <SelectTrigger id={id} className={FIELD_HEIGHT}>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORY_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+        </fieldset>
       ) : null}
 
       {show("message") ? (

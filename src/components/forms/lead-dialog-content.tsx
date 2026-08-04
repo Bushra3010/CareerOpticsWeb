@@ -46,7 +46,15 @@ export function LeadDialogContent({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[440px]">
+      <DialogContent
+      className={
+        // The admission form is a two-column fieldset and needs the room; the
+        // short counselling form stays narrow.
+        fields?.includes("admission")
+          ? "max-h-[90dvh] overflow-y-auto sm:max-w-[560px]"
+          : "max-h-[90dvh] overflow-y-auto sm:max-w-[440px]"
+      }
+    >
         <DialogHeader>
           <DialogTitle className="text-h3">{title}</DialogTitle>
           {description ? (

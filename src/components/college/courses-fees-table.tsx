@@ -87,7 +87,7 @@ export function CoursesFeesTable({
                   courseId={course.courseId}
                   title={`Apply for ${course.name}`}
                   description={`A counsellor will confirm eligibility and fees for ${course.name} at ${collegeName}.`}
-                  fields={["city", "message"]}
+                  fields={["email", "city", "admission", "message"]}
                   submitLabel="Submit Application"
                 >
                   <Button size="sm">Apply</Button>

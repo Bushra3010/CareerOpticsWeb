@@ -41,6 +41,55 @@ const phone = z
   .trim()
   .regex(/^[6-9]\d{9}$/, "Enter a 10-digit mobile number starting with 6-9");
 
+/** Reservation categories used by Bihar/Indian admission forms. */
+export const CATEGORY_OPTIONS = [
+  "General",
+  "EWS",
+  "OBC",
+  "EBC",
+  "SC",
+  "ST",
+] as const;
+
+/**
+ * The counsellors' paper admission form, as fields (§5.3 "Apply").
+ *
+ * These are NOT columns on `leads` — they are folded into the existing
+ * `answers` jsonb, which already carries the College Finder payload. That
+ * keeps the whole thing migration-free and visible in the admin lead detail.
+ *
+ * Every one is optional on purpose. Name and mobile are all a student must
+ * type to reach a counsellor; the rest is what the counsellor would otherwise
+ * write down on the call, and making it mandatory would cost applications.
+ */
+export const admissionFormSchema = z.object({
+  father_name: z.string().trim().max(60).optional().or(z.literal("")),
+  dob: z.string().trim().max(10).optional().or(z.literal("")),
+  parent_phone: z
+    .union([
+      z.string().trim().regex(/^[6-9]\d{9}$/, "Enter a 10-digit mobile number"),
+      z.literal(""),
+    ])
+    .optional(),
+  father_occupation: z.string().trim().max(60).optional().or(z.literal("")),
+  address_village: z.string().trim().max(80).optional().or(z.literal("")),
+  address_post: z.string().trim().max(80).optional().or(z.literal("")),
+  address_district: z.string().trim().max(80).optional().or(z.literal("")),
+  address_state: z.string().trim().max(80).optional().or(z.literal("")),
+  student_class: z.string().trim().max(40).optional().or(z.literal("")),
+  roll_code: z.string().trim().max(30).optional().or(z.literal("")),
+  roll_no: z.string().trim().max(30).optional().or(z.literal("")),
+  category: z
+    .enum(CATEGORY_OPTIONS as unknown as [string, ...string[]])
+    .optional()
+    .or(z.literal("")),
+});
+
+/** Keys folded into `answers` before the payload is posted. */
+export const ADMISSION_KEYS = Object.keys(
+  admissionFormSchema.shape,
+) as (keyof z.infer<typeof admissionFormSchema>)[];
+
 export const leadSchema = z.object({
   name: z
     .string()
@@ -86,13 +135,17 @@ export type LeadInput = z.input<typeof leadSchema>;
 export type LeadPayload = z.output<typeof leadSchema>;
 
 /** Field set the visitor actually types, used as the form's resolver. */
-export const leadFormSchema = leadSchema.omit({
-  source: true,
-  page_url: true,
-  utm_source: true,
-  utm_medium: true,
-  utm_campaign: true,
-  utm_content: true,
-});
+export const leadFormSchema = leadSchema
+  .omit({
+    source: true,
+    page_url: true,
+    utm_source: true,
+    utm_medium: true,
+    utm_campaign: true,
+    utm_content: true,
+  })
+  // Admission fields live on the form only — `/api/leads` receives them inside
+  // `answers`, so the API surface is unchanged.
+  .extend(admissionFormSchema.shape);
 
 export type LeadFormValues = z.input<typeof leadFormSchema>;

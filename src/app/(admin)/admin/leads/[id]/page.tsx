@@ -137,7 +137,7 @@ export default async function LeadDetailPage({
 
           {answers && Object.keys(answers).length > 0 ? (
             <section className="rounded-xl border bg-card p-5">
-              <h2 className="text-h3">College Finder answers</h2>
+              <h2 className="text-h3">Submitted details</h2>
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 {Object.entries(answers).map(([key, value]) => (
                   <div key={key}>

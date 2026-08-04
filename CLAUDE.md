@@ -63,6 +63,11 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **`trackLead` is a no-op today.** GTM and the Meta Pixel are not installed until P12; the call sites are already in place.
 - Sources in use: `home_hero` (hero pill), `contact` (header CTA), `callback` (widget), `quick_enquiry` (exit-intent / 25s modal), `apply_now` (college cards + mobile sticky bar), `college_detail` (inline listing lead card), `brochure` (listing, once a college has a `brochure_url`). `college_finder` lands in P8.
 
+- **"Apply" opens the counsellors' admission form; "Counselling" keeps the short form.** `LeadField` gained `"admission"`, which renders the paper form's fields — father's name and occupation, DOB, parent's mobile, village/post/district/state, class, roll code, roll no, category. All four Apply entry points use it (courses table, action bar, college card, list card); Ask a Question, Get Free Counselling and the brochure gate are unchanged.
+- **The admission fields are not columns.** They are folded into the existing `answers` jsonb by `LeadForm` before posting, so there is no migration, no change to `/api/leads`, and the admin lead detail already renders them (its heading is now "Submitted details", not "College Finder answers"). Verified end to end: all twelve keys round-trip into the row.
+- **Every admission field is optional.** Name and mobile stay the only required inputs — the rest is what a counsellor would otherwise write down on the call, and making it mandatory would cost applications on a page whose §1 target is ≥6% conversion.
+- **`category` is caste/reservation data.** That is sensitive personal data under the DPDP Act 2023, which `/privacy-policy` does not yet address (it is still the unreviewed draft flagged in P9). Keep it optional, and get the policy reviewed before this form takes real traffic.
+
 ### P5 notes worth carrying forward
 
 - **Filter state is nuqs, compare state is localStorage.** Filters belong in the URL (§5.2 — shareable, back-button correct, SSR). The compare selection does not: it has to survive filtering and paging, and would collide with the filter params. See `components/college/compare-provider.tsx`.
