@@ -74,6 +74,10 @@
   --container-site: 1280px;
   --shadow-card: 0 1px 3px rgb(15 23 42 / 0.08);
   --shadow-card-hover: 0 8px 24px rgb(11 59 140 / 0.12);
+  /* Defines a control's edge when it sits directly on a photo. The hero has no
+     scrim, so a white button would otherwise float at ~1.5:1 against a bright
+     sky — under the 3:1 SC 1.4.11 needs for a UI component boundary. */
+  --shadow-on-photo: 0 2px 14px rgb(15 23 42 / 0.45);
 
   /* Motion — 200ms ease-out only */
   --default-transition-duration: 200ms;

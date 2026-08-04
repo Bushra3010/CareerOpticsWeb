@@ -4,8 +4,6 @@ import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 
-import { Search } from "lucide-react";
-
 import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,7 +68,7 @@ export function HeroCarousel({ banners }: { banners: HeroBanner[] }) {
               key={banner.id}
               banner={banner}
               priority={index === 0}
-              headingLevel={index === 0 ? "h1" : "p"}
+              isFirst={index === 0}
             />
           ))}
         </CarouselContent>
@@ -109,14 +107,13 @@ export function HeroCarousel({ banners }: { banners: HeroBanner[] }) {
 function HeroSlide({
   banner,
   priority,
-  headingLevel,
+  isFirst,
 }: {
   banner: HeroBanner;
   priority: boolean;
-  headingLevel: "h1" | "p";
+  isFirst: boolean;
 }) {
   const src = imageSrc(banner.image_url);
-  const Heading = headingLevel;
 
   // Every slide carries the "Need Counselling" pill, and a banner row may name
   // its CTA the same thing — render the banner's link only when it adds a
@@ -126,7 +123,7 @@ function HeroSlide({
     banner.cta_text!.trim().toLowerCase() !== COUNSELLING_LABEL.toLowerCase();
 
   return (
-    <CarouselItem className="pl-0">
+    <CarouselItem className="pl-0" aria-label={banner.title ?? undefined}>
       <div className="relative mx-4 h-[240px] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:h-[420px] lg:rounded-none">
         {src ? (
           <Image
@@ -138,46 +135,13 @@ function HeroSlide({
             className="object-cover"
           />
         ) : null}
-        {/* 45% scrim keeps white text over any campus photo above 4.5:1 (§6.5) */}
-        <div
-          className="absolute inset-0 bg-gradient-to-r from-brand-blue-900 via-brand-blue-900/80 to-brand-blue-900/30 lg:bg-brand-blue-900/45 lg:bg-none"
-          aria-hidden
-        />
-
         <div className="relative flex h-full flex-col items-start justify-center px-5 text-left lg:items-center lg:px-4 lg:text-center">
-          <Heading
-            className={
-              headingLevel === "h1"
-                ? "text-h3 lg:text-h1-lg max-w-3xl text-balance font-display text-white lg:text-h1"
-                : "text-h3 lg:text-h1 max-w-3xl text-balance font-display font-extrabold text-white"
-            }
-          >
-            {banner.title}
-          </Heading>
-
-          <form
-            action="/search"
-            role="search"
-            className="mt-6 hidden w-full max-w-2xl items-center gap-2 rounded-xl bg-white p-1.5 shadow-card lg:flex"
-          >
-            <label htmlFor={`hero-search-${banner.id}`} className="sr-only">
-              Search for colleges, exams and courses
-            </label>
-            <Search
-              className="ml-2 size-4 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <input
-              id={`hero-search-${banner.id}`}
-              name="q"
-              type="search"
-              placeholder="Search for colleges, exams, courses and more.."
-              className="h-10 w-full min-w-0 bg-transparent text-sm text-ink outline-none placeholder:text-muted-foreground"
-            />
-            <Button type="submit" className="shrink-0">
-              Search
-            </Button>
-          </form>
+          {/* The banner title is the page's only h1. It is visually removed but
+              kept for the document outline and search results — a home page
+              with no h1 would be an SEO regression. */}
+          {isFirst && banner.title ? (
+            <h1 className="sr-only">{banner.title}</h1>
+          ) : null}
 
           <div className="mt-4 flex flex-wrap items-center gap-3 lg:mt-5 lg:justify-center">
             <LeadDialog
@@ -186,12 +150,17 @@ function HeroSlide({
               description="Answer three quick fields and a counsellor will call you within 24 hours."
               fields={["city", "level", "message"]}
             >
-              <Button size="lg" className="rounded-full">
+              <Button size="lg" className="rounded-full shadow-on-photo">
                 {COUNSELLING_LABEL}
               </Button>
             </LeadDialog>
             {showBannerCta ? (
-              <Button asChild size="lg" variant="inverse" className="rounded-full">
+              <Button
+                asChild
+                size="lg"
+                variant="inverse"
+                className="rounded-full shadow-on-photo"
+              >
                 <Link href={banner.cta_url!}>{banner.cta_text}</Link>
               </Button>
             ) : null}

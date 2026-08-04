@@ -50,6 +50,10 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - `MobileTabBar` is a client component in the `(site)` layout, so it counts against **every** route. Home is now 178 kB of the 180 kB §11 budget — roughly 2 kB spare. `/style-guide` is 212 kB but is internal `noindex` scaffolding, not a public route.
 - **Home is 178 kB First Load JS, not the 161 kB recorded above** — that figure predates the P4–P11 shared code. Measured against a clean worktree build of the previous commit, so 176 kB is the real baseline. Only ~4 kB of headroom against the §11 budget.
 
+- **The home hero is image-only**: no heading, no search bar, no scrim. The banner title survives as an `sr-only` h1 — a home page with no h1 would be an SEO regression — and each slide carries `aria-label={banner.title}` so it stays identifiable without visible text. Search now lives only in the header (desktop) and `MobileQuickStart` (phones).
+- **Removing the scrim cost the CTAs their edge.** Measured on the three banners, a white button sits at 1.5–2.0:1 against the photo, under the 3:1 SC 1.4.11 needs for a UI component boundary. `shadow-on-photo` restores the edge without tinting the image — use it on any control placed directly on a photo.
+- The gallery caption gradient (`from-brand-blue-900/85`) is **not** decorative and was kept: white caption text sits on it.
+
 ### P4 notes worth carrying forward
 
 - **Every lead CTA goes through `LeadDialog`.** Wrap any single element; it clones the trigger with Radix `Slot` and fetches the dialog + form on first click, which is why the whole lead engine cost ~1 kB of First Load JS. Do not import `LeadForm` directly into a page unless the form is meant to be visible on load.

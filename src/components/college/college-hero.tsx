@@ -30,7 +30,6 @@ export function CollegeHero({ college }: { college: College }) {
             className="object-cover"
           />
         ) : null}
-        <div className="absolute inset-0 bg-brand-blue-900/45" aria-hidden />
       </div>
 
       {/* `relative` is load-bearing: the banner above is positioned, so it
