@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { MapPin } from "lucide-react";
 
+import { CoverPlate } from "@/components/college/cover-plate";
 import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -71,17 +72,12 @@ export function CollegeCard({
             alt=""
             fill
             sizes="(min-width: 1024px) 300px, 80vw"
-            className="object-cover"
+            // Campus photos put the building in the lower half; a centred crop
+            // in a 128px-tall tile shows mostly sky.
+            className="object-cover object-[50%_70%]"
           />
         ) : (
-          // No cover uploaded yet — a typographic plate reads better than an
-          // empty tile and disappears the moment a real image lands.
-          <span
-            className="flex h-full items-center justify-center px-4 text-center font-display text-h3 text-brand-blue/25"
-            aria-hidden
-          >
-            {college.short_name ?? college.name}
-          </span>
+          <CoverPlate name={college.short_name ?? college.name} seed={college.slug} />
         )}
         <div className="absolute -bottom-6 left-4 flex size-12 items-center justify-center overflow-hidden rounded-lg border bg-white">
           {logo ? (

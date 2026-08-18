@@ -3,7 +3,9 @@ import Link from "next/link";
 
 import { CalendarDays, Globe, MapPin, Users } from "lucide-react";
 
+import { CoverPlate } from "@/components/college/cover-plate";
 import { Badge } from "@/components/ui/badge";
+import { coverCredit } from "@/config/image-credits";
 import { Rating } from "@/components/ui/rating";
 import type { College } from "@/lib/queries/college-detail";
 import { imageSrc, initials } from "@/lib/media";
@@ -16,6 +18,7 @@ export function CollegeHero({ college }: { college: College }) {
     .filter(Boolean)
     .join(", ");
   const approvals = college.approvals ?? [];
+  const credit = coverCredit(college.slug);
 
   return (
     <header>
@@ -27,8 +30,37 @@ export function CollegeHero({ college }: { college: College }) {
             fill
             priority
             sizes="100vw"
-            className="object-cover"
+            className="object-cover object-[50%_60%]"
           />
+        ) : (
+          <CoverPlate name={college.short_name ?? college.name} seed={college.slug} />
+        )}
+        {/* The scrim exists to hold white text over a photo. The plate is already
+            navy, so applying it there just greys out the initials. */}
+        {cover ? (
+          <div className="absolute inset-0 bg-brand-blue-900/45" aria-hidden />
+        ) : null}
+        {/* CC BY-SA requires credit wherever the photo is shown. */}
+        {cover && credit ? (
+          <p className="absolute bottom-1 right-1 rounded bg-brand-blue-900/60 px-1.5 py-0.5 text-[11px] leading-tight text-white/85">
+            Photo:{" "}
+            <a
+              href={credit.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer license"
+              className="underline underline-offset-2 hover:text-white"
+            >
+              {credit.author}
+            </a>{" "}
+            <a
+              href={credit.licenseUrl}
+              target="_blank"
+              rel="noopener noreferrer license"
+              className="underline underline-offset-2 hover:text-white"
+            >
+              {credit.license}
+            </a>
+          </p>
         ) : null}
       </div>
 
