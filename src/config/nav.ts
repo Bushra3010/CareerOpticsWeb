@@ -85,6 +85,10 @@ export const offices = [
     address:
       "Near Kshatriya School Road, Bandhan Tola, Maharaja Hata, Nawada, Thana, Arrah, Bihar 802301",
   },
+  {
+    city: "Buxar",
+    address: "Jeevika Office, Buniyadi Mod, Near DAV School, Buxar, Bihar",
+  },
 ];
 
 /** Query string for the footer's Google Maps embed. */

@@ -98,7 +98,7 @@ export default async function ContactPage() {
               Counsellors call back within 24 hours on working days.
             </p>
 
-            <h2 className="mt-10 text-h3">Office</h2>
+            <h2 className="mt-10 text-h3">Offices</h2>
             {offices.map((office) => (
               <div key={office.city} className="mt-3 flex gap-3">
                 <MapPin className="mt-0.5 size-5 shrink-0 text-brand-blue-400" aria-hidden />
