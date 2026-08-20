@@ -27,6 +27,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Pipeline", href: "/admin/crm", area: "leads" },
       { label: "Leads", href: "/admin/crm/leads", area: "leads" },
       { label: "Students", href: "/admin/crm/students", area: "leads" },
+      { label: "Analytics", href: "/admin/crm/analytics", area: "leads" },
     ],
   },
   {

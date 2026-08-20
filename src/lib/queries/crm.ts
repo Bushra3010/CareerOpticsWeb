@@ -359,3 +359,63 @@ export async function getCrmMoneyStats() {
 
   return { collected, collected30, outstanding, payments: rows.length };
 }
+
+/**
+ * Aggregates for `/admin/crm/analytics`.
+ *
+ * Counted in JS over narrow selects rather than with SQL aggregates: PostgREST
+ * cannot GROUP BY without an RPC, and an RPC needs a migration we cannot apply
+ * to the live project yet — the same constraint documented for search in P9.
+ * The row counts here are the CRM's own leads/students, not the public
+ * catalogue, so this stays cheap for a long time.
+ */
+export async function getCrmAnalytics() {
+  const supabase = await createCrmClient();
+
+  const [leads, students, payments] = await Promise.all([
+    supabase.from("leads").select("status, source, created_at"),
+    supabase.from("students").select("status"),
+    supabase.from("payments").select("amount, payment_mode, payment_date"),
+  ]);
+
+  if (leads.error) throw new Error(`crm.leads: ${leads.error.message}`);
+  if (students.error) throw new Error(`crm.students: ${students.error.message}`);
+  if (payments.error) throw new Error(`crm.payments: ${payments.error.message}`);
+
+  const leadRows = leads.data ?? [];
+  const studentRows = students.data ?? [];
+  const paymentRows = payments.data ?? [];
+
+  const tally = <T,>(rows: T[], key: (row: T) => string | null) => {
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      const k = key(row);
+      if (k) map.set(k, (map.get(k) ?? 0) + 1);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  };
+
+  const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const recent = leadRows.filter((l) => (l.created_at ?? "") >= monthAgo);
+  const convertedRecent = recent.filter((l) => l.status === "converted").length;
+
+  const revenueByMode = new Map<string, number>();
+  for (const p of paymentRows) {
+    const mode = p.payment_mode ?? "other";
+    revenueByMode.set(mode, (revenueByMode.get(mode) ?? 0) + Number(p.amount ?? 0));
+  }
+
+  return {
+    totalLeads: leadRows.length,
+    totalStudents: studentRows.length,
+    revenue: paymentRows.reduce((sum, p) => sum + Number(p.amount ?? 0), 0),
+    // Over the last 30 days only. A lifetime rate flatters itself as the
+    // catalogue ages and stops being a signal anyone can act on.
+    conversionRate: recent.length > 0 ? (convertedRecent / recent.length) * 100 : 0,
+    recentLeads: recent.length,
+    leadsBySource: tally(leadRows, (l) => l.source),
+    leadsByStatus: tally(leadRows, (l) => l.status),
+    studentsByStatus: tally(studentRows, (s) => s.status),
+    revenueByMode: [...revenueByMode.entries()].sort((a, b) => b[1] - a[1]),
+  };
+}

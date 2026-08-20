@@ -8,7 +8,7 @@
  * Supabase-managed objects (auth, storage, the anon/authenticated roles) are
  * stubbed here — they exist for real on Supabase.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -65,7 +65,10 @@ async function boot() {
     create or replace function auth.uid() returns uuid language sql stable as
       $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
 
-    create table storage.buckets (id text primary key, name text not null, public boolean default false);
+    create table storage.buckets (
+      id text primary key, name text not null, public boolean default false,
+      file_size_limit bigint, allowed_mime_types text[]
+    );
     create table storage.objects (
       id uuid primary key default gen_random_uuid(),
       bucket_id text references storage.buckets(id), name text, owner uuid
@@ -77,15 +80,15 @@ async function boot() {
     do $$ begin create role service_role;  exception when duplicate_object then null; end $$;
   `);
 
-  for (const file of [
-    "migrations/0001_init.sql",
-    "migrations/0002_rls.sql",
-    "migrations/0003_storage.sql",
-    "migrations/0004_review_rating_guard.sql",
-    "migrations/0005_crm_roles.sql",
-    "migrations/0006_crm_schema.sql",
-    "seed.sql",
-  ]) {
+  // Read the directory rather than listing files here: a hardcoded list goes
+  // stale the moment a migration is added or renumbered, and it fails as a
+  // missing-file error that looks nothing like the real problem.
+  const migrations = readdirSync(new URL("../migrations/", import.meta.url))
+    .filter((f) => f.endsWith(".sql"))
+    .sort()
+    .map((f) => `migrations/${f}`);
+
+  for (const file of [...migrations, "seed.sql"]) {
     try {
       await db.exec(read(file));
       console.log(`  ✓ ${file}`);
@@ -173,7 +176,7 @@ check(
   `rating ${rated[0].rating}, count ${rated[0].review_count}`,
 );
 
-console.log("\nCRM (0006):");
+console.log("\nCRM:");
 {
   // A website lead must land in the CRM pipeline automatically, with its
   // page-level source folded into metadata since crm.leads.source is a
@@ -247,6 +250,39 @@ console.log("\nCRM (0006):");
     where n.nspname='crm' and c.relkind='r' and not c.relrowsecurity`);
   check(crmRls.length === 0, "RLS enabled on every crm table",
     crmRls.map((r) => r.relname).join(", "));
+
+  // A crm table with RLS on but no GRANT to `authenticated` denies every
+  // PostgREST request before a policy is consulted — the screen renders an
+  // empty list with no error, which is the hardest failure of all to spot.
+  const { rows: ungranted } = await db.query(`
+    select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='crm' and c.relkind='r'
+      and not has_table_privilege('authenticated', c.oid, 'select')`);
+  check(ungranted.length === 0, "every crm table is granted to authenticated",
+    ungranted.map((r) => r.relname).join(", "));
+
+  // The phase-2 port added these; a rename or a dropped migration should fail
+  // here rather than at runtime on a screen nobody opened yet.
+  const expected = [
+    "appointments", "associates", "associate_wallet_txns", "attendance",
+    "department_litigations", "employees", "expenses", "lead_capture_forms",
+    "leave_requests", "payroll", "revenue_targets", "student_documents",
+    "student_exams", "student_mentorships", "student_uploads", "study_materials",
+  ];
+  const { rows: present } = await db.query(`
+    select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='crm' and c.relkind='r'`);
+  const have = new Set(present.map((r) => r.relname));
+  const missing = expected.filter((t) => !have.has(t));
+  check(missing.length === 0, "phase-2 crm tables all exist",
+    missing.length ? `missing: ${missing.join(", ")}` : `${expected.length} tables`);
+
+  // crm.payroll's FK back to crm.employees is deferred to 0019 because
+  // advance_salaries.settled_in forces payroll to be created first. If that
+  // deferred ALTER is ever dropped, payroll rows would orphan silently.
+  const { rows: pfk } = await db.query(`
+    select 1 from pg_constraint where conname = 'payroll_employee_fk'`);
+  check(pfk.length === 1, "payroll.employee_id FK to employees was applied");
 }
 
 console.log("\nSeed idempotency (re-run):");
