@@ -1034,10 +1034,13 @@ export type Database = {
         | "super_admin"
         | "editor"
         | "counsellor"
-        // CRM roles, added by 0005_crm_roles.sql
+        // CRM roles, added by 0007_crm_roles.sql
         | "telecaller"
         | "backend"
-        | "finance";
+        | "finance"
+        // Portal roles, added by 0009_crm_extra_roles.sql
+        | "associate"
+        | "student";
     };
     CompositeTypes: { [_ in never]: never };
   };

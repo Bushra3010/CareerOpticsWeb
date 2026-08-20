@@ -77,7 +77,17 @@ export const PERMISSIONS: Record<UserRole, { leads: boolean; content: boolean; a
   telecaller: { leads: true, content: false, admin: false },
   backend: { leads: true, content: true, admin: false },
   finance: { leads: true, content: false, admin: false },
+  // Portal roles (0009). They sign in through the same auth as staff but must
+  // never reach /admin — the portals are separate route trees, and every entry
+  // here is false so a portal login that wanders to /admin gets nothing.
+  associate: { leads: false, content: false, admin: false },
+  student: { leads: false, content: false, admin: false },
 };
+
+/** Portal accounts are not staff; /admin must bounce them. */
+export function isPortalRole(role: UserRole) {
+  return role === "associate" || role === "student";
+}
 
 /** Roles that see every lead rather than only their own — mirrors crm.is_manager(). */
 export function isCrmManager(role: UserRole) {

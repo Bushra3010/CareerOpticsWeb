@@ -83,4 +83,6 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   telecaller: "Telecaller",
   backend: "Backend",
   finance: "Finance",
+  associate: "Associate (portal)",
+  student: "Student (portal)",
 };
