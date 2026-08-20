@@ -281,6 +281,27 @@ export const STUDENT_DOC_STATUS_LABELS: Record<StudentDocStatus, string> = {
   rejected: "Rejected",
 };
 
+/** Mirrors the CHECK on `crm.student_exams.exam_type` (migration 0011). */
+export const STUDENT_EXAM_TYPES = [
+  "ielts",
+  "pte",
+  "toefl",
+  "practical",
+  "final_exam",
+  "mock_test",
+  "other",
+] as const;
+export type StudentExamType = (typeof STUDENT_EXAM_TYPES)[number];
+export const STUDENT_EXAM_LABELS: Record<StudentExamType, string> = {
+  ielts: "IELTS",
+  pte: "PTE",
+  toefl: "TOEFL",
+  practical: "Practical",
+  final_exam: "Final exam",
+  mock_test: "Mock test",
+  other: "Other",
+};
+
 export const ATTENDANCE_STATUSES = [
   "present",
   "absent",

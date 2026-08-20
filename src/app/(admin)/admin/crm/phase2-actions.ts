@@ -670,7 +670,7 @@ export async function markAttendance(formData: FormData): Promise<CrmResult> {
   );
 
   if (error) return fail(error, "Could not mark attendance.");
-  revalidatePath("/admin/crm/attendance");
+  revalidatePath("/admin/crm/hrms/attendance");
   return { ok: true };
 }
 

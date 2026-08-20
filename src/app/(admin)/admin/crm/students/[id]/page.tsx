@@ -5,11 +5,18 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, MessageCircle, Phone } from "lucide-react";
 
 import { PaymentForm } from "@/components/crm/payment-form";
+import { StudentDocuments } from "@/components/crm/student-documents";
+import { StudentExams } from "@/components/crm/student-exams";
 import { StudentStatusSelect } from "@/components/crm/student-status-select";
 import { Button } from "@/components/ui/button";
 import { type CrmStudentStatus } from "@/config/crm";
 import { can, requireStaff } from "@/lib/auth";
-import { getCrmStudent, getStudentPayments } from "@/lib/queries/crm";
+import {
+  getCrmStudent,
+  getStudentDocuments,
+  getStudentExams,
+  getStudentPayments,
+} from "@/lib/queries/crm";
 import { formatInr } from "@/lib/media";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +45,11 @@ export default async function CrmStudentPage({
   const student = await getCrmStudent(id);
   if (!student) notFound();
 
-  const payments = await getStudentPayments(id);
+  const [payments, documents, exams] = await Promise.all([
+    getStudentPayments(id),
+    getStudentDocuments(id),
+    getStudentExams(id),
+  ]);
   const total = Number(student.total_fee ?? 0);
   const paid = Number(student.amount_paid ?? 0);
   const outstanding = Math.max(0, total - paid);
@@ -173,6 +184,20 @@ export default async function CrmStudentPage({
                 </table>
               </div>
             )}
+          </section>
+
+          <section className="rounded-xl border bg-card p-5">
+            <h2 className="text-h3">Documents</h2>
+            <div className="mt-4">
+              <StudentDocuments studentId={student.id} documents={documents} />
+            </div>
+          </section>
+
+          <section className="rounded-xl border bg-card p-5">
+            <h2 className="text-h3">Exams</h2>
+            <div className="mt-4">
+              <StudentExams studentId={student.id} exams={exams} />
+            </div>
           </section>
         </div>
 

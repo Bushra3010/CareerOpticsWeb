@@ -245,6 +245,45 @@ console.log("\nCRM:");
 
   await db.exec(`delete from crm.leads where import_batch_id='import-20260820-ab12'`);
 
+  // config/crm.ts drives the dropdowns; the CHECK constraints decide what the
+  // database will actually take. If they drift, the form looks fine and the
+  // save fails at runtime — so every option the UI can offer is inserted here.
+  const configSrc = readFileSync(
+    new URL("../../src/config/crm.ts", import.meta.url), "utf8");
+  const listFrom = (name) => {
+    const body = configSrc.match(
+      new RegExp(`export const ${name} = \\[([^\\]]*)\\]`))?.[1] ?? "";
+    return [...body.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  };
+
+  const { rows: [stu] } = await db.query(
+    `select id from crm.students limit 1`);
+
+  // Each case supplies every NOT NULL column, so a failure means the CHECK
+  // rejected the value — not that the insert was malformed.
+  for (const [constant, table, column, fixed] of [
+    ["STUDENT_DOC_TYPES", "student_documents", "doc_type", {}],
+    ["STUDENT_DOC_STATUSES", "student_documents", "status", { doc_type: "passport" }],
+    ["STUDENT_EXAM_TYPES", "student_exams", "exam_type", { exam_name: "Test" }],
+  ]) {
+    const values = listFrom(constant);
+    const bad = [];
+    for (const v of values) {
+      const cols = { student_id: stu.id, [column]: v, ...fixed };
+      const names = Object.keys(cols).join(", ");
+      const vals = Object.values(cols).map((x) => `'${x}'`).join(", ");
+      try {
+        await db.exec(`insert into crm.${table} (${names}) values (${vals})`);
+      } catch (e) {
+        bad.push(`${v} (${e.message.split("\n")[0].slice(0, 60)})`);
+      }
+      await db.exec(`delete from crm.${table} where student_id='${stu.id}'`);
+    }
+    check(values.length > 0 && bad.length === 0,
+      `every ${constant} value passes the ${table}.${column} CHECK`,
+      bad.length ? `rejected: ${bad.join("; ")}` : `${values.length} values`);
+  }
+
   const { rows: crmRls } = await db.query(`
     select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
     where n.nspname='crm' and c.relkind='r' and not c.relrowsecurity`);
