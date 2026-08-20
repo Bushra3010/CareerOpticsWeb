@@ -109,20 +109,37 @@ function HeroSlide({
   priority: boolean;
   isFirst: boolean;
 }) {
-  const src = imageSrc(banner.image_url);
+  const desktopSrc = imageSrc(banner.image_url);
+  const mobileSrc = imageSrc(banner.image_mobile_url) ?? desktopSrc;
 
   return (
     <CarouselItem className="pl-0" aria-label={banner.title ?? undefined}>
       <div className="relative mx-4 h-[240px] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:h-[420px] lg:rounded-none">
-        {src ? (
-          <Image
-            src={src}
-            alt=""
-            fill
-            priority={priority}
-            sizes="100vw"
-            className="object-cover"
-          />
+        {/* Mobile image — hidden on desktop, shown on mobile. */}
+        {mobileSrc ? (
+          <div className="lg:hidden absolute inset-0">
+            <Image
+              src={mobileSrc}
+              alt=""
+              fill
+              priority={priority}
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
+        ) : null}
+        {/* Desktop image — hidden on mobile, shown on desktop. */}
+        {desktopSrc ? (
+          <div className="hidden lg:block absolute inset-0">
+            <Image
+              src={desktopSrc}
+              alt=""
+              fill
+              priority={priority}
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
         ) : null}
         {/* The banner title is the page's only h1. It is visually removed but
             kept for the document outline and search results — a home page with
