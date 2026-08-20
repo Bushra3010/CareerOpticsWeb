@@ -71,7 +71,18 @@ export const PERMISSIONS: Record<UserRole, { leads: boolean; content: boolean; a
   super_admin: { leads: true, content: true, admin: true },
   editor: { leads: false, content: true, admin: false },
   counsellor: { leads: true, content: false, admin: false },
+  // CRM roles (0005). `backend` and `finance` are the CRM's managers — the
+  // `crm.is_manager()` policy grants them the same reach in the database, so
+  // the UI must not pretend otherwise.
+  telecaller: { leads: true, content: false, admin: false },
+  backend: { leads: true, content: true, admin: false },
+  finance: { leads: true, content: false, admin: false },
 };
+
+/** Roles that see every lead rather than only their own — mirrors crm.is_manager(). */
+export function isCrmManager(role: UserRole) {
+  return role === "super_admin" || role === "backend" || role === "finance";
+}
 
 export function can(role: UserRole, area: keyof (typeof PERMISSIONS)["super_admin"]) {
   return PERMISSIONS[role][area];

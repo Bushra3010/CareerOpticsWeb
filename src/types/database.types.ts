@@ -1030,7 +1030,14 @@ export type Database = {
         | "dropped"
         | "junk";
       content_status: "draft" | "published" | "archived";
-      user_role: "super_admin" | "editor" | "counsellor";
+      user_role:
+        | "super_admin"
+        | "editor"
+        | "counsellor"
+        // CRM roles, added by 0005_crm_roles.sql
+        | "telecaller"
+        | "backend"
+        | "finance";
     };
     CompositeTypes: { [_ in never]: never };
   };

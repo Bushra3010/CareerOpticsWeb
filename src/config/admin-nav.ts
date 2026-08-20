@@ -16,11 +16,22 @@ export type AdminNavGroup = { title: string; items: AdminNavItem[] };
 
 export const ADMIN_NAV: AdminNavGroup[] = [
   {
-    title: "Leads",
+    title: "Overview",
+    items: [{ label: "Dashboard", href: "/admin", area: "leads" }],
+  },
+  {
+    // The CRM is where admissions are actually worked. The website inbox below
+    // stays as the raw record of what the site captured.
+    title: "CRM",
     items: [
-      { label: "Dashboard", href: "/admin", area: "leads" },
-      { label: "Leads inbox", href: "/admin/leads", area: "leads" },
+      { label: "Pipeline", href: "/admin/crm", area: "leads" },
+      { label: "Leads", href: "/admin/crm/leads", area: "leads" },
+      { label: "Students", href: "/admin/crm/students", area: "leads" },
     ],
+  },
+  {
+    title: "Website",
+    items: [{ label: "Enquiries", href: "/admin/leads", area: "leads" }],
   },
   {
     title: "Catalogue",
@@ -68,4 +79,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super admin",
   editor: "Content editor",
   counsellor: "Counsellor",
+  telecaller: "Telecaller",
+  backend: "Backend",
+  finance: "Finance",
 };
