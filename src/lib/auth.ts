@@ -67,21 +67,24 @@ export async function requireSuperAdmin(): Promise<StaffProfile> {
  * a security boundary — a determined counsellor could still call a content
  * mutation. Tighten the policies before that matters.
  */
-export const PERMISSIONS: Record<UserRole, { leads: boolean; content: boolean; admin: boolean }> = {
-  super_admin: { leads: true, content: true, admin: true },
-  editor: { leads: false, content: true, admin: false },
-  counsellor: { leads: true, content: false, admin: false },
+export const PERMISSIONS: Record<
+  UserRole,
+  { leads: boolean; content: boolean; admin: boolean; manager: boolean }
+> = {
+  super_admin: { leads: true, content: true, admin: true, manager: true },
+  editor: { leads: false, content: true, admin: false, manager: false },
+  counsellor: { leads: true, content: false, admin: false, manager: false },
   // CRM roles (0005). `backend` and `finance` are the CRM's managers — the
   // `crm.is_manager()` policy grants them the same reach in the database, so
   // the UI must not pretend otherwise.
-  telecaller: { leads: true, content: false, admin: false },
-  backend: { leads: true, content: true, admin: false },
-  finance: { leads: true, content: false, admin: false },
+  telecaller: { leads: true, content: false, admin: false, manager: false },
+  backend: { leads: true, content: true, admin: false, manager: true },
+  finance: { leads: true, content: false, admin: false, manager: true },
   // Portal roles (0009). They sign in through the same auth as staff but must
   // never reach /admin — the portals are separate route trees, and every entry
   // here is false so a portal login that wanders to /admin gets nothing.
-  associate: { leads: false, content: false, admin: false },
-  student: { leads: false, content: false, admin: false },
+  associate: { leads: false, content: false, admin: false, manager: false },
+  student: { leads: false, content: false, admin: false, manager: false },
 };
 
 /** Portal accounts are not staff; /admin must bounce them. */
@@ -89,9 +92,15 @@ export function isPortalRole(role: UserRole) {
   return role === "associate" || role === "student";
 }
 
-/** Roles that see every lead rather than only their own — mirrors crm.is_manager(). */
+/**
+ * Roles that see every lead rather than only their own — mirrors
+ * `crm.is_manager()` in 0008.
+ *
+ * Reads the same `manager` flag the nav uses, so the sidebar and the page
+ * guard can never disagree about who is a manager.
+ */
 export function isCrmManager(role: UserRole) {
-  return role === "super_admin" || role === "backend" || role === "finance";
+  return PERMISSIONS[role].manager;
 }
 
 export function can(role: UserRole, area: keyof (typeof PERMISSIONS)["super_admin"]) {

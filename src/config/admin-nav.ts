@@ -9,7 +9,13 @@ import type { UserRole } from "@/lib/auth";
 export type AdminNavItem = {
   label: string;
   href: string;
-  area: "leads" | "content" | "admin";
+  /**
+   * `manager` is the CRM's own tier — HRMS, finance and approvals. It is not
+   * one of the §3 permission areas because RLS gates those tables on
+   * `crm.is_manager()`, which is a different question from "can work leads":
+   * a counsellor has `leads` but must not see salaries.
+   */
+  area: "leads" | "content" | "admin" | "manager";
 };
 
 export type AdminNavGroup = { title: string; items: AdminNavItem[] };
@@ -27,7 +33,32 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: "Pipeline", href: "/admin/crm", area: "leads" },
       { label: "Leads", href: "/admin/crm/leads", area: "leads" },
       { label: "Students", href: "/admin/crm/students", area: "leads" },
+      { label: "Appointments", href: "/admin/crm/appointments", area: "leads" },
       { label: "Analytics", href: "/admin/crm/analytics", area: "leads" },
+    ],
+  },
+  {
+    title: "Operations",
+    items: [
+      { label: "Associates", href: "/admin/crm/associates", area: "leads" },
+      { label: "Dispatch", href: "/admin/crm/dispatch", area: "leads" },
+      { label: "Mentorship", href: "/admin/crm/mentorship", area: "leads" },
+      { label: "Targets", href: "/admin/crm/targets", area: "leads" },
+      { label: "Notifications", href: "/admin/crm/notifications", area: "leads" },
+      { label: "Support", href: "/admin/crm/support", area: "manager" },
+    ],
+  },
+  {
+    title: "Money and people",
+    items: [
+      { label: "Finance", href: "/admin/crm/finance", area: "leads" },
+      { label: "Litigation", href: "/admin/crm/litigation", area: "manager" },
+      { label: "HRMS", href: "/admin/crm/hrms", area: "manager" },
+      { label: "Attendance", href: "/admin/crm/hrms/attendance", area: "manager" },
+      { label: "Leave", href: "/admin/crm/hrms/leaves", area: "manager" },
+      { label: "Payroll", href: "/admin/crm/hrms/payroll", area: "manager" },
+      { label: "Advances", href: "/admin/crm/hrms/advances", area: "manager" },
+      { label: "CRM settings", href: "/admin/crm/settings", area: "manager" },
     ],
   },
   {

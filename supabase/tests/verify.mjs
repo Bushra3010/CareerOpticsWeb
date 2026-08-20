@@ -283,6 +283,30 @@ console.log("\nCRM:");
   const { rows: pfk } = await db.query(`
     select 1 from pg_constraint where conname = 'payroll_employee_fk'`);
   check(pfk.length === 1, "payroll.employee_id FK to employees was applied");
+
+  // The sidebar decides who sees HRMS/finance from PERMISSIONS[role].manager;
+  // the database decides what they can actually read from crm.is_manager().
+  // If those two lists drift, a manager-only page renders for someone whose
+  // queries then return nothing — an empty screen with no error.
+  const authSrc = readFileSync(join(SUPABASE_DIR, "../src/lib/auth.ts"), "utf8");
+  const uiManagers = [...authSrc.matchAll(/^\s*(\w+): \{[^}]*manager: true/gm)]
+    .map((m) => m[1])
+    .sort();
+
+  const { rows: fnDef } = await db.query(`
+    select pg_get_functiondef(p.oid) as def
+      from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+     where n.nspname = 'crm' and p.proname = 'is_manager'`);
+  const dbManagers = [...(fnDef[0]?.def ?? "").matchAll(/'(\w+)'/g)]
+    .map((m) => m[1])
+    .filter((r) => r !== "public")
+    .sort();
+
+  check(
+    uiManagers.length > 0 && uiManagers.join(",") === dbManagers.join(","),
+    "UI manager roles match crm.is_manager()",
+    `ui: ${uiManagers.join(", ")} · db: ${dbManagers.join(", ")}`,
+  );
 }
 
 console.log("\nSeed idempotency (re-run):");
