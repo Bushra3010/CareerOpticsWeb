@@ -26,7 +26,8 @@ BLOCK_B = ["0008_crm_schema.sql", "0010_student_metadata.sql",
     "0017_dispatches_uploads.sql", "0018_payroll.sql",
     "0019_hrms_employees.sql", "0020_department_litigations.sql",
     "0021_student_mentorships.sql", "0022_revenue_targets.sql",
-    "0023_crm_grants.sql"]
+    "0023_crm_grants.sql",
+    "0024_crm_service_role_grants.sql"]
 
 stats = {"policies": 0, "triggers": 0, "constraints": 0}
 I = re.I | re.M
