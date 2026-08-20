@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 
-import { saveStudentDocument } from "@/app/(admin)/admin/crm/phase2-actions";
+import { saveStudentDocument } from "@/app/(crm)/crm/phase2-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

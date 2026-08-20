@@ -361,7 +361,7 @@ export async function getCrmMoneyStats() {
 }
 
 /**
- * Aggregates for `/admin/crm/analytics`.
+ * Aggregates for `/crm/analytics`.
  *
  * Counted in JS over narrow selects rather than with SQL aggregates: PostgREST
  * cannot GROUP BY without an RPC, and an RPC needs a migration we cannot apply

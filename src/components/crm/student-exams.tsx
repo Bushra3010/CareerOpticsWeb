@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { Loader2, Plus } from "lucide-react";
 
-import { saveStudentExam } from "@/app/(admin)/admin/crm/phase2-actions";
+import { saveStudentExam } from "@/app/(crm)/crm/phase2-actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

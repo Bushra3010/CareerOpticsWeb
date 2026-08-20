@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { CheckCircle2, FileUp, Loader2 } from "lucide-react";
 
-import { commitImport, previewImport } from "@/app/(admin)/admin/crm/import-actions";
+import { commitImport, previewImport } from "@/app/(crm)/crm/import-actions";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { CRM_LEAD_SOURCES, CRM_SOURCE_LABELS } from "@/config/crm";
@@ -95,7 +95,7 @@ export function LeadImport() {
           <li className="text-sm text-muted-foreground">Batch {result.batchId}</li>
         </ul>
         <div className="mt-5 flex gap-3">
-          <Button onClick={() => router.push("/admin/crm/leads")}>See the leads</Button>
+          <Button onClick={() => router.push("/crm/leads")}>See the leads</Button>
           <Button variant="ghost" onClick={() => setResult(null)}>Import another file</Button>
         </div>
       </div>

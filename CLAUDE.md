@@ -146,8 +146,9 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 
 ## CRM (dcwcrm merged in) — phase 1 done
 
-The consultancy CRM lives in a **separate `crm` Postgres schema inside the same
-Supabase project**. Migrations `0005_crm_roles.sql` and `0006_crm_schema.sql`.
+The consultancy CRM is a **separate application at `/crm`**, on a **separate
+`crm` Postgres schema inside the same Supabase project**. Migrations
+`0007_crm_roles.sql` onwards.
 
 **🔴 Neither migration is applied to the live project yet.** Paste them into the
 Supabase SQL Editor **separately and in that order** — `0005` only widens
@@ -159,6 +160,18 @@ Shipped: pipeline dashboard, leads list (filters, status, assignment,
 follow-ups, notes, CSV export), lead detail + create/edit, students list and
 detail with the payment ledger, and CSV bulk import.
 
+- **`/crm` is its own shell, not a section of `/admin`.** A telecaller works
+  leads all day and never opens a college page; an editor never sees a
+  student's fees. Two shells means neither scrolls past the other's nav.
+  They share one login, one `profiles` row and one `can()` — `config/crm-nav.ts`
+  is the CRM's nav, `config/admin-nav.ts` the website's, and each shell links
+  to the other only when the role can actually use it. `/admin/crm/*` 307s to
+  `/crm/*` for staff bookmarks; 307 not 308, because a permanent redirect is
+  cached forever and these are internal noindex routes.
+- **Middleware gates `/crm` as well as `/admin`,** and `next` carries the
+  visitor back to the CRM page they asked for. That parameter is only ever
+  honoured for a same-origin path — a leading `//` or a backslash would walk
+  the user off the site.
 - **A separate schema, not merged tables.** `courses`, `leads`, `lead_activities`
   and `sessions` exist in both products with different shapes. Reconciling four
   colliding tables would have meant rewriting the live website's queries; a

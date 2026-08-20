@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { CalendarClock, Loader2, StickyNote } from "lucide-react";
 
-import { addLeadNote, setFollowUp } from "@/app/(admin)/admin/crm/actions";
+import { addLeadNote, setFollowUp } from "@/app/(crm)/crm/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

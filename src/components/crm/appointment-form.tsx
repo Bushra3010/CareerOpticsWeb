@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { Loader2 } from "lucide-react";
 
-import { createAppointment } from "@/app/(admin)/admin/crm/phase2-actions";
+import { createAppointment } from "@/app/(crm)/crm/phase2-actions";
 import { Disclosure } from "@/components/crm/action-controls";
 import { Button } from "@/components/ui/button";
 import { APPOINTMENT_SLOTS, APPOINTMENT_TYPES } from "@/config/crm";

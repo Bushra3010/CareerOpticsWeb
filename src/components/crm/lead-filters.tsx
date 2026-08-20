@@ -127,7 +127,7 @@ export function LeadFilters({
         <Button type="submit">Apply</Button>
         {active ? (
           <Button asChild variant="ghost">
-            <Link href="/admin/crm/leads">
+            <Link href="/crm/leads">
               <X className="size-3.5" />
               Clear
             </Link>

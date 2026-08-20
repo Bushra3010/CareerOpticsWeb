@@ -49,6 +49,14 @@ const nextConfig: NextConfig = {
       { source: "/twelve/:path*", destination: "/after-12th", permanent: true },
       { source: "/ug/:path*", destination: "/after-graduation", permanent: true },
       { source: "/pg/:path*", destination: "/after-pg", permanent: true },
+
+      // The CRM moved out of the website admin into its own application.
+      // Staff have these bookmarked, so the old paths keep working. `307`
+      // rather than `308`: these are internal, noindex routes, and a permanent
+      // redirect is cached by the browser forever — which would be painful if
+      // the layout ever moves again.
+      { source: "/admin/crm", destination: "/crm", permanent: false },
+      { source: "/admin/crm/:path*", destination: "/crm/:path*", permanent: false },
     ];
   },
 

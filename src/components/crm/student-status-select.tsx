@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-import { setStudentStatus } from "@/app/(admin)/admin/crm/actions";
+import { setStudentStatus } from "@/app/(crm)/crm/actions";
 import {
   CRM_STUDENT_STATUSES,
   CRM_STUDENT_STATUS_LABELS,

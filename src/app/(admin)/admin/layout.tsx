@@ -1,12 +1,13 @@
 import Link from "next/link";
 
-import { ExternalLink, LogOut } from "lucide-react";
+import { ExternalLink, LogOut, Users } from "lucide-react";
 
 import { signOut } from "@/app/(admin)/admin/login/actions";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Logo } from "@/components/site/logo";
 import { Button } from "@/components/ui/button";
 import { navForRole, ROLE_LABELS } from "@/config/admin-nav";
+import { canUseCrm } from "@/config/crm-nav";
 import { can, getStaffProfile } from "@/lib/auth";
 
 /**
@@ -45,10 +46,20 @@ export default async function AdminLayout({
           </p>
           <p className="px-3 text-sm text-white/60">{ROLE_LABELS[profile.role]}</p>
 
+          {canUseCrm(profile.role, can) ? (
+            <Link
+              href="/crm"
+              className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+            >
+              <Users className="size-4" aria-hidden />
+              Open the CRM
+            </Link>
+          ) : null}
+
           <Link
             href="/"
             target="_blank"
-            className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/75 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
           >
             <ExternalLink className="size-4" aria-hidden />
             View site

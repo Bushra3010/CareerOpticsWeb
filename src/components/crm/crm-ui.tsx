@@ -178,9 +178,9 @@ export function CrmTabs({
 }
 
 export const HRMS_TABS = [
-  { href: "/admin/crm/hrms", label: "Employees" },
-  { href: "/admin/crm/hrms/attendance", label: "Attendance" },
-  { href: "/admin/crm/hrms/leaves", label: "Leave" },
-  { href: "/admin/crm/hrms/payroll", label: "Payroll" },
-  { href: "/admin/crm/hrms/advances", label: "Advances" },
+  { href: "/crm/hrms", label: "Employees" },
+  { href: "/crm/hrms/attendance", label: "Attendance" },
+  { href: "/crm/hrms/leaves", label: "Leave" },
+  { href: "/crm/hrms/payroll", label: "Payroll" },
+  { href: "/crm/hrms/advances", label: "Advances" },
 ];

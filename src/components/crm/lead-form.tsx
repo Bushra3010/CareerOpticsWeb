@@ -5,7 +5,7 @@ import * as React from "react";
 
 import { Loader2 } from "lucide-react";
 
-import { createLead, saveLeadDetails } from "@/app/(admin)/admin/crm/actions";
+import { createLead, saveLeadDetails } from "@/app/(crm)/crm/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +50,7 @@ export function LeadForm({
         return;
       }
       const id = lead?.id ?? ("id" in result ? result.id : undefined);
-      router.push(id ? `/admin/crm/leads/${id}` : "/admin/crm/leads");
+      router.push(id ? `/crm/leads/${id}` : "/crm/leads");
       router.refresh();
     });
   };

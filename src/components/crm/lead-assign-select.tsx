@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-import { assignLead } from "@/app/(admin)/admin/crm/actions";
+import { assignLead } from "@/app/(crm)/crm/actions";
 
 /** Reassign a lead from the table. Optimistic, same reasoning as the status select. */
 export function LeadAssignSelect({
