@@ -209,6 +209,39 @@ console.log("\nCRM (0006):");
   check(/^CO-\d{4}-\d{5}$/.test(st[0]?.enrollment_number ?? ""),
     "enrollment number format", st[0]?.enrollment_number);
 
+  // The bulk importer's write shape: `excel_import` source, a batch stamp, and
+  // messy spreadsheet phone formats that must all collapse onto one dedupe key.
+  await db.exec(`
+    insert into crm.leads (full_name, phone, source, status, import_batch_id)
+    values ('Import One','+91 98000 22233','excel_import','new','import-20260820-ab12'),
+           ('Import Two','098000 22244','excel_import','new','import-20260820-ab12')`);
+
+  const { rows: imported } = await db.query(`
+    select phone_last10 from crm.leads
+    where import_batch_id='import-20260820-ab12' order by phone_last10`);
+  check(imported.length === 2 && imported[0].phone_last10 === "9800022233"
+    && imported[1].phone_last10 === "9800022244",
+    "imported rows normalise to a 10-digit dedupe key",
+    imported.map((r) => r.phone_last10).join(", "));
+
+  // The importer's duplicate check is `where phone_last10 in (...)`. If the
+  // trigger ever stopped normalising, a re-import would silently double every
+  // lead — this asserts a differently formatted copy of the same number is
+  // found by that lookup.
+  const { rows: dupe } = await db.query(`
+    select count(*)::int n from crm.leads where phone_last10 in ('9800022233')`);
+  check(dupe[0].n === 1, "a reformatted number is caught by the dedupe lookup",
+    `${dupe[0].n} match(es)`);
+
+  let rejected = false;
+  try {
+    await db.exec(`insert into crm.leads (full_name, phone, source)
+                   values ('Bad Source','9800022255','linkedin')`);
+  } catch { rejected = true; }
+  check(rejected, "an unknown lead source is rejected by the CHECK constraint");
+
+  await db.exec(`delete from crm.leads where import_batch_id='import-20260820-ab12'`);
+
   const { rows: crmRls } = await db.query(`
     select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
     where n.nspname='crm' and c.relkind='r' and not c.relrowsecurity`);

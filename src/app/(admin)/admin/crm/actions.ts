@@ -349,13 +349,21 @@ export async function recordPayment(formData: FormData): Promise<CrmResult> {
   });
   if (error) return { ok: false, error: error.message };
 
-  const { data: student } = await supabase
-    .from("students").select("amount_paid").eq("id", d.student_id).maybeSingle();
+  // Recomputed from the receipts, not incremented from the old value. Two
+  // counsellors recording a payment at the same moment would both read the
+  // same `amount_paid` and one write would be lost; summing means the very
+  // next payment repairs the total instead of the error compounding.
+  const { data: receipts } = await supabase
+    .from("payments").select("amount").eq("student_id", d.student_id);
 
-  await supabase
-    .from("students")
-    .update({ amount_paid: Number(student?.amount_paid ?? 0) + d.amount })
-    .eq("id", d.student_id);
+  if (receipts) {
+    await supabase
+      .from("students")
+      .update({
+        amount_paid: receipts.reduce((sum, r) => sum + Number(r.amount ?? 0), 0),
+      })
+      .eq("id", d.student_id);
+  }
 
   revalidatePath(`/admin/crm/students/${d.student_id}`);
   revalidatePath("/admin/crm/students");
