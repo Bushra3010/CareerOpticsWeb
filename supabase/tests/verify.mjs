@@ -74,6 +74,7 @@ async function boot() {
 
     do $$ begin create role anon;          exception when duplicate_object then null; end $$;
     do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+    do $$ begin create role service_role;  exception when duplicate_object then null; end $$;
   `);
 
   for (const file of [
@@ -81,6 +82,8 @@ async function boot() {
     "migrations/0002_rls.sql",
     "migrations/0003_storage.sql",
     "migrations/0004_review_rating_guard.sql",
+    "migrations/0005_crm_roles.sql",
+    "migrations/0006_crm_schema.sql",
     "seed.sql",
   ]) {
     try {
@@ -169,6 +172,49 @@ check(
   "review trigger recomputes college rating",
   `rating ${rated[0].rating}, count ${rated[0].review_count}`,
 );
+
+console.log("\nCRM (0006):");
+{
+  // A website lead must land in the CRM pipeline automatically, with its
+  // page-level source folded into metadata since crm.leads.source is a
+  // constrained vocabulary that would reject 'college_finder'.
+  await db.exec(`
+    insert into leads (name, phone, email, city, source, page_url, answers)
+    values ('Bridge Test','9800011122','b@example.com','Patna','college_finder',
+            'http://x/college-finder', '{"stream":"engineering"}'::jsonb);
+  `);
+  const { rows } = await db.query(`
+    select l.full_name, l.phone, l.source, l.status, l.phone_last10,
+           l.metadata->>'website_source' as website_source,
+           l.metadata->'answers'->>'stream' as answer_stream
+      from crm.leads l where l.phone = '9800011122'
+  `);
+  check(rows.length === 1, "website lead reaches crm.leads");
+  const r = rows[0] || {};
+  check(r.full_name === "Bridge Test" && r.source === "website" && r.status === "new",
+    "bridged lead is mapped correctly", `${r.full_name} / ${r.source} / ${r.status}`);
+  check(r.website_source === "college_finder" && r.answer_stream === "engineering",
+    "page source and finder answers kept in metadata", `${r.website_source}, ${r.answer_stream}`);
+  check(r.phone_last10 === "9800011122", "phone_last10 computed", r.phone_last10);
+
+  // Converting a lead must create exactly one pending student, and be
+  // idempotent if the status is flipped back and forth.
+  await db.exec(`update crm.leads set status='converted' where phone='9800011122'`);
+  await db.exec(`update crm.leads set status='interested' where phone='9800011122'`);
+  await db.exec(`update crm.leads set status='converted' where phone='9800011122'`);
+  const { rows: st } = await db.query(
+    `select enrollment_number, status, full_name from crm.students`);
+  check(st.length === 1, "conversion creates exactly one student", `${st.length} row(s)`);
+  check(st[0]?.status === "pending", "student lands as pending, not active", st[0]?.status);
+  check(/^CO-\d{4}-\d{5}$/.test(st[0]?.enrollment_number ?? ""),
+    "enrollment number format", st[0]?.enrollment_number);
+
+  const { rows: crmRls } = await db.query(`
+    select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace
+    where n.nspname='crm' and c.relkind='r' and not c.relrowsecurity`);
+  check(crmRls.length === 0, "RLS enabled on every crm table",
+    crmRls.map((r) => r.relname).join(", "));
+}
 
 console.log("\nSeed idempotency (re-run):");
 await db.exec(read("seed.sql"));
