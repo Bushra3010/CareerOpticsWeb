@@ -29,6 +29,9 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
+- **CRM phase 1 — done.** dcwcrm merged into a separate `crm` schema: leads pipeline,
+  students, payments, CSV bulk import. **Both migrations still need applying by hand —
+  see the CRM section below.**
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
@@ -140,6 +143,58 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Both consent buttons carry the same visual weight** on purpose. Consent that was nudged is not consent.
 - **Slugs are immutable.** A rename goes in `next.config.ts` redirects, not by editing the row — otherwise every indexed URL and inbound link breaks. The table is wired and currently holds only the legacy `/tenth`, `/twelve`, `/ug`, `/pg` paths.
 - **No CSP yet.** Baseline headers are set; a full policy needs the GTM and Meta domains from P12, and a wrong CSP that blocks the site is worse than none.
+
+## CRM (dcwcrm merged in) — phase 1 done
+
+The consultancy CRM lives in a **separate `crm` Postgres schema inside the same
+Supabase project**. Migrations `0005_crm_roles.sql` and `0006_crm_schema.sql`.
+
+**🔴 Neither migration is applied to the live project yet.** Paste them into the
+Supabase SQL Editor **separately and in that order** — `0005` only widens
+`user_role`, and Postgres refuses to *use* a new enum value in the transaction
+that adds it, which is the only reason it is its own file. Then add `crm` to
+**Project Settings → API → Exposed schemas**, or every CRM query 404s.
+
+Shipped: pipeline dashboard, leads list (filters, status, assignment,
+follow-ups, notes, CSV export), lead detail + create/edit, students list and
+detail with the payment ledger, and CSV bulk import.
+
+- **A separate schema, not merged tables.** `courses`, `leads`, `lead_activities`
+  and `sessions` exist in both products with different shapes. Reconciling four
+  colliding tables would have meant rewriting the live website's queries; a
+  schema keeps the site untouched. The one deliberate exception is `profiles` —
+  shared, with `telecaller`/`backend`/`finance` added to `user_role`, so staff
+  have one login and one role.
+- **`public.push_lead_to_crm()` is the bridge** — an after-insert trigger on
+  `public.leads`. Website sources (`home_hero`, `college_finder`, …) are not in
+  `crm.leads.source`'s CHECK, so they fold into `metadata.website_source` and
+  the row lands as `source='website'`. A counsellor sees website enquiries and
+  walk-ins in one pipeline without either table changing shape.
+- **Rebuilt natively, not copied.** dcwcrm is `@base-ui/react` +
+  `@tanstack/react-table`; this codebase is radix/shadcn. A literal port would
+  drag a second UI library and ~2,800 incompatible lines in for the leads module
+  alone, and blow the §11 budget. Every CRM route is 137–143 kB.
+- **Import is CSV, not xlsx.** The npm `xlsx` build dcwcrm uses (0.18.5) has open
+  prototype-pollution and ReDoS advisories and SheetJS moved distribution off
+  npm. `lib/csv.ts` is a small RFC 4180 reader instead. The uploaded file is
+  never stored — it is re-read from the same input on commit, so a spreadsheet of
+  student phone numbers never reaches Storage.
+- **PostgREST `.in()` travels in the URL.** 2,000 numbers is a ~22 kB request the
+  server rejects, and the swallowed error made dedupe silently do nothing while
+  reporting "0 duplicates". Chunk any `.in()` built from user data, and never
+  treat its error as an empty result.
+- **`crm.leads.status` and `.source` are CHECK constraints, not enums** — so new
+  values need no `ALTER TYPE` dance. Keep `config/crm.ts` in step with them;
+  `db:verify` asserts an unknown source is rejected.
+- **Money totals recompute, never increment.** `recordPayment` sums the receipts
+  for the student. Incrementing `amount_paid` loses a payment whenever two
+  counsellors record at the same moment, and the error compounds.
+- **The service role appears exactly once in the CRM**, on the import batch
+  insert, with `created_by` stamped before the write. Everything else uses the
+  cookie-bound client so `crm.is_crm_staff()` RLS stays the real boundary.
+- **Deferred to phase 2+ (user's call):** HRMS, associates portal, student
+  portal, mentorship, litigation, dispatch, analytics, targets, push
+  notifications.
 
 ## §2 Tech stack (fixed — do not substitute)
 
