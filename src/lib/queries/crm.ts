@@ -804,19 +804,41 @@ export async function listTargetsWithProgress(status = "active") {
     targets[0].start_date as string,
   );
 
-  const [{ data: payments }, { data: leads }] = await Promise.all([
-    supabase.from("payments").select("amount, payment_date, recorded_by")
+  const [{ data: payments }, { data: leads }, { data: students }] = await Promise.all([
+    supabase.from("payments")
+      .select("amount, payment_date, recorded_by, student_id, lead_id")
       .gte("payment_date", earliest),
-    supabase.from("leads").select("assigned_to, status, created_at, converted_at")
+    supabase.from("leads").select("id, assigned_to, status, created_at, converted_at")
       .gte("created_at", `${earliest}T00:00:00Z`),
+    supabase.from("students").select("id, assigned_counsellor"),
   ]);
+
+  // Credit the payment to whoever *owns* the student, not to whoever typed it
+  // in. `recorded_by` is the data-entry clerk — if finance records every
+  // receipt, attributing on it would show every counsellor at zero and
+  // finance at 100%. It is only the fallback for a payment attached to
+  // neither a student nor a lead.
+  const counsellorByStudent = new Map(
+    (students ?? []).map((s) => [s.id as string, s.assigned_counsellor as string | null]),
+  );
+  const ownerByLead = new Map(
+    (leads ?? []).map((l) => [l.id as string, l.assigned_to as string | null]),
+  );
+  const creditedTo = (p: {
+    student_id: string | null;
+    lead_id: string | null;
+    recorded_by: string | null;
+  }) =>
+    (p.student_id ? counsellorByStudent.get(p.student_id) : null) ??
+    (p.lead_id ? ownerByLead.get(p.lead_id) : null) ??
+    p.recorded_by;
 
   return targets.map((t) => {
     const inWindow = (d: string | null) =>
       !!d && d >= t.start_date && d <= t.end_date;
 
     const revenue = (payments ?? [])
-      .filter((p) => p.recorded_by === t.assignee_id && inWindow(p.payment_date))
+      .filter((p) => creditedTo(p) === t.assignee_id && inWindow(p.payment_date))
       .reduce((sum, p) => sum + Number(p.amount ?? 0), 0);
 
     const mine = (leads ?? []).filter((l) => l.assigned_to === t.assignee_id);
