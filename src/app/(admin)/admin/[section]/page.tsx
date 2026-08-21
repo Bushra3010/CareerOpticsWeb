@@ -14,10 +14,6 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
-export async function generateStaticParams() {
-  return CONTENT_SECTIONS.map((section) => ({ section: section.slug }));
-}
-
 export async function generateMetadata({
   params,
 }: {
@@ -43,7 +39,13 @@ function display(value: unknown): string {
       return new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(date);
     }
   }
-  return text.length > 60 ? `${text.slice(0, 60)}…` : text;
+  return text.length > 60
+    ? (() => { // [FIXED: A11Y word-boundary truncation replaces character chop that splits mid-word]
+        const trimmed = text.slice(0, 57);
+        const lastSpace = trimmed.lastIndexOf(" ");
+        return lastSpace > 40 ? trimmed.slice(0, lastSpace).trimEnd() : trimmed.trimEnd();
+      })() + "…"
+    : text;
 }
 
 /**

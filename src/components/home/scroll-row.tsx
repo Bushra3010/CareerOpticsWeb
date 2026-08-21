@@ -32,14 +32,20 @@ export function ScrollRow({
   const [pages, setPages] = React.useState(1);
   const [page, setPage] = React.useState(0);
 
+  const rafId = React.useRef<number>(0);
+
   const sync = React.useCallback(() => {
-    const el = ref.current;
-    if (!el) return;
-    setAtStart(el.scrollLeft <= 1);
-    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
-    const count = Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth));
-    setPages(count);
-    setPage(Math.round(el.scrollLeft / el.clientWidth));
+    if (rafId.current) return; // [FIXED: PERF guard against double-firing within the same frame]
+    rafId.current = requestAnimationFrame(() => {
+      rafId.current = 0;
+      const el = ref.current;
+      if (!el) return;
+      setAtStart(el.scrollLeft <= 1);
+      setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 1);
+      const count = Math.max(1, Math.ceil(el.scrollWidth / el.clientWidth));
+      setPages(count);
+      setPage(Math.round(el.scrollLeft / el.clientWidth));
+    });
   }, []);
 
   React.useEffect(() => {
@@ -48,7 +54,10 @@ export function ScrollRow({
     if (!el) return;
     const observer = new ResizeObserver(sync);
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+    };
   }, [sync]);
 
   const scrollBy = (direction: 1 | -1) => {

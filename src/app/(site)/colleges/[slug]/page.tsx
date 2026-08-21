@@ -28,7 +28,6 @@ import {
   getCollegeCourses,
   getCollegeFaqs,
   getCollegeGallery,
-  getFeaturedCollegeSlugs,
   getSimilarColleges,
   type College,
 } from "@/lib/queries/college-detail";
@@ -44,13 +43,10 @@ import {
 export const revalidate = 3600;
 
 /**
- * Featured colleges are pre-rendered; the rest are generated on first request
- * and then cached by ISR (§5.3).
+ * All college slugs are generated on first request by ISR (§5.3).
+ * Removing generateStaticParams avoids a DB call at build time that
+ * conflicts with the dynamic segment's params shape.
  */
-export async function generateStaticParams() {
-  const slugs = await getFeaturedCollegeSlugs();
-  return slugs.map((slug) => ({ slug }));
-}
 
 export async function generateMetadata({
   params,
@@ -157,7 +153,7 @@ export default async function CollegeDetailPage({
 
       <div className="container-site flex gap-8 pb-12 lg:pb-16">
         <div className="min-w-0 flex-1">
-          <Section id="overview" title={`About ${shortName}`}>
+          <DetailSection id="overview" title={`About ${shortName}`}>
             {college.about ? (
               <p className="text-pretty text-body">{college.about}</p>
             ) : null}
@@ -168,24 +164,24 @@ export default async function CollegeDetailPage({
               </>
             ) : null}
             <Highlights college={college} />
-          </Section>
+          </DetailSection>
 
-          <Section id="courses" title="Courses & Fees">
+          <DetailSection id="courses" title="Courses & Fees">
             <CoursesFeesTable
               courses={courses}
               collegeId={college.id}
               collegeName={shortName}
             />
-          </Section>
+          </DetailSection>
 
           {college.admission_process ? (
-            <Section id="admission" title="Admission Process">
+            <DetailSection id="admission" title="Admission Process">
               <p className="text-pretty text-body">{college.admission_process}</p>
-            </Section>
+            </DetailSection>
           ) : null}
 
           {college.highest_package || college.average_package ? (
-            <Section id="placement" title="Placements">
+            <DetailSection id="placement" title="Placements">
               <dl className="grid gap-4 sm:grid-cols-2">
                 {college.highest_package ? (
                   <PackageStat
@@ -200,11 +196,11 @@ export default async function CollegeDetailPage({
                   />
                 ) : null}
               </dl>
-            </Section>
+            </DetailSection>
           ) : null}
 
           {(college.facilities ?? []).length > 0 ? (
-            <Section id="facilities" title="Campus & Facilities">
+            <DetailSection id="facilities" title="Campus & Facilities">
               {college.campus_size ? (
                 <p className="text-body">Campus size: {college.campus_size}</p>
               ) : null}
@@ -216,11 +212,11 @@ export default async function CollegeDetailPage({
                   </li>
                 ))}
               </ul>
-            </Section>
+            </DetailSection>
           ) : null}
 
           {gallery.length > 0 ? (
-            <Section id="gallery" title="Gallery">
+            <DetailSection id="gallery" title="Gallery">
               <ul className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 {gallery.map((item) => {
                   const src = imageSrc(item.image_url);
@@ -246,21 +242,21 @@ export default async function CollegeDetailPage({
                   );
                 })}
               </ul>
-            </Section>
+            </DetailSection>
           ) : null}
 
-          <Section id="reviews" title={`Reviews of ${shortName}`}>
+          <DetailSection id="reviews" title={`Reviews of ${shortName}`}>
             <ReviewList reviews={reviews} />
             <div className="mt-6">
               <ReviewSubmission collegeId={college.id} collegeName={shortName} />
             </div>
-          </Section>
+          </DetailSection>
 
           {faqs.length > 0 ? (
-            <Section id="faq" title="Frequently Asked Questions">
+            <DetailSection id="faq" title="Frequently Asked Questions">
               <FaqAccordion faqs={faqs} />
               <JsonLd data={faqPageSchema(faqs)} />
-            </Section>
+            </DetailSection>
           ) : null}
         </div>
 
@@ -288,7 +284,7 @@ export default async function CollegeDetailPage({
   );
 }
 
-function Section({
+function DetailSection({
   id,
   title,
   children,

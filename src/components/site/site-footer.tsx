@@ -57,7 +57,7 @@ export function SiteFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="flex size-9 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-brand-red focus-visible:ring-2 focus-visible:ring-brand-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-blue-900 focus-visible:outline-none"
+                  className="flex size-11 items-center justify-center rounded-lg bg-white/10 text-white transition-colors hover:bg-brand-red focus-visible:ring-2 focus-visible:ring-brand-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-blue-900 focus-visible:outline-none"
                 >
                   <Icon className="size-4" aria-hidden />
                 </a>

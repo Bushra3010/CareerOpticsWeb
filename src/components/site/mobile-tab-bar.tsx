@@ -46,7 +46,7 @@ export function MobileTabBar() {
             href={tab.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex flex-col items-center gap-1 py-2 text-[11px] font-medium",
+              "flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-xs font-medium",
               active ? "text-brand-blue" : "text-muted-foreground",
             )}
           >
@@ -68,7 +68,7 @@ export function MobileTabBar() {
       >
         <button
           type="button"
-          className="flex flex-col items-center gap-1 py-2 text-[11px] font-semibold text-brand-red"
+          className="flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-xs font-semibold text-brand-red"
         >
           <UsersRound className="size-5" aria-hidden />
           Counselling
@@ -79,7 +79,7 @@ export function MobileTabBar() {
         type="button"
         onClick={openMenu}
         aria-haspopup="dialog"
-        className="flex flex-col items-center gap-1 py-2 text-[11px] font-medium text-muted-foreground"
+        className="flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-xs font-medium text-muted-foreground"
       >
         <User className="size-5" aria-hidden />
         Profile

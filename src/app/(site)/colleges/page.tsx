@@ -192,18 +192,34 @@ export default async function CollegesPage({
                   </PaginationItem>
                 ) : null}
 
-                {Array.from({ length: pageCount }, (_, index) => index + 1).map(
-                  (target) => (
-                    <PaginationItem key={target}>
-                      <PaginationLink
-                        href={pageHref(target)}
-                        isActive={target === page}
-                      >
-                        {target}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ),
-                )}
+                {(() => { // [FIXED: PERF truncated pagination prevents hundreds of sequential links on large catalogues]
+                  const items: (number | "...")[] = [];
+                  const maxVisible = 5;
+                  if (pageCount <= maxVisible + 2) {
+                    for (let i = 1; i <= pageCount; i++) items.push(i);
+                  } else {
+                    items.push(1);
+                    if (page > 3) items.push("...");
+                    const start = Math.max(2, page - 1);
+                    const end = Math.min(pageCount - 1, page + 1);
+                    for (let i = start; i <= end; i++) items.push(i);
+                    if (page < pageCount - 2) items.push("...");
+                    items.push(pageCount);
+                  }
+                  return items.map((target) =>
+                    target === "..." ? (
+                      <PaginationItem key="ellipsis">
+                        <span className="flex size-9 items-center justify-center text-sm text-muted-foreground">…</span>
+                      </PaginationItem>
+                    ) : (
+                      <PaginationItem key={target}>
+                        <PaginationLink href={pageHref(target)} isActive={target === page}>
+                          {target}
+                        </PaginationLink>
+                      </PaginationItem>
+                    ),
+                  );
+                })()}
 
                 {page < pageCount ? (
                   <PaginationItem>

@@ -98,20 +98,20 @@ export function StudyGoalCards({ goals }: { goals: StudyGoal[] }) {
       </ul>
 
       <div className="hidden lg:block">
-    <ScrollRow label="Study goals" dots className="pt-4">
-      {goals.map((goal, index) => {
-        const accent = ACCENTS[index % ACCENTS.length]!;
-        // The first card is the highest sort_order stream, so the badge marks a
-        // real editorial ranking rather than an arbitrary highlight.
-        const featured = index === 0;
+        <ScrollRow label="Study goals" dots className="pt-4">
+          {goals.map((goal, index) => {
+            const accent = ACCENTS[index % ACCENTS.length]!;
+            // The first card is the highest sort_order stream, so the badge marks a
+            // real editorial ranking rather than an arbitrary highlight.
+            const featured = index === 0;
 
-        return (
-          <article
-            key={goal.id}
-            className={`card-lift relative flex w-[270px] shrink-0 snap-start flex-col rounded-2xl bg-card p-5 pt-7 ${
-              featured ? `border-2 ${accent.border}` : "border"
-            }`}
-          >
+            return (
+              <article
+                key={goal.id}
+                className={`card-lift relative flex w-[270px] shrink-0 snap-start flex-col rounded-2xl bg-card p-5 pt-7 ${
+                  featured ? `border-2 ${accent.border}` : "border"
+                }`}
+              >
             {featured ? (
               <span
                 className={`absolute -top-3 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap text-white ${accent.dot}`}

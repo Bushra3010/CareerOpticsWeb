@@ -64,7 +64,7 @@ export function SiteHeader() {
             <label htmlFor="site-search" className="sr-only">
               Search colleges, exams and courses
             </label>
-            <div className="flex h-10 items-center gap-2 rounded-lg border px-3 focus-within:border-brand-blue-400 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
+            <div className="flex h-11 items-center gap-2 rounded-lg border px-3 focus-within:border-brand-blue-400 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-1">
               <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
               <input
                 id="site-search"
@@ -81,7 +81,7 @@ export function SiteHeader() {
               href="/colleges"
               className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-brand-blue hover:bg-brand-blue-50 lg:block"
             >
-              Write a Review
+              All Colleges
             </Link>
             <Button variant="ghost" size="icon" aria-label="Explore" className="hidden lg:inline-flex">
               <Grid3x3 className="size-5" />

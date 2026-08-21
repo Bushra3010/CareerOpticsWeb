@@ -90,7 +90,7 @@ export function HeroCarousel({ banners }: { banners: HeroBanner[] }) {
                 />
               ))}
             </div>
-            <p className="rounded-full bg-black/40 px-2.5 py-0.5 text-sm font-semibold text-white tabular-nums">
+            <p className="rounded-full bg-black/60 px-2.5 py-0.5 text-sm font-semibold text-white tabular-nums ring-1 ring-white/20">
               {current + 1}/{banners.length}
             </p>
           </div>

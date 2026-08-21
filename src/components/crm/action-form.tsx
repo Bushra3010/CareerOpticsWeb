@@ -136,7 +136,7 @@ function Field({
           name={field.name}
           defaultChecked={Boolean(field.defaultValue)}
           disabled={disabled}
-          className="size-4 rounded border-input accent-brand-blue"
+          className="size-4 rounded border-input accent-brand-blue focus-visible:ring-2 focus-visible:ring-brand-blue-400 focus-visible:ring-offset-2 focus-visible:outline-none"
         />
         {field.label}
       </label>

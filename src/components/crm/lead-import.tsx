@@ -211,7 +211,7 @@ export function LeadImport() {
                 </select>
               </div>
               <label className="flex items-start gap-2 pt-7">
-                <input type="checkbox" name="assign_to_me" className="mt-0.5 size-4 accent-brand-blue" />
+                <input type="checkbox" name="assign_to_me" className="mt-0.5 size-4 accent-brand-blue focus-visible:ring-2 focus-visible:ring-brand-blue-400 focus-visible:ring-offset-2 focus-visible:outline-none" />
                 <span className="text-sm text-body">
                   Assign all of them to me
                 </span>

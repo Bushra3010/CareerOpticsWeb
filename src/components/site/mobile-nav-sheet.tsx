@@ -45,7 +45,7 @@ export function MobileNavSheet({
               key={item.href}
               href={item.href}
               onClick={close}
-              className="flex items-center gap-2 rounded-lg px-3 py-2.5 font-medium text-ink hover:bg-brand-blue-50 hover:text-brand-blue"
+              className="flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2.5 font-medium text-ink hover:bg-brand-blue-50 hover:text-brand-blue"
             >
               {item.label}
               {item.badge ? (
@@ -65,7 +65,7 @@ export function MobileNavSheet({
               key={item.href}
               href={item.href}
               onClick={close}
-              className="rounded-lg px-3 py-2.5 text-body hover:bg-brand-blue-50 hover:text-brand-blue"
+              className="flex min-h-[44px] items-center rounded-lg px-3 py-2.5 text-body hover:bg-brand-blue-50 hover:text-brand-blue"
             >
               {item.label}
             </Link>
