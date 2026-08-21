@@ -113,7 +113,7 @@ function HeroSlide({
   const mobileSrc = imageSrc(banner.image_mobile_url) ?? desktopSrc;
 
   return (
-    <CarouselItem className="pl-0" aria-label={banner.title ?? undefined}>
+    <CarouselItem className="pl-0" aria-label={banner.title ? `Banner: ${banner.title}` : undefined}>
       <div className="relative mx-4 h-[240px] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:h-[420px] lg:rounded-none">
         {/* Mobile image — hidden on desktop, shown on mobile. */}
         {mobileSrc ? (

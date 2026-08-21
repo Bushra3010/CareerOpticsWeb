@@ -10,7 +10,7 @@ import { StudentExams } from "@/components/crm/student-exams";
 import { StudentStatusSelect } from "@/components/crm/student-status-select";
 import { Button } from "@/components/ui/button";
 import { type CrmStudentStatus } from "@/config/crm";
-import { can, requireStaff } from "@/lib/auth";
+import { can, isCrmManager, requireStaff } from "@/lib/auth";
 import {
   getCrmStudent,
   getStudentDocuments,
@@ -189,7 +189,7 @@ export default async function CrmStudentPage({
           <section className="rounded-xl border bg-card p-5">
             <h2 className="text-h3">Documents</h2>
             <div className="mt-4">
-              <StudentDocuments studentId={student.id} documents={documents} />
+              <StudentDocuments studentId={student.id} documents={documents} canEdit={isCrmManager(profile.role)} />
             </div>
           </section>
 

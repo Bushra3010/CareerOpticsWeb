@@ -35,6 +35,7 @@ export function PhotoUpload({
   }, [preview]);
 
   const pick = async (file: File) => {
+    if (busy) return;
     setError(null);
 
     if (file.size > MAX_UPLOAD_BYTES) {

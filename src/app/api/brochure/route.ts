@@ -14,6 +14,7 @@ import { leadSchema } from "@/lib/validations/lead";
  */
 const SIGNED_URL_TTL_SECONDS = 60;
 const BUCKET = "brochures";
+let url: string | null = null;
 
 export async function POST(request: NextRequest) {
   let body: unknown;
@@ -113,29 +114,35 @@ export async function POST(request: NextRequest) {
   }
 
   // An editor may have stored an absolute URL instead of a bucket path; only a
-  // path can be signed.
+  // path can be signed. Absolute URLs are not returned — that would be an open
+  // redirect through the brochure gate. The response carries only the signed
+  // bucket URL, or null if the column contains an external link.
   const isAbsolute = /^https?:\/\//i.test(college.brochure_url);
-  let url: string | null = isAbsolute ? college.brochure_url : null;
-
-  if (!isAbsolute) {
-    const { data: signed, error: signError } = await supabase.storage
-      .from(BUCKET)
-      .createSignedUrl(college.brochure_url, SIGNED_URL_TTL_SECONDS);
-
-    if (signError || !signed) {
-      console.error(`[brochure] signing failed: ${signError?.message}`);
-      // The lead is saved; a counsellor can still follow up with the brochure.
-      return NextResponse.json(
-        {
-          ok: false,
-          error:
-            "We saved your details but could not prepare the download. A counsellor will send it to you.",
-        },
-        { status: 502 },
-      );
-    }
-    url = signed.signedUrl;
+  if (isAbsolute) {
+    console.warn(`[brochure] absolute URL rejected for college ${college.name}`);
+    return NextResponse.json(
+      { ok: false, error: "Brochure not available." },
+      { status: 404 },
+    );
   }
+
+  const { data: signed, error: signError } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(college.brochure_url, SIGNED_URL_TTL_SECONDS);
+
+  if (signError || !signed) {
+    console.error(`[brochure] signing failed: ${signError?.message}`);
+    // The lead is saved; a counsellor can still follow up with the brochure.
+    return NextResponse.json(
+      {
+        ok: false,
+        error:
+          "We saved your details but could not prepare the download. A counsellor will send it to you.",
+      },
+      { status: 502 },
+    );
+  }
+  url = signed.signedUrl;
 
   await notifyCounsellors({ ...lead, source: "brochure" }, inserted.id);
 

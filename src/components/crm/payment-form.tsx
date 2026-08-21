@@ -57,6 +57,7 @@ export function PaymentForm({
             type="number"
             step="any"
             min="1"
+            max={outstanding > 0 ? outstanding : undefined}
             required
             // Pre-filling what is still owed is the common case; it stays editable.
             defaultValue={outstanding > 0 ? outstanding : ""}

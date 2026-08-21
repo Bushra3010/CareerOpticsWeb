@@ -47,9 +47,11 @@ const TONE: Record<StudentDocStatus, string> = {
 export function StudentDocuments({
   studentId,
   documents,
+  canEdit = true,
 }: {
   studentId: string;
   documents: StudentDocument[];
+  canEdit?: boolean;
 }) {
   const byType = new Map(documents.map((d) => [d.doc_type, d]));
   const collected = documents.filter((d) => d.status === "verified").length;
@@ -66,6 +68,7 @@ export function StudentDocuments({
             studentId={studentId}
             type={type}
             document={byType.get(type)}
+            canEdit={canEdit}
           />
         ))}
       </ul>
@@ -77,10 +80,12 @@ function DocumentRow({
   studentId,
   type,
   document,
+  canEdit = true,
 }: {
   studentId: string;
   type: StudentDocType;
   document?: StudentDocument;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
@@ -134,15 +139,17 @@ function DocumentRow({
               <ExternalLink className="size-4" aria-hidden />
             </a>
           ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-          >
-            {open ? "Cancel" : "Update"}
-          </Button>
+          {canEdit ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setOpen((v) => !v)}
+              aria-expanded={open}
+            >
+              {open ? "Cancel" : "Update"}
+            </Button>
+          ) : null}
         </span>
       </div>
 

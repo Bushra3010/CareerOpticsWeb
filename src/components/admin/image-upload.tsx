@@ -5,7 +5,13 @@ import * as React from "react";
 
 import { ImageUp, Loader2, X } from "lucide-react";
 
+import {
+  ALLOWED_IMAGE_TYPES,
+  isUploadBucket,
+  MAX_UPLOAD_BYTES,
+} from "@/config/storage";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { UploadBucket } from "@/config/storage";
 import { imageSrc } from "@/lib/media";
 

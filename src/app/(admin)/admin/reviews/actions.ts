@@ -38,7 +38,6 @@ export async function approveReview(formData: FormData): Promise<ActionResult> {
   revalidatePath("/admin/reviews");
   // The college page shows the review and the recomputed rating.
   if (data?.colleges?.slug) revalidatePath(`/colleges/${data.colleges.slug}`);
-  revalidatePath("/colleges");
   return { ok: true };
 }
 

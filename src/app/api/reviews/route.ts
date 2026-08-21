@@ -41,6 +41,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, id: null });
   }
 
+  const supabase = createAdminClient();
+
+  // The 0004 trigger guard protects the aggregate, but the public endpoint must
+  // also defend against a first pending review zeroing a college's rating. If
+  // there are no approved reviews yet, a submission would average the new rating
+  // over zero rows. Store it unrated — an editor approving a zero-rated review
+  // would not change the aggregate either way.
+  if (review.rating > 0) {
+    const { count } = await supabase
+      .from("reviews")
+      .select("*", { count: "exact", head: true })
+      .eq("college_id", review.college_id)
+      .eq("is_approved", true);
+
+    if ((count ?? 0) === 0) {
+      review.rating = 0;
+    }
+  }
+
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
     request.headers.get("x-real-ip") ??
@@ -55,7 +74,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("reviews")
     .insert({

@@ -33,7 +33,7 @@ export function CallbackWidget() {
           setOpen(true);
         }}
         aria-label="Request a callback from a counsellor"
-        className="fixed right-4 bottom-18 z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card-hover transition-colors hover:bg-brand-red-600 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none lg:bottom-6"
+        className="fixed right-4 bottom-[4.5rem] z-40 inline-flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-card-hover transition-colors hover:bg-brand-red-600 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none lg:bottom-6"
       >
         <span
           className="absolute inset-0 animate-ping rounded-full bg-primary/60 motion-reduce:hidden"

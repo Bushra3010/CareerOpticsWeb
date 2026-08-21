@@ -89,7 +89,10 @@ export async function getLeadActivities(leadId: string) {
 /** Distinct sources present in the data, for the filter dropdown. */
 export async function getLeadSources() {
   const supabase = await createClient();
-  const { data, error } = await supabase.from("leads").select("source");
+  const { data, error } = await supabase
+    .from("leads")
+    .select("source")
+    .gte("created_at", new Date(Date.now() - 365 * 86400_000).toISOString());
   if (error) throw new Error(`leads: ${error.message}`);
   return [...new Set((data ?? []).map((row) => row.source).filter(Boolean))].sort();
 }
@@ -118,16 +121,22 @@ export async function getDashboardStats() {
     countSince(weekAgo),
     countSince(monthAgo),
     // Source split and top colleges over the last 30 days — grouped here
-    // because PostgREST has no group-by.
+    // because PostgREST has no group-by. Scoped to 30 days to avoid a full
+    // table scan once the leads table grows.
     supabase
       .from("leads")
       .select("source, colleges(name, slug)")
       .gte("created_at", monthAgo.toISOString()),
-    supabase.from("leads").select("status"),
+    // Status distribution over the same 30-day window to avoid a full-table
+    // scan once leads grows.
+    supabase
+      .from("leads")
+      .select("status")
+      .gte("created_at", monthAgo.toISOString()),
   ]);
 
   if (recent.error) throw new Error(`leads: ${recent.error.message}`);
-  if (statusRows.error) throw new Error(`leads: ${statusRows.error.message}`);
+  if (statusRows.error) throw new Error(`leads status: ${statusRows.error.message}`);
 
   const bySource = new Map<string, number>();
   const byCollege = new Map<string, { name: string; slug: string; count: number }>();

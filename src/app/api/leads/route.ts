@@ -19,8 +19,13 @@ type LeadInsert = Database["public"]["Tables"]["leads"]["Insert"];
 /** First address in `x-forwarded-for`; the platform appends, so index 0 is the client. */
 function clientIp(request: NextRequest): string | null {
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0]!.trim() || null;
-  return request.headers.get("x-real-ip");
+  if (forwarded) {
+    const first = forwarded.split(",")[0]!.trim();
+    if (first) return asInet(first) ?? null;
+    return null;
+  }
+  const realIp = request.headers.get("x-real-ip");
+  return realIp ? asInet(realIp) ?? null : null;
 }
 
 /** Postgres `inet` rejects a malformed value, which would fail the insert. */

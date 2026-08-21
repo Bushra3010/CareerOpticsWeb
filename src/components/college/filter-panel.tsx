@@ -113,12 +113,16 @@ export function FilterPanel({
             onSelect={(value) => update({ state: value, city: "" })}
           />
           <p className="pt-3 pb-1 text-sm font-semibold text-ink">City</p>
-          <Radio
-            name="city"
-            options={cities.map((c) => ({ value: c.slug, label: c.name }))}
-            selected={filters.city}
-            onSelect={(value) => update({ city: value })}
-          />
+          {cities.length > 0 ? (
+            <Radio
+              name="city"
+              options={cities.map((c) => ({ value: c.slug, label: c.name }))}
+              selected={filters.city}
+              onSelect={(value) => update({ city: value })}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">No cities in this state.</p>
+          )}
         </Group>
 
         <Group value="type" defaultOpen label="College type">

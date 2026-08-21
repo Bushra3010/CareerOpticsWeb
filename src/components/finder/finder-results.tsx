@@ -60,11 +60,15 @@ export async function FinderResults({ params }: { params: FinderAnswerParams }) 
   let matches: Awaited<ReturnType<typeof listColleges>> | null = null;
   let note: string | null = null;
 
-  for (const attempt of RELAXATIONS) {
-    const narrowed = { ...params };
-    for (const key of attempt.drop) delete narrowed[key];
+  const results = await Promise.all(
+    RELAXATIONS.map(async (attempt) => {
+      const narrowed = { ...params };
+      for (const key of attempt.drop) delete narrowed[key];
+      return { attempt, result: await listColleges(toFilters(narrowed)) };
+    }),
+  );
 
-    const result = await listColleges(toFilters(narrowed));
+  for (const { attempt, result } of results) {
     if (result.colleges.length > 0) {
       matches = result;
       note = attempt.note;

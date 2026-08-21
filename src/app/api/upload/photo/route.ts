@@ -65,9 +65,26 @@ const MAGIC: { type: string; ext: string; test: (b: Uint8Array) => boolean }[] =
   },
 ];
 
+/** Accept only valid IPv4/IPv6 addresses — headers can contain anything. */
+function asInet(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.split(",")[0]!.trim();
+  if (!trimmed) return null;
+  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(trimmed)) return trimmed;
+  if (/^[0-9a-fA-F:]+$/.test(trimmed)) return trimmed;
+  return null;
+}
+
 function clientIp(request: NextRequest): string {
   const forwarded = request.headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || "unknown";
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first) return asInet(first) ?? "unknown";
+    return "unknown";
+  }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) return asInet(realIp) ?? "unknown";
+  return "unknown";
 }
 
 export async function POST(request: NextRequest) {

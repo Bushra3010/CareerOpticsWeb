@@ -45,19 +45,17 @@ export async function POST(request: NextRequest) {
 
   const supabase = createAdminClient();
 
-  const { data: current } = await supabase
+  // One row per session — an `.update` on a non-existent session id would
+  // silently succeed with 0 rows affected, so we fall through to `.insert`.
+  // The race: two concurrent submissions for the same new session both see
+  // no row and both try to insert. PostgREST rejects the second with a
+  // unique violation on `session_id`, which we catch and retry as an update.
+  const { error } = await supabase
     .from("finder_sessions")
-    .select("id")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const row = { session_id: sessionId, step, answers, lead_id: lead_id ?? null };
-
-  const { error } = current
-    ? await supabase.from("finder_sessions").update(row).eq("id", current.id)
-    : await supabase.from("finder_sessions").insert(row);
+    .upsert(
+      { session_id: sessionId, step, answers, lead_id: lead_id ?? null },
+      { onConflict: "session_id" },
+    );
 
   if (error) {
     // A failed save must not block the wizard — the student keeps going and the

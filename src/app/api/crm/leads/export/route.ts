@@ -68,7 +68,9 @@ export async function GET(request: NextRequest) {
           CRM_STATUS_LABELS[lead.status] ?? lead.status,
           lead.custom_status,
           CRM_SOURCE_LABELS[lead.source] ?? lead.source,
-          (lead.metadata as Record<string, unknown> | null)?.website_source,
+          // Strip the internal `website_source` from the metadata blob — it is
+          // a tracking detail, not something a counsellor needs in a spreadsheet.
+          "",
           lead.next_followup_date,
           lead.total_fee,
           lead.amount_paid,

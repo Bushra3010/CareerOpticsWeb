@@ -23,51 +23,54 @@ export default async function SearchPage({
 }) {
   const { q = "" } = await searchParams;
   const query = q.trim();
-  const results = await search(query);
+  const needsSearch = query.length >= MIN_QUERY_LENGTH;
+  const results = needsSearch ? await search(query) : null;
 
-  const groups = [
-    {
-      key: "colleges",
-      title: "Colleges",
-      icon: Building2,
-      items: results.colleges.map((college) => ({
-        id: college.id,
-        href: `/colleges/${college.slug}`,
-        title: college.name,
-        meta: [college.cities?.name, college.cities?.states?.name]
-          .filter(Boolean)
-          .join(", "),
-        badge: college.naac_grade ? `NAAC ${college.naac_grade}` : null,
-      })),
-      allHref: `/colleges`,
-    },
-    {
-      key: "courses",
-      title: "Courses",
-      icon: BookOpen,
-      items: results.courses.map((course) => ({
-        id: course.id,
-        href: `/courses/${course.slug}`,
-        title: course.name,
-        meta: course.streams?.name ?? "",
-        badge: course.level ? (LEVEL_LABELS[course.level] ?? course.level) : null,
-      })),
-      allHref: `/courses`,
-    },
-    {
-      key: "exams",
-      title: "Exams",
-      icon: FileText,
-      items: results.exams.map((exam) => ({
-        id: exam.id,
-        href: `/exams/${exam.slug}`,
-        title: exam.name,
-        meta: exam.conducting_body ?? "",
-        badge: null,
-      })),
-      allHref: `/exams`,
-    },
-  ].filter((group) => group.items.length > 0);
+  const groups = needsSearch
+    ? [
+        {
+          key: "colleges",
+          title: "Colleges",
+          icon: Building2,
+          items: results!.colleges.map((college) => ({
+            id: college.id,
+            href: `/colleges/${college.slug}`,
+            title: college.name,
+            meta: [college.cities?.name, college.cities?.states?.name]
+              .filter(Boolean)
+              .join(", "),
+            badge: college.naac_grade ? `NAAC ${college.naac_grade}` : null,
+          })),
+          allHref: `/colleges`,
+        },
+        {
+          key: "courses",
+          title: "Courses",
+          icon: BookOpen,
+          items: results!.courses.map((course) => ({
+            id: course.id,
+            href: `/courses/${course.slug}`,
+            title: course.name,
+            meta: course.streams?.name ?? "",
+            badge: course.level ? (LEVEL_LABELS[course.level] ?? course.level) : null,
+          })),
+          allHref: `/courses`,
+        },
+        {
+          key: "exams",
+          title: "Exams",
+          icon: FileText,
+          items: results!.exams.map((exam) => ({
+            id: exam.id,
+            href: `/exams/${exam.slug}`,
+            title: exam.name,
+            meta: exam.conducting_body ?? "",
+            badge: null,
+          })),
+          allHref: `/exams`,
+        },
+      ].filter((group) => group.items.length > 0)
+    : [];
 
   return (
     <>
@@ -75,8 +78,8 @@ export default async function SearchPage({
         crumbs={[{ name: "Search" }]}
         title={query ? `Results for “${query}”` : "Search"}
         description={
-          query
-            ? `${results.total} match${results.total === 1 ? "" : "es"} across colleges, courses and exams.`
+          query && needsSearch
+            ? `${results!.total} match${results!.total === 1 ? "" : "es"} across colleges, courses and exams.`
             : "Search colleges, courses and entrance exams."
         }
       >

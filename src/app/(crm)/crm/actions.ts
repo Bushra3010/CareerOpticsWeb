@@ -338,9 +338,22 @@ export async function recordPayment(formData: FormData): Promise<CrmResult> {
   const d = parsed.data;
 
   const supabase = await createCrmClient();
+
+  // Cap at the outstanding balance so a client cannot overpay.
+  const { data: student } = await supabase
+    .from("students")
+    .select("total_fee, amount_paid")
+    .eq("id", d.student_id)
+    .maybeSingle();
+  const outstanding = student ? Number(student.total_fee || 0) - Number(student.amount_paid || 0) : 0;
+  const capped = Math.min(d.amount, Math.max(0, outstanding));
+  if (capped <= 0 && outstanding <= 0) {
+    return { ok: false, error: "This student has no outstanding balance." };
+  }
+
   const { error } = await supabase.from("payments").insert({
     student_id: d.student_id,
-    amount: d.amount,
+    amount: capped,
     payment_mode: d.payment_mode,
     payment_date: d.payment_date,
     receipt_number: blank(d.receipt_number),

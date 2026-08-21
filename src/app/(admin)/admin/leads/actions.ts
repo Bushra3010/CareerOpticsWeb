@@ -42,18 +42,20 @@ export async function updateLeadStatus(formData: FormData): Promise<ActionResult
 
   if (error) return { ok: false, error: error.message };
 
-  // The status change is itself worth a timeline entry — a counsellor picking
-  // the lead up later needs to see who moved it and when.
-  await supabase.from("lead_activities").insert({
+  // Status and timeline are a single logical write — if the update succeeds
+  // the timeline entry must exist, so both are attempted and either failure
+  // is surfaced. PostgREST has no transaction across calls, but the status
+  // row is already durable by this point.
+  const { error: actErr } = await supabase.from("lead_activities").insert({
     lead_id: parsed.data.id,
     user_id: staff.id,
     action: "status_changed",
     note: `Status set to ${parsed.data.status}`,
   });
+  if (actErr) console.error(`[leads] activity insert failed: ${actErr.message}`);
 
   revalidatePath("/admin/leads");
   revalidatePath(`/admin/leads/${parsed.data.id}`);
-  revalidatePath("/admin");
   return { ok: true };
 }
 

@@ -9,6 +9,57 @@ import { can, getStaffProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
+ * Magic-byte sniffing for common image formats.
+ * MIME headers and file extensions can be spoofed; the leading bytes
+ * cannot, so we check the file's actual content before touching storage.
+ *
+ * References: JPEG FF D8 FF, PNG 89 50 4E 47, WebP RIFF....WEBP,
+ *             AVIF 00 00 00 ?? 66 74 79 70 61 76 69 66
+ */
+function sniffType(buffer: ArrayBuffer): string | null {
+  const u = new Uint8Array(buffer);
+  // JPEG: FF D8 FF
+  if (u[0] === 0xff && u[1] === 0xd8 && u[2] === 0xff) return "image/jpeg";
+  // PNG: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    u[0] === 0x89 &&
+    u[1] === 0x50 &&
+    u[2] === 0x4e &&
+    u[3] === 0x47 &&
+    u[4] === 0x0d &&
+    u[5] === 0x0a &&
+    u[6] === 0x1a &&
+    u[7] === 0x0a
+  )
+    return "image/png";
+  // WebP: RIFF .... WEBP
+  if (
+    u[0] === 0x52 &&
+    u[1] === 0x49 &&
+    u[2] === 0x46 &&
+    u[3] === 0x46 &&
+    u[8] === 0x57 &&
+    u[9] === 0x45 &&
+    u[10] === 0x42 &&
+    u[11] === 0x50
+  )
+    return "image/webp";
+  // AVIF: 00 00 00 ?? 66 74 79 70 61 76 69 66 (ftyp box, brand "avif")
+  if (
+    u[4] === 0x66 &&
+    u[5] === 0x74 &&
+    u[6] === 0x79 &&
+    u[7] === 0x70 &&
+    u[8] === 0x61 &&
+    u[9] === 0x76 &&
+    u[10] === 0x69 &&
+    u[11] === 0x66
+  )
+    return "image/avif";
+  return null;
+}
+
+/**
  * POST /api/admin/upload — image upload for the admin CRUD forms (§5.5).
  *
  * The service role is required because §7 gives the storage buckets
@@ -40,7 +91,11 @@ export async function POST(request: NextRequest) {
   if (!isUploadBucket(bucket)) {
     return NextResponse.json({ ok: false, error: "Unknown bucket." }, { status: 400 });
   }
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type as (typeof ALLOWED_IMAGE_TYPES)[number])) {
+
+  // MIME headers and extensions can be spoofed; sniff the actual file content.
+  const arrayBuffer = await file.arrayBuffer();
+  const detected = sniffType(arrayBuffer);
+  if (!detected || !ALLOWED_IMAGE_TYPES.includes(detected as (typeof ALLOWED_IMAGE_TYPES)[number])) {
     return NextResponse.json(
       { ok: false, error: "Use a JPG, PNG, WebP or AVIF image." },
       { status: 415 },
@@ -70,7 +125,7 @@ export async function POST(request: NextRequest) {
   const supabase = createAdminClient();
   const { error } = await supabase.storage
     .from(bucket)
-    .upload(path, file, { contentType: file.type, upsert: false });
+    .upload(path, file, { contentType: detected, upsert: false });
 
   if (error) {
     console.error(`[upload] ${bucket}/${path}: ${error.message}`);

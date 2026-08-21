@@ -15,6 +15,8 @@ import { createClient } from "@/lib/supabase/server";
  * manager gets all of them, and neither is enforced here.
  */
 
+const MAX_LEADS_FETCH = 500;
+
 const LEAD_SELECT = `
   id, full_name, phone, email, city, state, status, custom_status, source, mode,
   assigned_to, assigned_at, next_followup_date, total_fee, amount_paid,
@@ -77,7 +79,28 @@ export async function listCrmLeads(filters: CrmLeadFilters) {
   }
 
   // Payment state is a comparison between two columns, which PostgREST cannot
-  // express, so it is applied to the page after fetching.
+  // express, so it is applied after fetching. When the filter is active we
+  // overshoot the page size and paginate in JS — otherwise the range query
+  // returns the wrong slice after the client-side filter removes rows.
+  if (filters.payment) {
+    const { data, error, count } = await query;
+    if (error) throw new Error(`crm.leads: ${error.message}`);
+    let leads = (data ?? []) as unknown as CrmLead[];
+    leads = leads.filter((lead) => paymentState(lead) === filters.payment);
+    // Cap the fetch to prevent loading the entire table when the filter
+    // matches most rows.
+    const capped = leads.slice(0, MAX_LEADS_FETCH);
+    const start = (page - 1) * CRM_LEADS_PAGE_SIZE;
+    const paged = capped.slice(start, start + CRM_LEADS_PAGE_SIZE);
+
+    return {
+      leads: paged,
+      total: count ?? leads.length,
+      page,
+      pageCount: Math.max(1, Math.ceil((count ?? leads.length) / CRM_LEADS_PAGE_SIZE)),
+    };
+  }
+
   const from = (page - 1) * CRM_LEADS_PAGE_SIZE;
   const { data, error, count } = await query.range(
     from,
@@ -85,12 +108,9 @@ export async function listCrmLeads(filters: CrmLeadFilters) {
   );
   if (error) throw new Error(`crm.leads: ${error.message}`);
 
-  let leads = (data ?? []) as unknown as CrmLead[];
-  if (filters.payment) leads = leads.filter((lead) => paymentState(lead) === filters.payment);
-
   return {
-    leads,
-    total: count ?? leads.length,
+    leads: (data ?? []) as unknown as CrmLead[],
+    total: count ?? 0,
     page,
     pageCount: Math.max(1, Math.ceil((count ?? 0) / CRM_LEADS_PAGE_SIZE)),
   };
@@ -372,17 +392,30 @@ export async function getCrmMoneyStats() {
 export async function getCrmAnalytics() {
   const supabase = await createCrmClient();
 
-  const [leads, students, payments] = await Promise.all([
-    supabase.from("leads").select("status, source, created_at"),
-    supabase.from("students").select("status"),
-    supabase.from("payments").select("amount, payment_mode, payment_date"),
+  const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString();
+  const [recentLeads, studentCount, paymentCount, students, payments] = await Promise.all([
+    // 30-day lead breakdown — the conversion rate and source/status tallies.
+    supabase
+      .from("leads")
+      .select("status, source, created_at")
+      .gte("created_at", monthAgo),
+    // Lifetime student count via a cheap head query — no row data needed.
+    supabase.from("students").select("id", { count: "exact", head: true }),
+    // Lifetime payment count via a cheap head query.
+    supabase.from("payments").select("id", { count: "exact", head: true }),
+    // Capped at 500 for the status breakdown — tallies don't need every row.
+    supabase.from("students").select("status").limit(500),
+    // Capped at 500 for the revenue/mode breakdown.
+    supabase.from("payments").select("amount, payment_mode, payment_date").limit(500),
   ]);
 
-  if (leads.error) throw new Error(`crm.leads: ${leads.error.message}`);
+  if (recentLeads.error) throw new Error(`crm.leads: ${recentLeads.error.message}`);
+  if (studentCount.error) throw new Error(`crm.students: ${studentCount.error.message}`);
+  if (paymentCount.error) throw new Error(`crm.payments: ${paymentCount.error.message}`);
   if (students.error) throw new Error(`crm.students: ${students.error.message}`);
   if (payments.error) throw new Error(`crm.payments: ${payments.error.message}`);
 
-  const leadRows = leads.data ?? [];
+  const leadRows = recentLeads.data ?? [];
   const studentRows = students.data ?? [];
   const paymentRows = payments.data ?? [];
 
@@ -395,9 +428,8 @@ export async function getCrmAnalytics() {
     return [...map.entries()].sort((a, b) => b[1] - a[1]);
   };
 
-  const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString();
-  const recent = leadRows.filter((l) => (l.created_at ?? "") >= monthAgo);
-  const convertedRecent = recent.filter((l) => l.status === "converted").length;
+  // recentLeads is already filtered to 30 days by the query's .gte.
+  const convertedRecent = leadRows.filter((l) => l.status === "converted").length;
 
   const revenueByMode = new Map<string, number>();
   for (const p of paymentRows) {
@@ -407,12 +439,12 @@ export async function getCrmAnalytics() {
 
   return {
     totalLeads: leadRows.length,
-    totalStudents: studentRows.length,
+    totalStudents: studentCount.count ?? 0,
     revenue: paymentRows.reduce((sum, p) => sum + Number(p.amount ?? 0), 0),
     // Over the last 30 days only. A lifetime rate flatters itself as the
     // catalogue ages and stops being a signal anyone can act on.
-    conversionRate: recent.length > 0 ? (convertedRecent / recent.length) * 100 : 0,
-    recentLeads: recent.length,
+    conversionRate: leadRows.length > 0 ? (convertedRecent / leadRows.length) * 100 : 0,
+    recentLeads: leadRows.length,
     leadsBySource: tally(leadRows, (l) => l.source),
     leadsByStatus: tally(leadRows, (l) => l.status),
     studentsByStatus: tally(studentRows, (s) => s.status),
