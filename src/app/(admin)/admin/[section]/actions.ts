@@ -72,8 +72,9 @@ export async function setVisibility(formData: FormData): Promise<ActionResult> {
   if (error) return { ok: false, error: error.message };
 
   revalidatePath(`/admin/${section.slug}`);
-  // The public route this row feeds is ISR-cached; publishing has to bust it.
+  // ISR-cached public pages need both the layout and the page revalidated.
   revalidatePath("/", "layout");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -89,6 +90,7 @@ export async function deleteRow(formData: FormData): Promise<ActionResult> {
 
   revalidatePath(`/admin/${section.slug}`);
   revalidatePath("/", "layout");
+  revalidatePath("/");
   return { ok: true };
 }
 
@@ -178,7 +180,7 @@ export async function saveRow(formData: FormData): Promise<SaveResult> {
   }
 
   revalidatePath(`/admin/${section.slug}`);
-  // The public route this row feeds is ISR-cached; a save has to bust it.
   revalidatePath("/", "layout");
+  revalidatePath("/");
   return { ok: true };
 }
