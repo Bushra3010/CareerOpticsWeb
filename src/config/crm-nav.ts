@@ -41,6 +41,7 @@ export const CRM_NAV: CrmNavGroup[] = [
       { label: "Mentorship", href: "/crm/mentorship", area: "leads" },
       { label: "Targets", href: "/crm/targets", area: "leads" },
       { label: "Notifications", href: "/crm/notifications", area: "leads" },
+      { label: "Tasks", href: "/crm/tasks", area: "leads" },
       { label: "Support", href: "/crm/support", area: "manager" },
     ],
   },

@@ -8,7 +8,14 @@ import { Disclosure } from "@/components/crm/action-controls";
 import { CRM_CONTROL, CrmEmpty, CrmPageHeader, CrmStat, CrmTable } from "@/components/crm/crm-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TICKET_STATUSES, TICKET_STATUS_LABELS, type TicketStatus } from "@/config/crm";
+import {
+  TICKET_PRIORITIES,
+  TICKET_PRIORITY_LABELS,
+  TICKET_STATUSES,
+  TICKET_STATUS_LABELS,
+  type TicketPriority,
+  type TicketStatus,
+} from "@/config/crm";
 import { replyToTicket } from "@/app/(crm)/crm/phase2-actions";
 import { isCrmManager, requireStaff } from "@/lib/auth";
 import { listSupportTickets } from "@/lib/queries/crm";
@@ -20,11 +27,18 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const TONE: Record<TicketStatus, "secondary" | "success" | "outline"> = {
+const STATUS_TONE: Record<TicketStatus, "secondary" | "success" | "outline"> = {
   open: "secondary",
   in_progress: "secondary",
   resolved: "success",
   closed: "outline",
+};
+
+const PRIORITY_TONE: Record<TicketPriority, "secondary" | "destructive" | "outline" | "default"> = {
+  low: "outline",
+  normal: "secondary",
+  high: "default",
+  urgent: "destructive",
 };
 
 export default async function SupportPage({
@@ -37,7 +51,7 @@ export default async function SupportPage({
 
   const params = await searchParams;
   const from = params.from === "student" ? "student_support_tickets" : "associate_support_tickets";
-  const tickets = await listSupportTickets(from, params.status);
+  const tickets = await listSupportTickets(from, params.status, params.priority);
 
   const open = tickets.filter((t) => t.status === "open" || t.status === "in_progress").length;
 
@@ -70,6 +84,15 @@ export default async function SupportPage({
             ))}
           </select>
         </div>
+        <div className="grid gap-1.5">
+          <label htmlFor="sp-priority" className="text-sm font-medium text-ink">Priority</label>
+          <select id="sp-priority" name="priority" defaultValue={params.priority ?? ""} className={`${CRM_CONTROL} w-[170px]`}>
+            <option value="">All</option>
+            {TICKET_PRIORITIES.map((p) => (
+              <option key={p} value={p}>{TICKET_PRIORITY_LABELS[p]}</option>
+            ))}
+          </select>
+        </div>
         <Button type="submit">Apply</Button>
       </form>
 
@@ -80,7 +103,7 @@ export default async function SupportPage({
       ) : (
         <CrmTable
           caption="Support tickets"
-          headers={["Raised", "From", "Subject", "Status", "Reply"]}
+          headers={["Raised", "From", "Subject", "Priority", "Status", "Reply"]}
           minWidth={960}
         >
           {tickets.map((t) => {
@@ -102,7 +125,12 @@ export default async function SupportPage({
                   <span className="block text-sm text-muted-foreground">{t.message}</span>
                 </td>
                 <td className="p-3">
-                  <Badge variant={TONE[t.status as TicketStatus]} size="sm">
+                  <Badge variant={PRIORITY_TONE[t.priority as TicketPriority]} size="sm">
+                    {TICKET_PRIORITY_LABELS[t.priority as TicketPriority]}
+                  </Badge>
+                </td>
+                <td className="p-3">
+                  <Badge variant={STATUS_TONE[t.status as TicketStatus]} size="sm">
                     {TICKET_STATUS_LABELS[t.status as TicketStatus]}
                   </Badge>
                 </td>
@@ -117,6 +145,13 @@ export default async function SupportPage({
                       columns={1}
                       hidden={{ id: t.id as string, table: from }}
                       fields={[
+                        {
+                          name: "priority", label: "Priority", type: "select",
+                          options: TICKET_PRIORITIES.map((p) => ({
+                            value: p, label: TICKET_PRIORITY_LABELS[p],
+                          })),
+                          defaultValue: t.priority as string,
+                        },
                         {
                           name: "status", label: "Status", type: "select", required: true,
                           options: TICKET_STATUSES.map((s) => ({

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Wallet } from "lucide-react";
 
 import { ActionButton, ActionSelect } from "@/components/crm/action-controls";
+import { SalarySlipViewer } from "@/components/crm/salary-slip-viewer";
 import { CRM_CONTROL, CrmEmpty, CrmPageHeader, CrmStat, CrmTable, CrmTabs, HRMS_TABS } from "@/components/crm/crm-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -128,7 +129,7 @@ export default async function PayrollPage({
       ) : (
         <CrmTable
           caption={`Payroll for ${MONTHS[month - 1]} ${year}`}
-          headers={["Employee", "Gross", "Deductions", "Net", "Status"]}
+          headers={["Employee", "Gross", "Deductions", "Net", "Status", "Slip"]}
           minWidth={880}
         >
           {slips.map((s) => {
@@ -180,6 +181,16 @@ export default async function PayrollPage({
                       }))}
                     />
                   </div>
+                </td>
+                <td className="p-3">
+                  <SalarySlipViewer
+                    slip={s}
+                    employee={{
+                      id: s.employee_id as string,
+                      employee_code: employee?.employee_code ?? "—",
+                      full_name: employee?.profile?.full_name ?? null,
+                    }}
+                  />
                 </td>
               </tr>
             );
