@@ -1304,19 +1304,18 @@ export async function updateTask(formData: FormData): Promise<CrmResult> {
 
   const d = parsed.data;
   const supabase = await createCrmClient();
-  const { error } = await supabase
-    .from("tasks")
-    .update({
-      title: d.title,
-      description: d.description || null,
-      priority: d.priority,
-      status: d.status,
-      assigned_to: d.assignedTo || null,
-      lead_id: d.leadId || null,
-      student_id: d.studentId || null,
-      due_date: d.dueDate || null,
-    })
-    .eq("id", d.id);
+  const updates: Record<string, unknown> = {
+    title: d.title,
+    description: d.description || null,
+    priority: d.priority,
+    status: d.status,
+    assigned_to: d.assignedTo || null,
+    lead_id: d.leadId || null,
+    student_id: d.studentId || null,
+    due_date: d.dueDate || null,
+  };
+  if (d.status === "done") updates.completed_at = new Date().toISOString();
+  const { error } = await supabase.from("tasks").update(updates).eq("id", d.id);
 
   if (error) return fail(error, "Could not update the task.");
   revalidatePath("/crm/tasks");

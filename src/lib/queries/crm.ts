@@ -951,7 +951,6 @@ export async function listTasks(filters: {
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.priority) query = query.eq("priority", filters.priority);
   if (filters.assignedTo) query = query.eq("assigned_to", filters.assignedTo);
-  if (filters.relatedTo) query = query.eq("related_to_type", filters.relatedTo);
 
   const { data, error } = await query;
   if (error) throw new Error(`crm.crm_tasks: ${error.message}`);
