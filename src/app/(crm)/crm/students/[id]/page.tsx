@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, MessageCircle, Phone } from "lucide-react";
 
 import { PaymentForm } from "@/components/crm/payment-form";
+import { PaymentInvoiceViewer } from "@/components/crm/payment-invoice-viewer";
 import { StudentDocuments } from "@/components/crm/student-documents";
 import { StudentExams } from "@/components/crm/student-exams";
 import { StudentStatusSelect } from "@/components/crm/student-status-select";
@@ -157,7 +158,7 @@ export default async function CrmStudentPage({
               </p>
             ) : (
               <div className="mt-4 overflow-x-auto">
-                <table className="w-full min-w-[520px] border-collapse text-left text-sm">
+                <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                   <caption className="sr-only">Payments for {student.full_name}</caption>
                   <thead className="bg-surface">
                     <tr>
@@ -178,6 +179,12 @@ export default async function CrmStudentPage({
                         <td className="p-3 uppercase">{payment.payment_mode}</td>
                         <td className="p-3 tabular-nums">{payment.receipt_number ?? "—"}</td>
                         <td className="p-3 text-body">{payment.notes ?? "—"}</td>
+                        <td className="p-3">
+                          <PaymentInvoiceViewer
+                            payment={payment}
+                            student={{ full_name: student.full_name, phone: student.phone, email: student.email, address: student.city }}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>

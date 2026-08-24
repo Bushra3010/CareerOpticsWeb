@@ -574,6 +574,7 @@ export async function listRechargeRequests(status?: string) {
 export async function listSupportTickets(
   table: "associate_support_tickets" | "student_support_tickets",
   status?: string,
+  priority?: string,
 ) {
   const supabase = await createCrmClient();
   const rel = table === "associate_support_tickets"
@@ -582,6 +583,7 @@ export async function listSupportTickets(
   let query = supabase.from(table).select(`*, ${rel}`)
     .order("created_at", { ascending: false });
   if (status) query = query.eq("status", status);
+  if (priority) query = query.eq("priority", priority);
   const { data, error } = await query.limit(200);
   if (error) throw new Error(`crm.${table}: ${error.message}`);
   return data ?? [];
@@ -930,4 +932,39 @@ export async function listStaff() {
   if (error) throw new Error(`profiles: ${error.message}`);
   // Portal accounts are not staff and must never appear in an assignee list.
   return (data ?? []).filter((p) => p.role !== "associate" && p.role !== "student");
+}
+
+// ── Phase 2: Task management ─────────────────────────────────────────────────
+
+export async function listTasks(filters: {
+  status?: string;
+  priority?: string;
+  assignedTo?: string;
+  relatedTo?: string;
+} = {}) {
+  const supabase = await createCrmClient();
+  let query = supabase
+    .from("tasks")
+    .select("*, assigned_profile:profiles!tasks_assigned_to_fkey(id, full_name, role)")
+    .order("created_at", { ascending: false });
+
+  if (filters.status) query = query.eq("status", filters.status);
+  if (filters.priority) query = query.eq("priority", filters.priority);
+  if (filters.assignedTo) query = query.eq("assigned_to", filters.assignedTo);
+
+  const { data, error } = await query;
+  if (error) throw new Error(`crm.crm_tasks: ${error.message}`);
+  return (data ?? []) as (typeof data[number] & { assigned_profile: { id: string; full_name: string; role: string } | null })[];
+}
+
+export async function getTask(id: string) {
+  const supabase = await createCrmClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*, assigned_profile:profiles!tasks_assigned_to_fkey(id, full_name, role)")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`crm.crm_tasks: ${error.message}`);
+  if (!data) return null;
+  return data as typeof data & { assigned_profile: { id: string; full_name: string; role: string } | null };
 }

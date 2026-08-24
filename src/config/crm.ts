@@ -220,6 +220,22 @@ export const TICKET_STATUS_LABELS: Record<TicketStatus, string> = {
 
 export const TICKET_PRIORITIES = ["low", "normal", "high", "urgent"] as const;
 export type TicketPriority = (typeof TICKET_PRIORITIES)[number];
+export const TICKET_PRIORITY_LABELS: Record<TicketPriority, string> = {
+  low: "Low",
+  normal: "Normal",
+  high: "High",
+  urgent: "Urgent",
+};
+
+/** Reused by `crm.tasks.priority` which shares the same CHECK constraint. */
+export type TaskPriority = TicketPriority;
+export const TASK_STATUSES = ["pending", "in_progress", "done"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
+  pending: "Pending",
+  in_progress: "In progress",
+  done: "Done",
+};
 
 export const DISPATCH_STATUSES = [
   "pending",

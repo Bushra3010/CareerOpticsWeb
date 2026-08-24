@@ -17,7 +17,12 @@ import {
   STUDENT_DOC_STATUSES,
   STUDENT_DOC_TYPES,
   TARGET_PERIODS,
+  TICKET_PRIORITIES,
   TICKET_STATUSES,
+  TICKET_STATUS_LABELS,
+  TASK_STATUSES,
+  TASK_STATUS_LABELS,
+  type TicketPriority,
 } from "@/config/crm";
 import { can, isCrmManager, requireStaff } from "@/lib/auth";
 import { createCrmClient } from "@/lib/supabase/crm";
@@ -406,6 +411,7 @@ export async function replyToTicket(formData: FormData): Promise<CrmResult> {
   const parsed = z.object({
     id: uuid,
     table: z.enum(["associate_support_tickets", "student_support_tickets"]),
+    priority: z.enum(TICKET_PRIORITIES),
     status: z.enum(TICKET_STATUSES),
     admin_reply: z.string().trim().max(2000).optional(),
   }).safeParse(Object.fromEntries(formData.entries()));
@@ -415,6 +421,7 @@ export async function replyToTicket(formData: FormData): Promise<CrmResult> {
   const { error } = await supabase
     .from(parsed.data.table)
     .update({
+      priority: parsed.data.priority,
       status: parsed.data.status,
       admin_reply: blank(parsed.data.admin_reply),
       replied_by: g.staff.id,
@@ -1236,5 +1243,81 @@ export async function saveFormField(formData: FormData): Promise<CrmResult> {
 
   if (error) return fail(error, "Could not save the field.");
   revalidatePath("/crm/settings");
+  return { ok: true };
+}
+
+// ── Phase 2: Task management ─────────────────────────────────────────────────
+
+export async function createTask(formData: FormData): Promise<CrmResult> {
+  const g = await guard("leads");
+  if ("error" in g) return { ok: false, error: g.error };
+
+  const parsed = z.object({
+    title: z.string().trim().min(1, "Title is required.").max(200),
+    description: z.string().trim().optional(),
+    priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+    status: z.enum(["pending", "in_progress", "done"]).default("pending"),
+    assignedTo: z.string().uuid().optional().or(z.literal("")),
+    leadId: z.string().uuid().optional().or(z.literal("")),
+    studentId: z.string().uuid().optional().or(z.literal("")),
+    dueDate: z.string().optional(),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { ok: false, error: "Check the fields." };
+
+  const d = parsed.data;
+  const supabase = await createCrmClient();
+  const { error } = await supabase
+    .from("tasks")
+    .insert({
+      title: d.title,
+      description: d.description || null,
+      priority: d.priority,
+      status: d.status,
+      assigned_to: d.assignedTo || null,
+      lead_id: d.leadId || null,
+      student_id: d.studentId || null,
+      due_date: d.dueDate || null,
+      assigned_by: (g as { staff: { id: string } }).staff.id,
+    });
+
+  if (error) return fail(error, "Could not create the task.");
+  revalidatePath("/crm/tasks");
+  return { ok: true };
+}
+
+export async function updateTask(formData: FormData): Promise<CrmResult> {
+  const g = await guard("leads");
+  if ("error" in g) return { ok: false, error: g.error };
+
+  const parsed = z.object({
+    id: uuid,
+    title: z.string().trim().min(1, "Title is required.").max(200),
+    description: z.string().trim().optional(),
+    priority: z.enum(["low", "normal", "high", "urgent"]),
+    status: z.enum(["pending", "in_progress", "done"]),
+    assignedTo: z.string().uuid().optional().or(z.literal("")),
+    leadId: z.string().uuid().optional().or(z.literal("")),
+    studentId: z.string().uuid().optional().or(z.literal("")),
+    dueDate: z.string().optional(),
+  }).safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { ok: false, error: "Check the fields." };
+
+  const d = parsed.data;
+  const supabase = await createCrmClient();
+  const updates: Record<string, unknown> = {
+    title: d.title,
+    description: d.description || null,
+    priority: d.priority,
+    status: d.status,
+    assigned_to: d.assignedTo || null,
+    lead_id: d.leadId || null,
+    student_id: d.studentId || null,
+    due_date: d.dueDate || null,
+  };
+  if (d.status === "done") updates.completed_at = new Date().toISOString();
+  const { error } = await supabase.from("tasks").update(updates).eq("id", d.id);
+
+  if (error) return fail(error, "Could not update the task.");
+  revalidatePath("/crm/tasks");
   return { ok: true };
 }
