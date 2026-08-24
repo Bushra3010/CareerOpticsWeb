@@ -82,16 +82,37 @@ export function SiteFooter() {
 
         {/* Offices + map */}
         <div className="mt-12 grid gap-8 border-t border-white/15 pt-8 lg:grid-cols-2">
-          <div className="grid gap-6 sm:grid-cols-2">
-            {offices.map((office) => (
-              <div key={office.city} className="flex gap-3 text-sm">
-                <MapPin className="mt-0.5 size-4 shrink-0 text-brand-amber" aria-hidden />
-                <div>
-                  <p className="font-semibold text-white">{office.city}</p>
-                  <p className="mt-1">{office.address}</p>
+          <div>
+            <h2 className="font-display text-base font-bold text-white">
+              Our Offices
+            </h2>
+            <div className="mt-5 grid gap-6 sm:grid-cols-2">
+              {offices.map((office) => (
+                <div key={office.city} className="flex gap-3 text-sm">
+                  <MapPin
+                    className="mt-1 size-4 shrink-0 text-brand-amber"
+                    aria-hidden
+                  />
+                  <div>
+                    {/* Bold name over a short accent rule, matching the office
+                        block on the reference site. */}
+                    <p className="font-display text-base font-bold text-white">
+                      {office.city}
+                    </p>
+                    <span
+                      className="mt-1.5 block h-0.5 w-10 rounded-full bg-brand-amber"
+                      aria-hidden
+                    />
+                    {/* The reference sets addresses larger and near-white
+                        rather than muted; the footer root is text-white/75, so
+                        this overrides both the size and the opacity. */}
+                    <p className="mt-2.5 text-base font-semibold text-white/90">
+                      {office.address}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
           <div className="overflow-hidden rounded-xl">
