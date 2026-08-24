@@ -15,8 +15,8 @@ import { useEffect } from "react";
  * column name or a connection string, and this page is public. `digest` is
  * safe — it is the id Next writes to the server log.
  */
-const PHONE = "+918252532179";
-const PHONE_DISPLAY = "+91 82525 32179";
+const PHONE = "+917367878422";
+const PHONE_DISPLAY = "+91 73678 78422";
 
 export default function GlobalError({
   error,

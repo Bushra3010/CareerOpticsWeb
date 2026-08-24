@@ -16,7 +16,6 @@ import { ScholarshipSection } from "@/components/home/scholarship-section";
 import { Section } from "@/components/home/section";
 import { StatsStrip } from "@/components/home/stats-strip";
 import { StudyGoalCards } from "@/components/home/study-goal-cards";
-import { TestimonialCarousel } from "@/components/home/testimonial-carousel";
 import { WhyUs } from "@/components/home/why-us";
 import { CourseChipNav } from "@/components/site/course-chip-nav";
 import { siteConfig } from "@/config/site";
@@ -30,7 +29,6 @@ import {
   getPressReleases,
   getGoalCityOptions,
   getSiteStats,
-  getTestimonials,
   getStudyGoals,
   getUpcomingExams,
 } from "@/lib/queries/home";
@@ -55,7 +53,6 @@ export default async function HomePage() {
     levelTabs,
     exams,
     scholarship,
-    testimonials,
     gallery,
     press,
     faqs,
@@ -68,7 +65,6 @@ export default async function HomePage() {
     getCoursesByLevel(),
     getUpcomingExams(),
     getFeaturedScholarship(),
-    getTestimonials(),
     getGalleryItems(),
     getPressReleases(),
     getHomeFaqs(),
@@ -154,18 +150,6 @@ export default async function HomePage() {
       {scholarship ? (
         <Section id="scholarship" title="Scholarships & Education Loans" tinted>
           <ScholarshipSection scholarship={scholarship} />
-        </Section>
-      ) : null}
-
-      {/* 12 — Placements Given By Us */}
-      {testimonials.length > 0 ? (
-        <Section
-          id="placements"
-          title="Placements Given By Us"
-          description="Students we counselled, where they studied and where they work now."
-          action={{ label: "All stories", href: "/placements" }}
-        >
-          <TestimonialCarousel testimonials={testimonials} />
         </Section>
       ) : null}
 

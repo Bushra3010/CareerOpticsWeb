@@ -22,7 +22,7 @@ Everything you need to pick this project up. Read this once, then work from
 | Feature reference | pujaeducation.com |
 | Layout reference | collegedunia.com homepage |
 | Head office | Near Kshatriya School Road, Bandhan Tola, Maharaja Hata, Nawada, Thana, Arrah, Bihar 802301 |
-| Phone | +91 82525 32179 |
+| Phone | +91 73678 78422 |
 
 The whole product is specified in `PRD.md`. **Do not re-derive decisions that are
 already written there** — stack, colours, schema and build phases are fixed.

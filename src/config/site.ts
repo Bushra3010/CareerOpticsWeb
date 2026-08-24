@@ -39,9 +39,9 @@ export const siteConfig = {
   url: resolveSiteUrl(),
   locale: "en_IN",
   /** E.164, used for tel: and wa.me links. */
-  phone: process.env.NEXT_PUBLIC_PHONE ?? "+918252532179",
+  phone: process.env.NEXT_PUBLIC_PHONE ?? "+917367878422",
   /** How the number is shown to users. */
-  phoneDisplay: "+91 82525 32179",
+  phoneDisplay: "+91 73678 78422",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? "918252532179",
   leadEmail: "leads@careeroptics.in",
   supportEmail: "info@careeroptics.in",
