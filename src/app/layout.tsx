@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import { Montserrat } from "next/font/google";
 
 import { offices } from "@/config/nav";
 import { siteConfig } from "@/config/site";
@@ -7,18 +7,18 @@ import { JsonLd, organizationSchema, webSiteSchema } from "@/lib/seo/json-ld";
 
 import "./globals.css";
 
-const inter = Inter({
-  variable: "--font-inter",
+/**
+ * Montserrat carries both roles — headings and body — matching the reference
+ * site, which sets it as its single `--body-font`.
+ *
+ * No `weight` array on purpose: that pulls the variable font, so one file
+ * covers 400 through 800 instead of five static cuts. Replacing the previous
+ * Inter + Plus Jakarta Sans pair also drops the site from two families to one.
+ */
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
   subsets: ["latin"],
   display: "swap",
-  weight: ["400", "500", "600"],
-});
-
-const plusJakartaSans = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta-sans",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -54,7 +54,7 @@ export default function RootLayout({
   return (
     // Font variables live on <html> so `--font-sans`/`--font-display`,
     // which Tailwind emits on :root, can resolve them.
-    <html lang="en" className={`${inter.variable} ${plusJakartaSans.variable}`}>
+    <html lang="en" className={montserrat.variable}>
       <body>
         {children}
         {/* §10 — site-level graph, emitted once for every page. */}

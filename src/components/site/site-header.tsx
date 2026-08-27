@@ -23,7 +23,7 @@ export function SiteHeader() {
       {/* Full-bleed, but with the standard site gutter so neither end is
           jammed against the window edge. */}
       <div className="flex h-16 w-full items-center justify-between px-4 lg:px-6">
-        <Logo priority />
+        <Logo priority showName />
 
         <LeadDialog
           source="contact"

@@ -44,11 +44,13 @@
   --color-stream-pink: #be185d; /* 6.2:1 */
   --color-stream-pink-tint: #fdf2f8;
 
-  /* Typography (§6.2) — Plus Jakarta Sans display, Inter body/UI */
-  --font-sans: var(--font-inter, ui-sans-serif), system-ui, sans-serif;
-  --font-display:
-    var(--font-plus-jakarta-sans, var(--font-inter, ui-sans-serif)), system-ui,
-    sans-serif;
+  /* Typography — Montserrat for both roles, matching the reference site.
+     Deviates from §6.2 (Plus Jakarta Sans display / Inter body) at the user's
+     request. The weight scale below is unchanged: `font-display` still means
+     700/800, `font-sans` still means 400/500/600 — the same contrast, now
+     carried by one family's weights rather than two typefaces. */
+  --font-sans: var(--font-montserrat, ui-sans-serif), system-ui, sans-serif;
+  --font-display: var(--font-montserrat, ui-sans-serif), system-ui, sans-serif;
 
   --text-h1: 2.5rem; /* 40 / 48 */
   --text-h1--line-height: 3rem;
@@ -72,6 +74,8 @@
 
   /* Layout & elevation (§6.3) */
   --container-site: 1280px;
+  /* Wider variant for grid sections that read as cramped at 1280 (§6.3). */
+  --container-site-wide: 1440px;
   --shadow-card: 0 1px 3px rgb(15 23 42 / 0.08);
   --shadow-card-hover: 0 8px 24px rgb(11 59 140 / 0.12);
   /* Defines a control's edge when it sits directly on a photo. The hero has no
@@ -236,6 +240,15 @@
   @variant lg {
     padding-inline: --spacing(6);
   }
+}
+
+/* Wider page container, and no lg padding step-up: for full-width grids where
+   the 1280 cap leaves more empty gutter than the content needs. */
+@utility container-site-wide {
+  width: 100%;
+  max-width: var(--container-site-wide);
+  margin-inline: auto;
+  padding-inline: --spacing(4);
 }
 
 /* Sticky header: flat at the top of the page, shadow once scrolled (§5.1).
