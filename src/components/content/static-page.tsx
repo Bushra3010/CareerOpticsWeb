@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 
 import { AlertTriangle } from "lucide-react";
 
@@ -40,9 +41,31 @@ export function StaticPageBody({ page }: { page: StaticPage }) {
           </p>
         ) : null}
 
+        {/* Floated so the copy wraps beside it on desktop rather than being
+            pushed a full portrait-height down the page; full width and stacked
+            on phones, where a 16rem float would leave unreadable line lengths. */}
+        {page.image ? (
+          <figure className="mb-6 sm:float-right sm:mb-4 sm:ml-8 sm:w-64">
+            <Image
+              src={page.image.src}
+              alt={page.image.alt}
+              width={512}
+              height={512}
+              sizes="(min-width: 640px) 16rem, 100vw"
+              className="w-full rounded-xl border object-cover shadow-card"
+            />
+            {page.image.caption ? (
+              <figcaption className="mt-2 text-sm text-muted-foreground">
+                {page.image.caption}
+              </figcaption>
+            ) : null}
+          </figure>
+        ) : null}
+
         <Prose content={page.body} />
 
-        <div className="mt-10 max-w-3xl">
+        {/* clear-both so the lead card starts below the float, never beside it. */}
+        <div className="mt-10 max-w-3xl clear-both">
           <InlineLeadCard />
         </div>
       </div>

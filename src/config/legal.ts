@@ -28,6 +28,8 @@ export type StaticPage = {
   body: string;
   /** Shown as a banner — set on pages that still need legal review. */
   draft?: boolean;
+  /** Optional portrait/photo set beside the copy. */
+  image?: { src: string; alt: string; caption?: string };
 };
 
 export const ABOUT: StaticPage = {
@@ -35,6 +37,11 @@ export const ABOUT: StaticPage = {
   title: "About CareerOptics",
   description:
     "Who we are, how the counselling works and why it costs students nothing.",
+  image: {
+    src: "/career-optics-owner.webp",
+    alt: "Owner of CareerOptics Education Service",
+    caption: "Owner, CareerOptics Education Service",
+  },
   body: `CareerOptics Education Service is an admission counselling service based in Arrah, Bihar. We help students find a college that matches their marks, their budget and where they are willing to live — and then we help them through the application.
 
 ## How it works
