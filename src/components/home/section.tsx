@@ -15,6 +15,7 @@ export function Section({
   description,
   action,
   actionStyle = "link",
+  wide = false,
   tinted = false,
   className,
   children,
@@ -27,6 +28,9 @@ export function Section({
   action?: { label: string; href: string };
   /** "button" renders the action as a raised white pill instead of a text link. */
   actionStyle?: "link" | "button";
+  /** Widens the container to 1440 and drops the lg padding step-up, for grids
+   *  that leave too much empty gutter at the default 1280. */
+  wide?: boolean;
   tinted?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -37,7 +41,7 @@ export function Section({
       aria-labelledby={id ? `${id}-title` : undefined}
       className={cn("py-12 lg:py-16", tinted && "bg-surface", className)}
     >
-      <div className="container-site">
+      <div className={wide ? "container-site-wide" : "container-site"}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2

@@ -41,7 +41,9 @@ export function StatsStrip({ stats }: { stats: SiteStats }) {
 
   return (
     <section aria-label="CareerOptics in numbers" className="pb-12 lg:pb-16">
-      <div className="container-site">
+      {/* Matches the study-goal grid directly above it, so the two blocks
+          share one left edge rather than stepping in and out. */}
+      <div className="container-site-wide">
         <div className="grid grid-cols-2 gap-6 rounded-2xl border bg-card p-6 shadow-card lg:grid-cols-4 lg:p-8">
           {items.map((item) => (
             <div key={item.label} className="flex items-center gap-3">

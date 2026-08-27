@@ -17,7 +17,6 @@ import { Section } from "@/components/home/section";
 import { StatsStrip } from "@/components/home/stats-strip";
 import { StudyGoalCards } from "@/components/home/study-goal-cards";
 import { WhyUs } from "@/components/home/why-us";
-import { CourseChipNav } from "@/components/site/course-chip-nav";
 import { siteConfig } from "@/config/site";
 import {
   getCoursesByLevel,
@@ -73,13 +72,12 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* 3 — course chip bar, then 4 — hero carousel.
+      {/* 4 — hero carousel. The §5.1 item 3 chip bar was removed: it is the
+          only thing that sat between the header and the banner, and the course
+          pages it linked stay reachable from "Courses By Level" below, from
+          /courses in the footer and from the mobile drawer.
           On phones the search and the goal/city pickers sit above the hero
           (§5.1 item 2), and the four main destinations sit below it. */}
-      {/* The chip bar stays in the HTML for crawlers but is desktop-only:
-          on a phone it pushed the search below the fold, and MobileExplore
-          plus the drawer already cover the same destinations. */}
-      <CourseChipNav className="hidden lg:block" />
       <MobileQuickStart options={goalCityOptions} />
       <HeroCarousel banners={banners} />
       <MobileExplore />
@@ -93,6 +91,7 @@ export default async function HomePage() {
           description="Pick a stream to explore top colleges, courses and entrance exams that lead into your dream career."
           action={{ label: "View All Courses", href: "/courses" }}
           actionStyle="button"
+          wide
         >
           <StudyGoalCards goals={goals} />
         </Section>
