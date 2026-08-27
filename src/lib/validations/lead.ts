@@ -27,12 +27,20 @@ export const COUNTRY_CODES = [
   { code: "+880", label: "Bangladesh", flag: "🇧🇩" },
 ] as const;
 
+/**
+ * Every value `courses.level` can hold, so Apply can preselect the level of the
+ * course a student clicked. The list used to stop at `diploma`, which left the
+ * 8 published certificate and doctorate courses with no option to select — and
+ * `leadFormSchema` derives its enum from here, so it would have rejected them.
+ */
 export const LEVEL_OPTIONS = [
   { value: "after_10", label: "After 10th" },
   { value: "after_12", label: "After 12th" },
   { value: "ug", label: "Undergraduate" },
   { value: "pg", label: "Postgraduate" },
   { value: "diploma", label: "Diploma" },
+  { value: "doctorate", label: "Doctorate" },
+  { value: "certificate", label: "Certificate" },
 ] as const;
 
 /** Indian mobile, ten digits starting 6-9. `+91` is stripped client-side. */

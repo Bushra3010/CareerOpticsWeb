@@ -67,6 +67,7 @@ export function LeadForm({
   colleges = [],
   collegeId,
   courseId,
+  level,
   submitLabel = "Get Free Counselling",
   endpoint = "/api/leads",
   className,
@@ -80,6 +81,8 @@ export function LeadForm({
   /** Pre-selected college, e.g. Apply Now on a college card. */
   collegeId?: string;
   courseId?: string;
+  /** Preselects "Course type", e.g. the level of the course being applied for. */
+  level?: string;
   submitLabel?: string;
   /** `/api/brochure` reuses this form; it takes the same payload shape. */
   endpoint?: string;
@@ -102,7 +105,11 @@ export function LeadForm({
       email: "",
       country_code: "+91",
       city: "",
-      level: undefined,
+      // Ignore a level with no matching option rather than setting a value the
+      // Select cannot render and the schema would reject.
+      level: LEVEL_OPTIONS.some((option) => option.value === level)
+        ? level
+        : undefined,
       course_id: courseId ?? "",
       college_id: collegeId ?? "",
       message: "",

@@ -172,7 +172,7 @@ export function CollegeCard({
             collegeId={college.id}
             title={`Apply to ${college.short_name ?? college.name}`}
             description="A counsellor will confirm eligibility, fees and the next admission date."
-            fields={["email", "city", "level", "admission", "message"]}
+            fields={["city", "level"]}
             submitLabel="Submit Application"
           >
             <Button size="sm" className="flex-1">
