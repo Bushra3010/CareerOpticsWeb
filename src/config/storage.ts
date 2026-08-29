@@ -34,6 +34,25 @@ export const ALLOWED_IMAGE_TYPES = [
   "image/avif",
 ] as const;
 
+/**
+ * Applicant documents (marksheets) on the §5.3 Apply form. PDF joins the
+ * raster types because a marksheet is as often a scan as a phone photo.
+ */
+export const ALLOWED_DOCUMENT_TYPES = [
+  ...ALLOWED_IMAGE_TYPES,
+  "application/pdf",
+] as const;
+
+/**
+ * 8 MB — larger than `MAX_UPLOAD_BYTES` on purpose. That limit sizes web
+ * images we control; this one has to swallow whatever a student's phone camera
+ * produces of an A4 marksheet, and a rejected upload here costs an application.
+ */
+export const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
+
+/** Private bucket holding applicant marksheets — see migration 0026. */
+export const DOCUMENT_BUCKET = "applicant-documents";
+
 export function isUploadBucket(value: string): value is UploadBucket {
   return (UPLOAD_BUCKETS as readonly string[]).includes(value);
 }

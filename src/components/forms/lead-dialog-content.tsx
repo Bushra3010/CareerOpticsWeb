@@ -7,7 +7,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { LeadForm, type LeadField } from "@/components/forms/lead-form";
+import {
+  LeadForm,
+  type DocumentChecklist,
+  type LeadField,
+} from "@/components/forms/lead-form";
 import type { CollegeOption, CourseOption } from "@/lib/queries/leads";
 import type { LeadSource } from "@/lib/validations/lead";
 
@@ -23,6 +27,8 @@ export type LeadDialogProps = {
   courseId?: string;
   /** Pre-selects "Course type" — the level of that course. */
   level?: string;
+  /** Document checklist for the `"documents"` field. */
+  checklist?: DocumentChecklist;
   submitLabel?: string;
 };
 
@@ -42,6 +48,7 @@ export function LeadDialogContent({
   collegeId,
   courseId,
   level,
+  checklist,
   submitLabel,
 }: LeadDialogProps & {
   open: boolean;
@@ -51,9 +58,9 @@ export function LeadDialogContent({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
       className={
-        // The admission form is a two-column fieldset and needs the room; the
-        // short counselling form stays narrow.
-        fields?.includes("admission")
+        // The admission form and the document checklist are two-column
+        // fieldsets and need the room; the short counselling form stays narrow.
+        fields?.includes("admission") || fields?.includes("documents")
           ? "max-h-[90dvh] overflow-y-auto sm:max-w-[560px]"
           : "max-h-[90dvh] overflow-y-auto sm:max-w-[440px]"
       }
@@ -73,6 +80,7 @@ export function LeadDialogContent({
           collegeId={collegeId}
           courseId={courseId}
           level={level}
+          checklist={checklist}
           submitLabel={submitLabel}
         />
       </DialogContent>

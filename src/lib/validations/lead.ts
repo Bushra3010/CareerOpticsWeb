@@ -16,6 +16,8 @@ export const LEAD_SOURCES = [
   "callback",
   "contact",
   "apply_now",
+  /** The home page's D.El.Ed / B.Ed application (§5.3 Apply). */
+  "teaching_admission",
 ] as const;
 
 export type LeadSource = (typeof LEAD_SOURCES)[number];
@@ -103,6 +105,27 @@ export const ADMISSION_KEYS = Object.keys(
   admissionFormSchema.shape,
 ) as (keyof z.infer<typeof admissionFormSchema>)[];
 
+/**
+ * The document checklist on the teacher-training application. Like the
+ * admission fields these are not columns — `LeadForm` joins the ticked boxes
+ * into `answers.documents_ready` before posting, so `/api/leads` is unchanged.
+ *
+ * Optional, deliberately: a student enquiring in August may not have their
+ * graduation marksheet in hand yet, and gating the form on six checkboxes
+ * would cost applications. Name and mobile stay the only required inputs.
+ */
+export const documentsFormSchema = z.object({
+  documents: z.array(z.string().max(80)).max(20).optional(),
+  verification_doc: z.string().trim().max(80).optional().or(z.literal("")),
+  /**
+   * Attached marksheets, keyed by the slug of the checklist entry they answer
+   * (`10th_marksheet` → `2026/<uuid>.pdf`). Storage paths in the private
+   * `applicant-documents` bucket, never URLs. Keyed rather than fixed columns
+   * because the slots are derived from each programme's document list.
+   */
+  files: z.record(z.string().max(30), z.string().max(120)).optional(),
+});
+
 export const leadSchema = z.object({
   name: z
     .string()
@@ -157,8 +180,10 @@ export const leadFormSchema = leadSchema
     utm_campaign: true,
     utm_content: true,
   })
-  // Admission fields live on the form only — `/api/leads` receives them inside
-  // `answers`, so the API surface is unchanged.
-  .extend(admissionFormSchema.shape);
+  // Admission fields and the document checklist live on the form only —
+  // `/api/leads` receives them inside `answers`, so the API surface is
+  // unchanged.
+  .extend(admissionFormSchema.shape)
+  .extend(documentsFormSchema.shape);
 
 export type LeadFormValues = z.input<typeof leadFormSchema>;

@@ -16,6 +16,7 @@ import { ScholarshipSection } from "@/components/home/scholarship-section";
 import { Section } from "@/components/home/section";
 import { StatsStrip } from "@/components/home/stats-strip";
 import { StudyGoalCards } from "@/components/home/study-goal-cards";
+import { TeachingProgrammes } from "@/components/home/teaching-programmes";
 import { WhyUs } from "@/components/home/why-us";
 import { siteConfig } from "@/config/site";
 import {
@@ -81,6 +82,11 @@ export default async function HomePage() {
       <MobileQuickStart options={goalCityOptions} />
       <HeroCarousel banners={banners} />
       <MobileExplore />
+
+      {/* 4b — D.El.Ed / B.Ed applications, the two programmes the counsellors
+          handle end to end. Sits above the study goals because it is the one
+          section with an open intake. */}
+      <TeachingProgrammes />
 
       {/* 5 — Select Your Study Goal */}
       {goals.length > 0 ? (

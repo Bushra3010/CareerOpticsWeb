@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { ArrowLeft, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, FileText, MessageCircle, Phone } from "lucide-react";
 
 import { LeadNoteForm } from "@/components/admin/lead-note-form";
 import { LeadStatusSelect } from "@/components/admin/lead-status-select";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { can, requireStaff } from "@/lib/auth";
 import type { LeadStatus } from "@/config/leads";
+import { DOCUMENT_BUCKET } from "@/config/storage";
 import { getLead, getLeadActivities } from "@/lib/queries/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -54,6 +55,22 @@ export default async function LeadDetailPage({
       .storage.from("applicant-photos")
       .createSignedUrl(answers.photo_path, 300);
     photoUrl = data?.signedUrl ?? null;
+  }
+
+  // Marksheets attached to a programme application land in `answers` under a
+  // `file_` prefix, in the private `applicant-documents` bucket. Same treatment
+  // as the photo: a signed URL minted per page view, never stored.
+  const attachments: { key: string; label: string; url: string | null }[] = [];
+  for (const [key, path] of Object.entries(answers ?? {})) {
+    if (!key.startsWith("file_") || typeof path !== "string" || !path) continue;
+    const { data } = await createAdminClient()
+      .storage.from(DOCUMENT_BUCKET)
+      .createSignedUrl(path, 300);
+    attachments.push({
+      key,
+      label: key.slice("file_".length).replace(/_/g, " "),
+      url: data?.signedUrl ?? null,
+    });
   }
 
   const facts: { label: string; value: React.ReactNode }[] = [
@@ -172,9 +189,36 @@ export default async function LeadDetailPage({
                 </p>
               ) : null}
 
+              {attachments.length > 0 ? (
+                <ul className="mt-4 grid gap-2">
+                  {attachments.map((attachment) => (
+                    <li key={attachment.key}>
+                      {attachment.url ? (
+                        <a
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium text-brand-blue capitalize hover:bg-brand-blue-50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        >
+                          <FileText className="size-4 shrink-0" aria-hidden />
+                          {attachment.label}
+                        </a>
+                      ) : (
+                        <p className="rounded-lg border p-3 text-sm text-brand-red capitalize">
+                          {attachment.label} — uploaded, but the link could not
+                          be generated.
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+
               <dl className="mt-4 grid gap-3 sm:grid-cols-2">
                 {Object.entries(answers)
-                  .filter(([key]) => key !== "photo_path")
+                  .filter(
+                    ([key]) => key !== "photo_path" && !key.startsWith("file_"),
+                  )
                   .map(([key, value]) => (
                   <div key={key}>
                     <dt className="text-sm text-muted-foreground capitalize">

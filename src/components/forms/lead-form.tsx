@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { CheckCircle2, Loader2, MessageCircle, Phone } from "lucide-react";
 
+import { DocumentUpload } from "@/components/forms/document-upload";
 import { PhotoUpload } from "@/components/forms/photo-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { siteConfig, telHref, whatsappHref } from "@/config/site";
+import { MAX_DOCUMENT_BYTES } from "@/config/storage";
 import { readUtmParams, trackLead } from "@/lib/analytics";
 import type { CollegeOption, CourseOption } from "@/lib/queries/leads";
 import { cn } from "@/lib/utils";
@@ -40,9 +42,50 @@ export type LeadField =
   | "college"
   | "message"
   /** The counsellors' paper admission form (§5.3 Apply). */
-  | "admission";
+  | "admission"
+  /**
+   * Father's name, date of birth and parent's mobile — the rest of the
+   * "Student Details" block on a programme application, without dragging in
+   * the full paper form's address, roll and category fields.
+   */
+  | "guardian"
+  /** Programme document checklist. Needs `checklist`; renders nothing without it. */
+  | "documents";
+
+/**
+ * A programme's intake checklist, passed in by the caller rather than known
+ * here — `LeadForm` stays generic, and `config/teaching-programmes.ts` owns
+ * the lists.
+ */
+export type DocumentChecklist = {
+  /** Recorded as `answers.programme`, e.g. "UP D.El.Ed". */
+  name: string;
+  documents: string[];
+  /** Optional single-choice group, e.g. an ID proof for verification. */
+  verification?: { label: string; options: string[] };
+};
+
+/**
+ * Checklist entries that get an upload slot. Driven off the list itself rather
+ * than hard-coded, so a programme whose documents change gets the right slots
+ * without a code edit.
+ */
+const UPLOADABLE = /marksheet/i;
+
+/** "10th Marksheet" → "10th_marksheet", the key used in `answers`. */
+function slugifyDocument(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 30);
+}
 
 const FIELD_HEIGHT = "h-10";
+
+/** Native checkbox/radio styling — the §6.5 focus ring on a platform control. */
+const TICK =
+  "mt-0.5 size-4 shrink-0 accent-brand-blue focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none";
 
 /**
  * The single lead capture form (PRD §5.1, §9). Every entry point renders this
@@ -68,6 +111,7 @@ export function LeadForm({
   collegeId,
   courseId,
   level,
+  checklist,
   submitLabel = "Get Free Counselling",
   endpoint = "/api/leads",
   className,
@@ -78,6 +122,8 @@ export function LeadForm({
   fields?: LeadField[];
   courses?: CourseOption[];
   colleges?: CollegeOption[];
+  /** Document checklist rendered by the `"documents"` field. */
+  checklist?: DocumentChecklist;
   /** Pre-selected college, e.g. Apply Now on a college card. */
   collegeId?: string;
   courseId?: string;
@@ -127,6 +173,9 @@ export function LeadForm({
       roll_no: "",
       category: "",
       photo_path: "",
+      documents: [],
+      verification_doc: "",
+      files: {},
     },
   });
 
@@ -157,6 +206,39 @@ export function LeadForm({
           answers[key] = value.trim();
         }
         delete payload[key];
+      }
+
+      // Same trick for the document checklist: the ticked boxes join into one
+      // `answers` entry rather than becoming columns. Sliced to the 200-char
+      // cap `leadSchema` puts on an `answers` value — every checklist we ship
+      // is well under it, this only stops a longer one 400-ing the request.
+      const ticked = payload.documents;
+      const verification = payload.verification_doc;
+      const files = payload.files;
+      delete payload.documents;
+      delete payload.verification_doc;
+      delete payload.files;
+
+      if (checklist) {
+        answers.programme = checklist.name;
+        if (Array.isArray(ticked) && ticked.length > 0) {
+          answers.documents_ready = ticked.join(", ").slice(0, 200);
+        }
+        if (typeof verification === "string" && verification.trim()) {
+          answers.verification_doc = verification.trim();
+        }
+        // Each attachment becomes its own `answers` entry, prefixed so the
+        // admin can tell a storage path from a typed value and mint a signed
+        // URL for it. Empty slots are dropped rather than stored blank.
+        if (files && typeof files === "object") {
+          for (const [key, path] of Object.entries(
+            files as Record<string, unknown>,
+          )) {
+            if (typeof path === "string" && path.trim()) {
+              answers[`file_${key}`.slice(0, 40)] = path.trim();
+            }
+          }
+        }
       }
 
       const response = await fetch(endpoint, {
@@ -305,6 +387,132 @@ export function LeadForm({
             />
           )}
         </Field>
+      ) : null}
+
+      {show("guardian") ? (
+        <>
+          <Field
+            label="Father's name"
+            error={form.formState.errors.father_name?.message}
+          >
+            {(id) => (
+              <Input
+                id={id}
+                className={FIELD_HEIGHT}
+                placeholder="As printed on your marksheet"
+                {...form.register("father_name")}
+              />
+            )}
+          </Field>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Date of birth" error={form.formState.errors.dob?.message}>
+              {(id) => (
+                <Input
+                  id={id}
+                  type="date"
+                  className={FIELD_HEIGHT}
+                  {...form.register("dob")}
+                />
+              )}
+            </Field>
+            <Field
+              label="Parent's mobile"
+              error={form.formState.errors.parent_phone?.message}
+            >
+              {(id) => (
+                <Input
+                  id={id}
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className={FIELD_HEIGHT}
+                  placeholder="10-digit mobile"
+                  {...form.register("parent_phone")}
+                />
+              )}
+            </Field>
+          </div>
+        </>
+      ) : null}
+
+      {show("documents") && checklist ? (
+        <fieldset className="grid gap-4 rounded-xl border bg-surface p-4">
+          <legend className="px-1 text-sm font-semibold text-ink">
+            Documents required
+          </legend>
+          <p className="-mt-1 text-sm text-muted-foreground">
+            Tick what you already have. None of it is needed to enquire — a
+            counsellor will help you arrange the rest.
+          </p>
+
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {checklist.documents.map((document) => (
+              <li key={document}>
+                <label className="flex items-start gap-2 text-sm text-body">
+                  <input
+                    type="checkbox"
+                    value={document}
+                    className={TICK}
+                    {...form.register("documents")}
+                  />
+                  {document}
+                </label>
+              </li>
+            ))}
+          </ul>
+
+          {checklist.documents.some((document) => UPLOADABLE.test(document)) ? (
+            <div className="grid gap-2 border-t pt-4">
+              <p className="text-sm font-semibold text-ink">
+                Attach your marksheets{" "}
+                <span className="font-normal text-muted-foreground">
+                  (optional)
+                </span>
+              </p>
+              <p className="-mt-1 text-sm text-muted-foreground">
+                PDF or a clear photo, up to{" "}
+                {MAX_DOCUMENT_BYTES / 1024 / 1024} MB each. Only our counsellors
+                can see them.
+              </p>
+              {checklist.documents
+                .filter((document) => UPLOADABLE.test(document))
+                .map((document) => {
+                  const key = slugifyDocument(document);
+                  return (
+                    <DocumentUpload
+                      key={key}
+                      label={document}
+                      value={form.watch(`files.${key}`) ?? ""}
+                      onChange={(path) => form.setValue(`files.${key}`, path)}
+                    />
+                  );
+                })}
+            </div>
+          ) : null}
+
+          {checklist.verification ? (
+            <div className="grid gap-2.5 border-t pt-4">
+              <p className="text-sm font-semibold text-ink">
+                {checklist.verification.label}
+              </p>
+              <ul className="grid gap-2.5 sm:grid-cols-2">
+                {checklist.verification.options.map((option) => (
+                  <li key={option}>
+                    <label className="flex items-start gap-2 text-sm text-body">
+                      <input
+                        type="radio"
+                        value={option}
+                        className={TICK}
+                        {...form.register("verification_doc")}
+                      />
+                      {option}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </fieldset>
       ) : null}
 
       {show("city") ? (

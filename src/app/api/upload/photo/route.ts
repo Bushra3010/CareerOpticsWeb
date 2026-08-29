@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ALLOWED_IMAGE_TYPES, MAX_UPLOAD_BYTES } from "@/config/storage";
 import { limitUploads } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { clientIp, IMAGE_MAGIC, storagePath } from "@/lib/upload";
 
 /**
  * POST /api/upload/photo — the applicant photograph on the §5.3 Apply form.
@@ -19,73 +20,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
  *    storage path, never a public URL, because there is no public URL to give
  *  - the stored filename is generated, so a caller cannot choose a path or
  *    overwrite an existing object
+ *
+ * The hardening itself lives in `lib/upload.ts`, shared with
+ * `/api/upload/document`.
  */
 export const runtime = "nodejs";
 
 const BUCKET = "applicant-photos";
-
-/** Leading bytes → real image type. */
-const MAGIC: { type: string; ext: string; test: (b: Uint8Array) => boolean }[] = [
-  {
-    type: "image/jpeg",
-    ext: "jpg",
-    test: (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
-  },
-  {
-    type: "image/png",
-    ext: "png",
-    test: (b) =>
-      b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
-  },
-  {
-    type: "image/webp",
-    ext: "webp",
-    test: (b) =>
-      b[0] === 0x52 &&
-      b[1] === 0x49 &&
-      b[2] === 0x46 &&
-      b[3] === 0x46 &&
-      b[8] === 0x57 &&
-      b[9] === 0x45 &&
-      b[10] === 0x42 &&
-      b[11] === 0x50,
-  },
-  {
-    type: "image/avif",
-    ext: "avif",
-    test: (b) =>
-      b[4] === 0x66 &&
-      b[5] === 0x74 &&
-      b[6] === 0x79 &&
-      b[7] === 0x70 &&
-      b[8] === 0x61 &&
-      b[9] === 0x76 &&
-      b[10] === 0x69 &&
-      b[11] === 0x66,
-  },
-];
-
-/** Accept only valid IPv4/IPv6 addresses — headers can contain anything. */
-function asInet(value: string | null): string | null {
-  if (!value) return null;
-  const trimmed = value.split(",")[0]!.trim();
-  if (!trimmed) return null;
-  if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(trimmed)) return trimmed;
-  if (/^[0-9a-fA-F:]+$/.test(trimmed)) return trimmed;
-  return null;
-}
-
-function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) {
-    const first = forwarded.split(",")[0]?.trim();
-    if (first) return asInet(first) ?? "unknown";
-    return "unknown";
-  }
-  const realIp = request.headers.get("x-real-ip");
-  if (realIp) return asInet(realIp) ?? "unknown";
-  return "unknown";
-}
 
 export async function POST(request: NextRequest) {
   const limit = await limitUploads(clientIp(request));
@@ -121,7 +62,7 @@ export async function POST(request: NextRequest) {
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  const detected = MAGIC.find((candidate) => candidate.test(bytes));
+  const detected = IMAGE_MAGIC.find((candidate) => candidate.test(bytes));
 
   // The declared type must be allowed AND match what the bytes actually are, so
   // a renamed file or a spoofed content-type cannot get through.
@@ -137,7 +78,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const path = `${new Date().getFullYear()}/${crypto.randomUUID()}.${detected.ext}`;
+  const path = storagePath(detected.ext);
 
   const supabase = createAdminClient();
   const { error } = await supabase.storage
