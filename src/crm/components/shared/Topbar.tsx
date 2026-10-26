@@ -1,0 +1,75 @@
+'use client'
+import { LogOut, Menu } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/crm/components/ui/dropdown-menu'
+import { createClient } from '@/crm/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { useUIStore } from '@/crm/store/useUIStore'
+import type { Profile } from '@/crm/types/app.types'
+import { NotificationBell } from './NotificationBell'
+
+interface TopbarProps {
+  user: Profile
+}
+
+export function Topbar({ user }: TopbarProps) {
+  const router = useRouter()
+  const supabase = createClient()
+  const { toggleMobileSidebar } = useUIStore()
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+    router.push('/crm/login')
+    router.refresh()
+  }
+
+  return (
+    <header className="h-14 bg-white/75 backdrop-blur-xl border-b border-gray-100 flex items-center justify-between px-3 md:px-5 flex-shrink-0 z-20">
+      {/* Mobile: hamburger + brand name */}
+      <div className="flex items-center gap-2 md:hidden">
+        <button
+          onClick={toggleMobileSidebar}
+          className="p-2 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors -ml-1"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5 text-gray-600" />
+        </button>
+        <div className="flex items-center gap-2">
+          <img src="/brand-logo.png" alt="" className="w-7 h-7 rounded-lg" />
+          <span className="font-bold text-sm text-gray-900 leading-tight">CareerOptics</span>
+        </div>
+      </div>
+
+      {/* Desktop: spacer */}
+      <div className="hidden md:block" />
+
+      <div className="flex items-center gap-1.5">
+        <NotificationBell userId={user.id} role={user.role} />
+        <DropdownMenu>
+          <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-1.5 md:px-2 py-1 text-sm hover:bg-gray-100 transition-colors">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm shadow-blue-200">
+              {user.full_name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-sm font-medium hidden md:block">{user.full_name}</span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem className="text-xs text-gray-500 cursor-default">
+              {user.full_name}
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs text-gray-400 cursor-default -mt-1">
+              {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
+  )
+}

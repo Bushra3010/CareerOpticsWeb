@@ -1,0 +1,1094 @@
+'use client'
+import { useState, useEffect, useCallback, useTransition, useRef, useMemo } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { format } from 'date-fns'
+import { MoreVertical, Pencil, FileText, Receipt, Search, Trash2, Download, ChevronLeft, ChevronRight, UserPlus, CheckCircle2, Clock, XCircle, GraduationCap, Award, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import type { ColumnDef } from '@tanstack/react-table'
+import { Input } from '@/crm/components/ui/input'
+import { Badge } from '@/crm/components/ui/badge'
+import { Button } from '@/crm/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/crm/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/crm/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/crm/components/ui/select'
+import { ConfirmDialog } from '@/crm/components/shared/ConfirmDialog'
+import { DataTable } from '@/crm/components/shared/DataTable'
+import { PageHeader } from '@/crm/components/shared/PageHeader'
+import { createClient } from '@/crm/lib/supabase/client'
+import { Textarea } from '@/crm/components/ui/textarea'
+import { StudentForm } from '@/crm/components/backend/StudentForm'
+import { PrintInvoiceButton } from '@/crm/components/backend/PrintInvoiceButton'
+import { SendInvoiceWhatsAppButton } from '@/crm/components/backend/SendInvoiceWhatsAppButton'
+import { ReceiptDialog } from '@/crm/components/backend/ReceiptDialog'
+import { toast } from 'sonner'
+import { formatCurrency, type Student } from '@/crm/types/app.types'
+
+const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-green-100 text-green-800',
+  completed: 'bg-blue-100 text-blue-800',
+  dropped: 'bg-red-100 text-red-800',
+  on_hold: 'bg-yellow-100 text-yellow-800',
+}
+
+const MODE_COLORS: Record<string, string> = {
+  attending: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  'non-attending': 'bg-orange-100 text-orange-700 border-orange-200',
+}
+
+const COUNSELLOR_PALETTE = [
+  'bg-blue-100 text-blue-700',
+  'bg-sky-100 text-sky-700',
+  'bg-pink-100 text-pink-700',
+  'bg-teal-100 text-teal-700',
+  'bg-amber-100 text-amber-700',
+  'bg-indigo-100 text-indigo-700',
+  'bg-rose-100 text-rose-700',
+  'bg-cyan-100 text-cyan-700',
+]
+
+function initials(name: string) {
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+}
+
+function counsellorColor(name: string) {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff
+  return COUNSELLOR_PALETTE[h % COUNSELLOR_PALETTE.length]
+}
+
+interface FilterOption { id: string; name: string }
+interface BoardOption { id: string; name: string; department_id: string }
+
+// Filters survive navigating into a student and coming back (sessionStorage)
+const FILTER_STORAGE_KEY = 'backend-students-filters'
+
+export function BackendListClient() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const deptParam = searchParams.get('dept')
+
+  const [students, setStudents] = useState<Student[]>([])
+  const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [paymentFilter, setPaymentFilter] = useState('')
+  const [courseFilter, setCourseFilter] = useState('')
+  const [sessionFilter, setSessionFilter] = useState('')
+  const [counsellorFilter, setCounsellorFilter] = useState('')
+  const [modeFilter, setModeFilter] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState(deptParam || '')
+  const [boardFilter, setBoardFilter] = useState('')
+  const [sortBy, setSortBy] = useState<'' | 'dues_desc' | 'dues_asc' | 'paid_desc' | 'paid_asc'>('')
+  const [filtersRestored, setFiltersRestored] = useState(false)
+  const [courses, setCourses] = useState<FilterOption[]>([])
+  const [sessions, setSessions] = useState<FilterOption[]>([])
+  const [counsellors, setCounsellors] = useState<FilterOption[]>([])
+  const [departments, setDepartments] = useState<FilterOption[]>([])
+  const [allBoards, setAllBoards] = useState<BoardOption[]>([])
+  const [boards, setBoards] = useState<BoardOption[]>([])
+  const [allBoardCounts, setAllBoardCounts] = useState<Record<string, number>>({})
+  const [editStudent, setEditStudent] = useState<Student | null>(null)
+  const [receiptStudent, setReceiptStudent] = useState<Student | null>(null)
+  const [deleteStudent, setDeleteStudent] = useState<Student | null>(null)
+  const [showAdd, setShowAdd] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  const [activeTab, setActiveTab] = useState<'students' | 'pending'>('students')
+  const [pendingStudents, setPendingStudents] = useState<any[]>([])
+  const [pendingLoading, setPendingLoading] = useState(false)
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejecting, setRejecting] = useState(false)
+  const tabScrollRef = useRef<HTMLDivElement>(null)
+  const [selectedStudents, setSelectedStudents] = useState<Student[]>([])
+  const [showMentorAssign, setShowMentorAssign] = useState(false)
+  const [counselors, setCounselors] = useState<FilterOption[]>([])
+  const [selectedCounselor, setSelectedCounselor] = useState('')
+  const [assigningMentor, setAssigningMentor] = useState(false)
+  const [tableKey, setTableKey] = useState(0)
+  const supabase = createClient()
+
+  // Restore saved filters on mount (after SSR, so no hydration mismatch).
+  // A ?dept= URL param wins over the saved department.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(FILTER_STORAGE_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw)
+        setSearch(saved.search ?? '')
+        setStatusFilter(saved.status ?? '')
+        setPaymentFilter(saved.payment ?? '')
+        setCourseFilter(saved.course ?? '')
+        setSessionFilter(saved.session ?? '')
+        setCounsellorFilter(saved.counsellor ?? '')
+        setModeFilter(saved.mode ?? '')
+        if (!deptParam) setDepartmentFilter(saved.department ?? '')
+        setBoardFilter(saved.board ?? '')
+        setSortBy(saved.sortBy ?? '')
+      }
+    } catch { /* corrupted storage — start fresh */ }
+    setFiltersRestored(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Save filters whenever they change (after initial restore)
+  useEffect(() => {
+    if (!filtersRestored) return
+    try {
+      sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
+        search, status: statusFilter, payment: paymentFilter, course: courseFilter,
+        session: sessionFilter, counsellor: counsellorFilter, mode: modeFilter,
+        department: departmentFilter, board: boardFilter, sortBy,
+      }))
+    } catch { /* storage unavailable */ }
+  }, [filtersRestored, search, statusFilter, paymentFilter, courseFilter, sessionFilter, counsellorFilter, modeFilter, departmentFilter, boardFilter, sortBy])
+
+  function scrollTabs(dir: 'left' | 'right') {
+    if (tabScrollRef.current) {
+      tabScrollRef.current.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
+    }
+  }
+
+  // Load filter options once
+  useEffect(() => {
+    async function loadOptions() {
+      const [coursesRes, sessionsRes, counsellorsRes, deptRes, boardRes, counselorRes] = await Promise.all([
+        supabase.from('courses').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('sessions').select('id, name').order('name'),
+        supabase.from('profiles').select('id, full_name').in('role', ['lead', 'telecaller', 'counselor']).order('full_name'),
+        supabase.from('departments').select('id, name').order('name'),
+        supabase.from('department_sub_sections').select('id, name, department_id').order('name'),
+        supabase.from('profiles').select('id, full_name').in('role', ['counselor', 'lead']).eq('is_active', true).order('full_name'),
+      ])
+      setCourses((coursesRes.data ?? []) as FilterOption[])
+      setSessions((sessionsRes.data ?? []) as FilterOption[])
+      setCounsellors(((counsellorsRes.data ?? []) as { id: string; full_name: string }[]).map(p => ({ id: p.id, name: p.full_name })))
+      setDepartments((deptRes.data ?? []) as FilterOption[])
+      setCounselors(((counselorRes.data ?? []) as { id: string; full_name: string }[]).map(p => ({ id: p.id, name: p.full_name })))
+      const allB = (boardRes.data ?? []) as BoardOption[]
+      setAllBoards(allB)
+      setBoards(allB)
+
+      // Fetch board-wise student counts (no filters — true count per board)
+      const { data: countData } = await supabase
+        .from('students')
+        .select('sub_section_id')
+        .neq('status', 'dropped')
+        .neq('status', 'pending')
+      const counts: Record<string, number> = {}
+      ;(countData ?? []).forEach((s: any) => {
+        if (s.sub_section_id) counts[s.sub_section_id] = (counts[s.sub_section_id] ?? 0) + 1
+      })
+      setAllBoardCounts(counts)
+    }
+    loadOptions()
+  }, [])
+
+  // Filter boards based on selected department
+  useEffect(() => {
+    if (!departmentFilter) {
+      setBoards(allBoards)
+    } else {
+      const filtered = allBoards.filter(b => b.department_id === departmentFilter)
+      setBoards(filtered)
+      // If current boardFilter doesn't belong to this department, reset it.
+      // Skip while allBoards hasn't loaded yet, or a restored filter gets wiped.
+      if (allBoards.length > 0 && boardFilter && !filtered.find(b => b.id === boardFilter)) {
+        setBoardFilter('')
+      }
+    }
+  }, [departmentFilter, allBoards])
+
+  const fetchStudents = useCallback(async () => {
+    setLoading(true)
+    try {
+      let query = supabase
+        .from('students')
+        .select(`
+          *,
+          course:courses(id, name, is_active, created_at),
+          sub_course:sub_courses(id, name, is_active, created_at, course_id),
+          department:departments(id, name),
+          sub_section:department_sub_sections(id, name),
+          session:sessions(id, name),
+          counsellor:profiles!students_assigned_counsellor_fkey(id, email, full_name, role, is_active, created_at),
+          associate:associates!students_referred_by_associate_fkey(id, name, associate_code)
+        `)
+        .order('enrollment_date', { ascending: true })
+
+      if (search) query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%`)
+      if (statusFilter) query = query.eq('status', statusFilter)
+      else query = query.neq('status', 'dropped').neq('status', 'pending')
+      if (courseFilter) query = query.eq('course_id', courseFilter)
+      if (sessionFilter) query = query.eq('session_id', sessionFilter)
+      if (counsellorFilter) query = query.eq('assigned_counsellor', counsellorFilter)
+      if (modeFilter) query = query.eq('mode', modeFilter)
+      if (departmentFilter) query = query.eq('department_id', departmentFilter)
+      if (boardFilter) query = query.eq('sub_section_id', boardFilter)
+      if (paymentFilter === 'paid') query = query.gt('amount_paid', 0).gte('amount_paid', 'total_fee')
+      if (paymentFilter === 'unpaid') query = query.eq('amount_paid', 0)
+      if (paymentFilter === 'partial') query = query.gt('amount_paid', 0).lt('amount_paid', 'total_fee')
+
+      const { data, error } = await query
+      if (error) {
+        console.error('Supabase error fetching students:', error)
+        throw error
+      }
+      setStudents((data as Student[]) ?? [])
+    } catch (err) {
+      console.error('Catch error fetching students:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [search, statusFilter, paymentFilter, courseFilter, sessionFilter, counsellorFilter, modeFilter, departmentFilter, boardFilter])
+
+  // Payment-wise ordering (paid amount or pending dues), else keep server order
+  const displayStudents = useMemo(() => {
+    if (!sortBy) return students
+    const dues = (s: Student) => (s.total_fee ?? 0) - (s.amount_paid ?? 0)
+    const paid = (s: Student) => s.amount_paid ?? 0
+    const get = sortBy.startsWith('paid') ? paid : dues
+    const desc = sortBy.endsWith('desc')
+    return [...students].sort((a, b) => desc ? get(b) - get(a) : get(a) - get(b))
+  }, [students, sortBy])
+
+  // Header click cycles: descending → ascending → off
+  function toggleSort(field: 'paid' | 'dues') {
+    setSortBy((prev) =>
+      prev === `${field}_desc` ? `${field}_asc`
+      : prev === `${field}_asc` ? ''
+      : `${field}_desc`)
+  }
+
+  function SortHeader({ label, field }: { label: string; field: 'paid' | 'dues' }) {
+    const active = sortBy.startsWith(field)
+    const Icon = !active ? ArrowUpDown : sortBy.endsWith('desc') ? ArrowDown : ArrowUp
+    return (
+      <button
+        onClick={() => toggleSort(field)}
+        className={`inline-flex items-center gap-1 hover:text-gray-900 ${active ? 'text-blue-600 font-semibold' : ''}`}
+        title={`Sort by ${label} (click to toggle)`}
+      >
+        {label}
+        <Icon className="w-3.5 h-3.5" />
+      </button>
+    )
+  }
+
+  // Tabs: filter by dept if selected, then deduplicate by name to avoid same-name boards from multiple depts
+  const tabBoards = useMemo(() => {
+    const source = departmentFilter
+      ? allBoards.filter(b => b.department_id === departmentFilter)
+      : allBoards
+    const seen = new Set<string>()
+    return source.filter(b => {
+      const key = b.name.toLowerCase().trim()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [allBoards, departmentFilter])
+
+  const loadPending = useCallback(async () => {
+    setPendingLoading(true)
+    const { data } = await (supabase as any)
+      .from('students')
+      .select(`*, course:courses(name), department:departments(name), sub_section:department_sub_sections(name), counsellor:profiles!students_assigned_counsellor_fkey(full_name)`)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+    setPendingStudents(data ?? [])
+    setPendingLoading(false)
+  }, [supabase])
+
+  async function approveStudent(id: string) {
+    setApprovingId(id)
+    try {
+      const { error } = await supabase.from('students').update({ status: 'active' } as never).eq('id', id)
+      if (error) throw error
+      toast.success('Student approved and activated')
+      setPendingStudents(prev => prev.filter(s => s.id !== id))
+    } catch {
+      toast.error('Failed to approve student')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  async function rejectStudent() {
+    if (!rejectTarget) return
+    setRejecting(true)
+    try {
+      const { error } = await supabase.from('students').update({ status: 'dropped' } as never).eq('id', rejectTarget.id)
+      if (error) throw error
+      toast.success('Student rejected')
+      setPendingStudents(prev => prev.filter(s => s.id !== rejectTarget.id))
+      setRejectTarget(null)
+      setRejectReason('')
+    } catch {
+      toast.error('Failed to reject student')
+    } finally {
+      setRejecting(false)
+    }
+  }
+
+  async function handleDeleteStudent(id: string) {
+    try {
+      const { error } = await supabase.from('students').delete().eq('id', id)
+      if (error) throw error
+      setStudents((prev) => prev.filter((s) => s.id !== id))
+      toast.success('Student deleted successfully')
+    } catch (err) {
+      toast.error('Failed to delete student')
+      console.error(err)
+    }
+    setDeleteStudent(null)
+  }
+
+  async function bulkAssignMentor() {
+    if (!selectedCounselor) { toast.error('Pehle mentor select karo'); return }
+    if (selectedStudents.length === 0) { toast.error('Koi student selected nahi hai'); return }
+    setAssigningMentor(true)
+    try {
+      const ids = selectedStudents.map(s => s.id)
+      // .select() returns the rows actually updated — lets us detect silent
+      // no-ops (RLS / missing column) instead of showing a false success.
+      const { data, error } = await supabase
+        .from('students')
+        .update({ mentor_telecaller_id: selectedCounselor } as never)
+        .in('id', ids)
+        .select('id')
+      if (error) throw error
+      const updated = (data as { id: string }[] | null)?.length ?? 0
+      if (updated === 0) {
+        throw new Error('0 students update hue — permission ya mentor_telecaller_id column missing ho sakta hai')
+      }
+      toast.success(`Mentor assigned to ${updated} student${updated !== 1 ? 's' : ''}`)
+      setShowMentorAssign(false)
+      setSelectedCounselor('')
+      setSelectedStudents([])
+      setTableKey(k => k + 1) // remount DataTable so checkboxes reset
+      fetchStudents()
+    } catch (err: any) {
+      toast.error(err?.message ?? 'Failed to assign mentor')
+    } finally {
+      setAssigningMentor(false)
+    }
+  }
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const xlsx = await import('xlsx')
+      const rows = displayStudents.map((s) => ({
+        Name: s.full_name,
+        "Father's Name": s.guardian_name || '-',
+        Phone: s.phone,
+        Email: s.email || '-',
+        City: s.city || '-',
+        Mode: s.mode || '-',
+        Session: s.session?.name || '-',
+        Department: s.department?.name || '-',
+        Course: s.course?.name || '-',
+        'Sub Course': s.sub_course?.name || '-',
+        'Total Fee': s.total_fee || 0,
+        'Amount Paid': s.amount_paid || 0,
+        'Pending Balance': (s.total_fee || 0) - (s.amount_paid || 0),
+        Status: s.status,
+        'Enrollment Date': s.enrollment_date ? format(new Date(s.enrollment_date), 'dd MMM yyyy') : '-',
+      }))
+      const ws = xlsx.utils.json_to_sheet(rows)
+      const wb = xlsx.utils.book_new()
+      xlsx.utils.book_append_sheet(wb, ws, 'Students')
+      xlsx.writeFile(wb, `students-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`)
+      toast.success('Students exported successfully')
+    } catch (err) {
+      console.error('Export error:', err)
+      toast.error('Failed to export students')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(fetchStudents, 300)
+    return () => clearTimeout(timer)
+  }, [fetchStudents])
+
+  // Always load pending count on mount for badge; reload when switching to tab
+  useEffect(() => { loadPending() }, [loadPending])
+  useEffect(() => {
+    if (activeTab === 'pending') loadPending()
+  }, [activeTab, loadPending])
+
+  const columns: ColumnDef<Student>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <input
+          type="checkbox"
+          className="h-4 w-4 rounded border-gray-300 accent-primary cursor-pointer"
+          checked={table.getIsAllPageRowsSelected()}
+          ref={(el) => {
+            if (el) el.indeterminate = table.getIsSomePageRowsSelected()
+          }}
+          onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+          onClick={(e) => e.stopPropagation()}
+          aria-label="Select all"
+        />
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-center justify-center p-1.5 -m-1.5" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            className="h-5 w-5 rounded border-gray-300 accent-primary cursor-pointer"
+            checked={row.getIsSelected()}
+            onChange={(e) => row.toggleSelected(e.target.checked)}
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Select row"
+          />
+        </div>
+      ),
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      id: 'serial',
+      header: 'S.No',
+      cell: ({ row }) => <span className="text-gray-500 tabular-nums">{row.index + 1}</span>,
+    },
+    { accessorKey: 'full_name', header: 'Name', cell: ({ row }) => <span className="font-medium">{row.original.full_name}</span> },
+    { id: 'guardian_name', accessorFn: (row) => row.guardian_name ?? '', header: "Father's Name", cell: ({ row }) => row.original.guardian_name ?? '-' },
+    { accessorKey: 'phone', header: 'Phone' },
+    {
+      id: 'mode', accessorFn: (row) => row.mode ?? '', header: 'Mode',
+      cell: ({ row }) => {
+        const m = row.original.mode
+        if (!m) return <span className="text-gray-400 text-xs">-</span>
+        return (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${MODE_COLORS[m] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+            {m === 'attending' ? '● Attending' : '○ Non-Attending'}
+          </span>
+        )
+      }
+    },
+    {
+      id: 'session', accessorFn: (row) => row.session?.name ?? '', header: 'Session',
+      cell: ({ row }) => {
+        const s = row.original.session?.name
+        if (!s) return <span className="text-gray-400 text-xs">-</span>
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">{s}</span>
+      }
+    },
+    {
+      id: 'department', accessorFn: (row) => row.department?.name ?? '', header: 'Dept',
+      cell: ({ row }) => {
+        const d = row.original.department?.name
+        if (!d) return <span className="text-gray-400 text-xs">-</span>
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">{d}</span>
+      }
+    },
+    {
+      id: 'sub_section', accessorFn: (row) => row.sub_section?.name ?? '', header: 'Board',
+      cell: ({ row }) => {
+        const b = row.original.sub_section?.name
+        if (!b) return <span className="text-gray-400 text-xs">-</span>
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">{b}</span>
+      }
+    },
+    {
+      id: 'course', accessorFn: (row) => row.course?.name ?? '', header: 'Course',
+      cell: ({ row }) => {
+        const c = row.original.course?.name
+        if (!c) return <span className="text-gray-400 text-xs">-</span>
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">{c}</span>
+      }
+    },
+    {
+      id: 'sub_course', accessorFn: (row) => row.sub_course?.name ?? '', header: 'Standard',
+      cell: ({ row }) => {
+        const sc = row.original.sub_course?.name
+        if (!sc) return <span className="text-gray-400 text-xs">-</span>
+        return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-50 text-teal-700 border border-teal-200">{sc}</span>
+      }
+    },
+    {
+      id: 'counsellor', accessorFn: (row) => row.counsellor?.full_name ?? '', header: 'Counsellor',
+      cell: ({ row }) => {
+        const name = row.original.counsellor?.full_name
+        if (!name) return <span className="text-gray-400 text-xs">-</span>
+        const color = counsellorColor(name)
+        return (
+          <span className="inline-flex items-center gap-1.5">
+            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${color}`}>
+              {initials(name)}
+            </span>
+            <span className="text-xs font-medium text-gray-700 truncate max-w-[90px]">{name}</span>
+          </span>
+        )
+      }
+    },
+    {
+      id: 'associate', accessorFn: (row: any) => (row as any).associate?.name ?? '', header: 'Associate',
+      cell: ({ row }: any) => {
+        const a = (row.original as any).associate
+        if (!a) return <span className="text-gray-400 text-xs">-</span>
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 whitespace-nowrap">
+            {a.name}
+            {a.associate_code && <span className="text-indigo-400 font-normal">({a.associate_code})</span>}
+          </span>
+        )
+      }
+    },
+    { accessorKey: 'total_fee', header: 'Total Fee', cell: ({ row }) => row.original.total_fee ? formatCurrency(row.original.total_fee) : '-' },
+    { accessorKey: 'amount_paid', header: () => <SortHeader label="Paid" field="paid" />, cell: ({ row }) => <span className="text-green-700">{formatCurrency(row.original.amount_paid ?? 0)}</span> },
+    {
+      id: 'pending', header: () => <SortHeader label="Pending" field="dues" />, cell: ({ row }) => {
+        const p = (row.original.total_fee ?? 0) - (row.original.amount_paid ?? 0)
+        return p > 0 ? <span className="text-red-600">{formatCurrency(p)}</span> : <span className="text-gray-400">-</span>
+      }
+    },
+    {
+      accessorKey: 'status', header: 'Status', cell: ({ row }) => (
+        <Badge className={`${STATUS_COLORS[row.original.status] ?? 'bg-gray-100 text-gray-800'} border-0 text-xs`}>
+          {row.original.status}
+        </Badge>
+      )
+    },
+    { accessorKey: 'enrollment_date', header: 'Enrolled', cell: ({ row }) => row.original.enrollment_date ? format(new Date(row.original.enrollment_date), 'dd MMM yyyy') : '-' },
+    {
+      id: 'actions',
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setEditStudent(row.original) }}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Update Details
+            </DropdownMenuItem>
+            <div onClick={(e) => e.stopPropagation()}>
+              <PrintInvoiceButton student={row.original} />
+            </div>
+            <div onClick={(e) => e.stopPropagation()}>
+              <SendInvoiceWhatsAppButton student={row.original} />
+            </div>
+            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setReceiptStudent(row.original) }}>
+              <Receipt className="mr-2 h-4 w-4" />
+              Receipt
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-red-500 focus:text-red-600 focus:bg-red-50"
+              onClick={(e) => { e.stopPropagation(); setDeleteStudent(row.original) }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Student
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Students"
+        description="Manage enrolled students, fees, documents and exams"
+        action={(
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleExport} disabled={exporting}>
+              <Download className="mr-2 h-4 w-4" />
+              {exporting ? 'Exporting...' : 'Export Excel'}
+            </Button>
+            <Button size="sm" onClick={() => setShowAdd(true)}>
+              <FileText className="mr-2 h-4 w-4" /> Add Student
+            </Button>
+          </div>
+        )}
+      />
+
+      {/* Main tab switcher: Students vs Pending Approvals */}
+      <div className="flex gap-2 border-b border-slate-200 pb-0">
+        <button
+          onClick={() => setActiveTab('students')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'students'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <FileText className="w-4 h-4" /> All Students
+        </button>
+        <button
+          onClick={() => setActiveTab('pending')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${
+            activeTab === 'pending'
+              ? 'border-amber-500 text-amber-700'
+              : 'border-transparent text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <UserPlus className="w-4 h-4" /> New Students
+          {pendingStudents.length > 0 && (
+            <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {pendingStudents.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ── PENDING APPROVALS TAB ── */}
+      {activeTab === 'pending' && (
+        <div className="space-y-3">
+          {pendingLoading ? (
+            <div className="text-center py-16 text-muted-foreground text-sm">Loading…</div>
+          ) : pendingStudents.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <UserPlus className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No pending students</p>
+              <p className="text-xs mt-1">Converted leads aur direct add kiye gaye new admissions yahan approval ke liye aayenge</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border overflow-hidden bg-white">
+              <table className="w-full text-sm">
+                <thead className="bg-amber-50 border-b">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold text-slate-600">Name</th>
+                    <th className="text-left px-4 py-3 font-semibold text-slate-600 hidden sm:table-cell">Phone</th>
+                    <th className="text-left px-4 py-3 font-semibold text-slate-600 hidden md:table-cell">Course</th>
+                    <th className="text-left px-4 py-3 font-semibold text-slate-600 hidden lg:table-cell">Counselor</th>
+                    <th className="text-right px-4 py-3 font-semibold text-slate-600 hidden md:table-cell">Total Fee</th>
+                    <th className="text-right px-4 py-3 font-semibold text-slate-600 hidden md:table-cell">Paid</th>
+                    <th className="px-4 py-3 text-right font-semibold text-slate-600">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {pendingStudents.map((s: any) => (
+                    <tr key={s.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-900">{s.full_name}</p>
+                        <p className="text-xs text-muted-foreground">{s.department?.name ?? '—'}</p>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600 hidden sm:table-cell">{s.phone}</td>
+                      <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">{s.course?.name ?? '—'}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                          {s.counsellor?.full_name ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-slate-700 font-mono text-xs hidden md:table-cell">
+                        {s.total_fee ? `₹${Number(s.total_fee).toLocaleString('en-IN')}` : '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right text-green-700 font-mono text-xs hidden md:table-cell">
+                        {s.amount_paid ? `₹${Number(s.amount_paid).toLocaleString('en-IN')}` : '₹0'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1.5"
+                            onClick={() => setEditStudent(s)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" /> Edit
+                          </Button>
+                          {/* Invoice bhejna pending state me bhi possible hai — approval ki zaroorat nahi */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <PrintInvoiceButton student={s} />
+                              </div>
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <SendInvoiceWhatsAppButton student={s} />
+                              </div>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setReceiptStudent(s) }}>
+                                <Receipt className="mr-2 h-4 w-4" />
+                                Receipt
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button
+                            size="sm"
+                            className="h-7 text-xs gap-1.5 bg-green-600 hover:bg-green-700"
+                            disabled={approvingId === s.id}
+                            onClick={() => approveStudent(s.id)}
+                          >
+                            {approvingId === s.id
+                              ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              : <><CheckCircle2 className="w-3.5 h-3.5" /> Approve</>
+                            }
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => { setRejectTarget(s); setRejectReason('') }}
+                          >
+                            <XCircle className="w-3.5 h-3.5" /> Reject
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="px-4 py-2 border-t bg-amber-50/50 text-xs text-amber-700">
+                {pendingStudents.length} student{pendingStudents.length !== 1 ? 's' : ''} awaiting approval
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── STUDENTS TAB ── */}
+      {activeTab === 'students' && <>
+
+      {/* Premium Board Tabs */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => scrollTabs('left')}
+          className="flex-shrink-0 p-1.5 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+
+        <div ref={tabScrollRef} className="flex items-center gap-2 overflow-x-auto pb-1 flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <button
+            onClick={() => setBoardFilter('')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
+              boardFilter === ''
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 ring-2 ring-blue-100'
+                : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+            }`}
+          >
+            All Students
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+              boardFilter === '' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'
+            }`}>
+              {students.length}
+            </span>
+          </button>
+
+          {tabBoards.map((board: BoardOption) => (
+            <button
+              key={board.id}
+              onClick={() => setBoardFilter(board.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
+                boardFilter === board.id
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-100'
+                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+              }`}
+            >
+              {board.name}
+              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                boardFilter === board.id ? 'bg-indigo-500 text-white' : 'bg-slate-100 text-slate-500'
+              }`}>
+                {allBoardCounts[board.id] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => scrollTabs('right')}
+          className="flex-shrink-0 p-1.5 rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Layer 1: Department + Board */}
+      <div className="flex flex-wrap gap-2 p-3 bg-gray-50 rounded-lg border mb-2">
+        <span className="text-xs font-semibold text-gray-500 self-center w-full mb-1">Step 1 — Department &amp; Board</span>
+        <Select value={departmentFilter} onValueChange={(v) => { setDepartmentFilter(v ?? ''); setBoardFilter('') }}>
+          <SelectTrigger className="w-44 h-9">
+            <span className="text-sm truncate">
+              {departmentFilter ? departments.find(d => d.id === departmentFilter)?.name ?? 'All Departments' : 'All Departments'}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Departments</SelectItem>
+            {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={boardFilter} onValueChange={(v) => setBoardFilter(v ?? '')}>
+          <SelectTrigger className="w-44 h-9">
+            <span className="text-sm truncate">
+              {boardFilter ? boards.find(b => b.id === boardFilter)?.name ?? 'All Boards' : 'All Boards'}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Boards</SelectItem>
+            {boards.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {(departmentFilter || boardFilter) && (
+          <button onClick={() => { setDepartmentFilter(''); setBoardFilter('') }} className="text-xs text-red-500 hover:underline self-center ml-1">
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Layer 2: Remaining filters + search */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Input
+            placeholder="Search name, phone..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v ?? '')}>
+          <SelectTrigger className="w-32 h-9"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="dropped">Dropped</SelectItem>
+            <SelectItem value="on_hold">On Hold</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={modeFilter} onValueChange={(v) => setModeFilter(v ?? '')}>
+          <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Mode" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Modes</SelectItem>
+            <SelectItem value="attending">Attending</SelectItem>
+            <SelectItem value="non-attending">Non-Attending</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={courseFilter} onValueChange={(v) => setCourseFilter(v ?? '')}>
+          <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Course" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Courses</SelectItem>
+            {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={sessionFilter} onValueChange={(v) => setSessionFilter(v ?? '')}>
+          <SelectTrigger className="w-32 h-9"><SelectValue placeholder="Session" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Sessions</SelectItem>
+            {sessions.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={counsellorFilter} onValueChange={(v) => setCounsellorFilter(v ?? '')}>
+          <SelectTrigger className="w-36 h-9"><SelectValue placeholder="Counsellor" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Counsellors</SelectItem>
+            {counsellors.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v ?? '')}>
+          <SelectTrigger className="w-32 h-9"><SelectValue placeholder="Payment" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All</SelectItem>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="partial">Partial</SelectItem>
+            <SelectItem value="unpaid">Unpaid</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={sortBy} onValueChange={(v) => setSortBy((v ?? '') as typeof sortBy)}>
+          <SelectTrigger className="w-44 h-9">
+            <span className="text-sm truncate">
+              {sortBy === 'dues_desc' ? 'Dues: High → Low'
+                : sortBy === 'dues_asc' ? 'Dues: Low → High'
+                : sortBy === 'paid_desc' ? 'Paid: High → Low'
+                : sortBy === 'paid_asc' ? 'Paid: Low → High'
+                : 'Sort by Payment'}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Default Order</SelectItem>
+            <SelectItem value="dues_desc">Dues: High → Low</SelectItem>
+            <SelectItem value="dues_asc">Dues: Low → High</SelectItem>
+            <SelectItem value="paid_desc">Paid: High → Low</SelectItem>
+            <SelectItem value="paid_asc">Paid: Low → High</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Bulk action bar */}
+      {selectedStudents.length > 0 && (
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 sm:gap-3 bg-gray-900 text-white px-4 sm:px-5 py-3 rounded-2xl shadow-2xl border border-gray-700 w-[calc(100%-1.5rem)] sm:w-auto max-w-md justify-center"
+          style={{ bottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+        >
+          <span className="text-xs sm:text-sm font-semibold whitespace-nowrap">{selectedStudents.length} selected</span>
+          <Button
+            size="sm"
+            onClick={() => { setSelectedCounselor(''); setShowMentorAssign(true) }}
+            className="bg-blue-600 hover:bg-blue-500 text-white gap-1.5 h-8 whitespace-nowrap"
+          >
+            <Award className="w-3.5 h-3.5" /> Assign Mentor
+          </Button>
+          <button
+            onClick={() => { setSelectedStudents([]); setTableKey(k => k + 1) }}
+            className="text-gray-400 hover:text-white text-xs underline whitespace-nowrap"
+          >
+            Clear
+          </button>
+        </div>
+      )}
+
+      <DataTable
+        key={tableKey}
+        data={displayStudents}
+        columns={columns}
+        isLoading={loading}
+        onRowClick={(s) => router.push(`/crm/backend/${s.id}`)}
+        onSelectionChange={(rows) => setSelectedStudents(rows)}
+      />
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="w-[calc(100%-1.5rem)] sm:max-w-2xl max-h-[88vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Student</DialogTitle>
+          </DialogHeader>
+          <StudentForm
+            onSuccess={() => {
+              setShowAdd(false)
+              fetchStudents()
+              loadPending()
+              // New admissions land in the pending tab — show the user where it went
+              setActiveTab('pending')
+            }}
+            onCancel={() => setShowAdd(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteStudent}
+        onCancel={() => setDeleteStudent(null)}
+        title="Delete Student"
+        description={`Are you sure you want to delete ${deleteStudent?.full_name}? This will permanently remove their record and payment history. This action cannot be undone.`}
+        onConfirm={() => deleteStudent && handleDeleteStudent(deleteStudent.id)}
+        destructive
+      />
+
+      {/* Bulk Mentor Assign Dialog */}
+      <Dialog open={showMentorAssign} onOpenChange={setShowMentorAssign}>
+        <DialogContent className="w-[calc(100%-1.5rem)] sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-blue-600" /> Assign Mentor
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <p className="text-sm text-gray-600">
+              Assign a counselor as mentor to <span className="font-bold text-gray-900">{selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''}</span>.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-600">Select Counselor / Mentor</label>
+              <Select value={selectedCounselor} onValueChange={(v) => setSelectedCounselor(v ?? '')}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose counselor...">
+                    {selectedCounselor ? counselors.find((c) => c.id === selectedCounselor)?.name ?? null : null}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {counselors.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setShowMentorAssign(false)}>Cancel</Button>
+              <Button
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={bulkAssignMentor}
+                disabled={!selectedCounselor || assigningMentor}
+              >
+                {assigningMentor
+                  ? <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />Assigning...</>
+                  : 'Assign'
+                }
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      </> /* end students tab */}
+
+      {/* Edit dialog — shared by All Students table and the pending (New Students) tab */}
+      <Dialog open={!!editStudent} onOpenChange={(open) => !open && setEditStudent(null)}>
+        <DialogContent className="w-[calc(100%-1.5rem)] sm:max-w-2xl max-h-[88vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Update Student Details</DialogTitle>
+          </DialogHeader>
+          {editStudent && (
+            <StudentForm
+              student={editStudent}
+              onSuccess={() => {
+                setEditStudent(null)
+                fetchStudents()
+                loadPending()
+              }}
+              onCancel={() => setEditStudent(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <ReceiptDialog student={receiptStudent} onClose={() => setReceiptStudent(null)} />
+
+      {/* Reject Student Dialog */}
+      <Dialog open={!!rejectTarget} onOpenChange={open => !open && setRejectTarget(null)}>
+        <DialogContent className="w-[calc(100%-1.5rem)] sm:max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <XCircle className="w-5 h-5" /> Reject Student
+            </DialogTitle>
+          </DialogHeader>
+          {rejectTarget && (
+            <div className="space-y-4 mt-1">
+              <p className="text-sm text-slate-700">
+                Rejecting <span className="font-semibold">{rejectTarget.full_name}</span>
+                {rejectTarget.counsellor?.full_name && (
+                  <span className="text-muted-foreground"> — referred by <span className="text-blue-700 font-medium">{rejectTarget.counsellor.full_name}</span></span>
+                )}
+              </p>
+              <div>
+                <label className="text-xs font-medium text-slate-600 mb-1.5 block">Reason (optional)</label>
+                <Textarea
+                  placeholder="e.g. Incomplete documents, duplicate entry…"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  className="resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setRejectTarget(null)}>Cancel</Button>
+                <Button className="flex-1 bg-red-600 hover:bg-red-700" onClick={rejectStudent} disabled={rejecting}>
+                  {rejecting ? 'Rejecting…' : 'Confirm Reject'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

@@ -79,6 +79,38 @@ export const footerNav: { title: string; links: NavLink[] }[] = [
   },
 ];
 
+/**
+ * Portal sign-ins, offered by the header's Login chooser and the mobile
+ * drawer. Rendered as plain `<a>`, never `next/link`: the CRM ships its own
+ * stylesheet, and a client-side transition would carry the website's CSS
+ * into it.
+ */
+export const loginOptions = [
+  {
+    key: "staff",
+    label: "Office Staff",
+    description: "Admin, counsellor & team CRM login",
+    href: "/crm/login",
+  },
+  {
+    key: "student",
+    label: "Student",
+    description: "Admission, fees & documents portal",
+    href: "/crm/student/login",
+  },
+  {
+    key: "associate",
+    label: "Associate",
+    description: "Partner portal — leads, students & wallet",
+    href: "/crm/login?as=associate",
+  },
+] as const;
+
+export type LoginOptionKey = (typeof loginOptions)[number]["key"];
+
+/** Website content management (colleges, blogs, banners …). */
+export const websiteAdminHref = "/admin/login";
+
 export const offices = [
   {
     city: "Arrah (Head Office)",

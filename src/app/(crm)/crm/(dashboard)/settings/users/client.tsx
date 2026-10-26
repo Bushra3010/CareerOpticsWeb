@@ -1,0 +1,374 @@
+'use client'
+import { useState, useTransition } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
+import { Plus, UserX, UserCheck, Trash2, KeyRound, Users, UserCircle2 } from 'lucide-react'
+import { Button } from '@/crm/components/ui/button'
+import { Input } from '@/crm/components/ui/input'
+import { Label } from '@/crm/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/crm/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/crm/components/ui/dialog'
+import { Badge } from '@/crm/components/ui/badge'
+import { DataTable } from '@/crm/components/shared/DataTable'
+import { PageHeader } from '@/crm/components/shared/PageHeader'
+import { ConfirmDialog } from '@/crm/components/shared/ConfirmDialog'
+import { createClient } from '@/crm/lib/supabase/client'
+import { toast } from 'sonner'
+import { format } from 'date-fns'
+import type { ColumnDef } from '@tanstack/react-table'
+import type { Profile, UserRole } from '@/crm/types/app.types'
+import { ROLE_LABELS } from '@/crm/types/app.types'
+
+const createUserSchema = z.object({
+  full_name: z.string().min(2, 'Name required'),
+  email: z.string().email('Valid email required'),
+  password: z.string().min(8, 'Min 8 characters'),
+  role: z.enum(['admin', 'lead', 'backend', 'housekeeping', 'counselor', 'associate']),
+  phone: z.string().optional(),
+})
+type CreateUserData = z.infer<typeof createUserSchema>
+
+interface EmployeeRow {
+  id: string
+  employee_code: string
+  department: string | null
+  designation: string | null
+  joining_date: string | null
+  is_active: boolean
+  profile: { id: string } | null
+}
+
+interface AssociateRow {
+  id: string
+  name: string
+  email: string
+  phone: string
+  associate_code: string | null
+  status: 'pending' | 'approved' | 'rejected'
+  current_city: string | null
+  current_state: string | null
+  wallet_balance: number
+  created_at: string
+}
+
+const ASSOC_STATUS: Record<string, { label: string; cls: string }> = {
+  pending:  { label: 'Pending',  cls: 'bg-amber-100 text-amber-800' },
+  approved: { label: 'Approved', cls: 'bg-green-100 text-green-800' },
+  rejected: { label: 'Rejected', cls: 'bg-red-100 text-red-800' },
+}
+
+type Tab = 'staff' | 'associates'
+
+// Merged profile with optional employee info
+type StaffRow = Profile & { emp_code?: string; department?: string; designation?: string; joining_date?: string }
+
+export function UsersSettingsClient({
+  users: initialUsers,
+  employees: initialEmployees,
+  associates: initialAssociates,
+}: {
+  users: Profile[]
+  employees: EmployeeRow[]
+  associates: AssociateRow[]
+}) {
+  const [activeTab, setActiveTab] = useState<Tab>('staff')
+  const [users, setUsers] = useState(initialUsers)
+  const [open, setOpen] = useState(false)
+  const [confirmUser, setConfirmUser] = useState<Profile | null>(null)
+  const [deleteUser, setDeleteUser] = useState<Profile | null>(null)
+  const [resetPasswordUser, setResetPasswordUser] = useState<Profile | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [isPending, startTransition] = useTransition()
+  const supabase = createClient()
+
+  const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<CreateUserData>({
+    resolver: zodResolver(createUserSchema),
+  })
+
+  // Merge employee details into staff rows
+  const empByProfileId = Object.fromEntries(initialEmployees.map(e => [e.profile?.id ?? '', e]))
+  const staffRows: StaffRow[] = users.map(u => {
+    const emp = empByProfileId[u.id]
+    return {
+      ...u,
+      emp_code: emp?.employee_code,
+      department: emp?.department ?? undefined,
+      designation: emp?.designation ?? undefined,
+      joining_date: emp?.joining_date ?? undefined,
+    }
+  })
+
+  async function onCreateUser(data: CreateUserData) {
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/crm/admin/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error)
+        toast.success('User created successfully')
+        setOpen(false)
+        reset()
+        setUsers(prev => [result.user, ...prev])
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to create user')
+      }
+    })
+  }
+
+  async function toggleUserStatus(user: Profile) {
+    try {
+      const { error } = await supabase.from('profiles').update({ is_active: !user.is_active } as never).eq('id', user.id)
+      if (error) throw error
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, is_active: !u.is_active } : u))
+      toast.success(user.is_active ? 'User deactivated' : 'User activated')
+    } catch { toast.error('Failed to update user') }
+    setConfirmUser(null)
+  }
+
+  async function handleUpdatePassword() {
+    if (!resetPasswordUser || newPassword.length < 8) { toast.error('Password must be at least 8 characters'); return }
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/crm/admin/update-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: resetPasswordUser.id, newPassword }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error)
+        toast.success(`Password updated for ${resetPasswordUser.full_name}`)
+        setResetPasswordUser(null)
+        setNewPassword('')
+      } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to update password') }
+    })
+  }
+
+  async function handleDeleteUser(user: Profile) {
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/crm/admin/delete-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id }),
+        })
+        const result = await res.json()
+        if (!res.ok) throw new Error(result.error)
+        setUsers(prev => prev.filter(u => u.id !== user.id))
+        toast.success('User deleted successfully')
+      } catch (err) { toast.error(err instanceof Error ? err.message : 'Failed to delete user') }
+      setDeleteUser(null)
+    })
+  }
+
+  // ── Staff columns (profile + merged employee info) ───────────────────────────
+  const staffColumns: ColumnDef<StaffRow>[] = [
+    {
+      accessorKey: 'full_name', header: 'Name',
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-gray-900">{row.original.full_name}</p>
+          {row.original.emp_code && (
+            <p className="text-[11px] text-gray-400 font-mono">{row.original.emp_code}</p>
+          )}
+        </div>
+      )
+    },
+    { accessorKey: 'email', header: 'Email', cell: ({ row }) => <span className="text-xs">{row.original.email}</span> },
+    {
+      accessorKey: 'role', header: 'Role',
+      cell: ({ row }) => <Badge variant="outline">{ROLE_LABELS[row.original.role] ?? row.original.role}</Badge>
+    },
+    { accessorKey: 'phone', header: 'Phone', cell: ({ row }) => row.original.phone ?? '-' },
+    {
+      id: 'dept_desig', header: 'Dept / Designation',
+      cell: ({ row }) => {
+        const d = row.original.department
+        const desig = row.original.designation
+        if (!d && !desig) return <span className="text-gray-300 text-xs">—</span>
+        return (
+          <div>
+            {d && <p className="text-xs font-medium text-gray-700">{d}</p>}
+            {desig && <p className="text-[11px] text-gray-400">{desig}</p>}
+          </div>
+        )
+      }
+    },
+    {
+      id: 'joining', header: 'Joined',
+      cell: ({ row }) => row.original.joining_date
+        ? <span className="text-xs text-gray-500">{format(new Date(row.original.joining_date), 'dd MMM yyyy')}</span>
+        : <span className="text-gray-300 text-xs">—</span>
+    },
+    {
+      accessorKey: 'is_active', header: 'Status',
+      cell: ({ row }) => (
+        <Badge className={row.original.is_active ? 'bg-green-100 text-green-800 border-0' : 'bg-red-100 text-red-800 border-0'}>
+          {row.original.is_active ? 'Active' : 'Inactive'}
+        </Badge>
+      )
+    },
+    {
+      id: 'actions', header: 'Actions',
+      cell: ({ row }) => (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" title="Change Password" onClick={() => { setResetPasswordUser(row.original); setNewPassword('') }}>
+            <KeyRound className="w-4 h-4 text-blue-500" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setConfirmUser(row.original)}>
+            {row.original.is_active ? <UserX className="w-4 h-4 text-red-500" /> : <UserCheck className="w-4 h-4 text-green-500" />}
+          </Button>
+          <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={() => setDeleteUser(row.original)}>
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )
+    },
+  ]
+
+  // ── Associate columns ────────────────────────────────────────────────────────
+  const associateColumns: ColumnDef<AssociateRow>[] = [
+    { accessorKey: 'name', header: 'Name', cell: ({ row }) => <span className="font-medium">{row.original.name}</span> },
+    { accessorKey: 'associate_code', header: 'Code', cell: ({ row }) => row.original.associate_code ? <span className="font-mono text-xs text-indigo-700">{row.original.associate_code}</span> : '-' },
+    { accessorKey: 'email', header: 'Email', cell: ({ row }) => <span className="text-xs">{row.original.email}</span> },
+    { accessorKey: 'phone', header: 'Phone' },
+    {
+      id: 'location', header: 'Location',
+      cell: ({ row }) => {
+        const loc = [row.original.current_city, row.original.current_state].filter(Boolean).join(', ')
+        return loc || '-'
+      }
+    },
+    {
+      accessorKey: 'wallet_balance', header: 'Wallet',
+      cell: ({ row }) => <span className="text-green-700 font-medium">₹{(row.original.wallet_balance ?? 0).toLocaleString()}</span>
+    },
+    {
+      accessorKey: 'status', header: 'Status',
+      cell: ({ row }) => {
+        const s = ASSOC_STATUS[row.original.status] ?? ASSOC_STATUS.pending
+        return <Badge className={`${s.cls} border-0`}>{s.label}</Badge>
+      }
+    },
+    {
+      accessorKey: 'created_at', header: 'Joined',
+      cell: ({ row }) => <span className="text-xs text-gray-500">{format(new Date(row.original.created_at), 'dd MMM yyyy')}</span>
+    },
+  ]
+
+  const tabs: { key: Tab; label: string; icon: React.ElementType; count: number }[] = [
+    { key: 'staff',      label: 'Staff',      icon: Users,       count: users.length },
+    { key: 'associates', label: 'Associates', icon: UserCircle2, count: initialAssociates.length },
+  ]
+
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        title="User Management"
+        description="Manage staff and associates"
+        action={
+          activeTab === 'staff' ? (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="w-4 h-4 mr-1" /> Add User</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Create Staff Account</DialogTitle></DialogHeader>
+                <form onSubmit={handleSubmit(onCreateUser)} className="space-y-4">
+                  <div><Label>Full Name</Label><Input {...register('full_name')} />{errors.full_name && <p className="text-xs text-red-500">{errors.full_name.message}</p>}</div>
+                  <div><Label>Email</Label><Input type="email" {...register('email')} />{errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}</div>
+                  <div><Label>Password</Label><Input type="password" {...register('password')} />{errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}</div>
+                  <div><Label>Phone</Label><Input {...register('phone')} /></div>
+                  <div>
+                    <Label>Role</Label>
+                    <Select onValueChange={v => setValue('role', v as Exclude<UserRole, 'student'>)}>
+                      <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="lead">Counselor (Lead)</SelectItem>
+                        <SelectItem value="counselor">Counselor</SelectItem>
+                        <SelectItem value="backend">Backend</SelectItem>
+                        <SelectItem value="housekeeping">Housekeeping</SelectItem>
+                        <SelectItem value="associate">Associate</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {errors.role && <p className="text-xs text-red-500">{errors.role.message}</p>}
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isPending}>{isPending ? 'Creating...' : 'Create User'}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          ) : null
+        }
+      />
+
+      {/* ── Tabs ── */}
+      <div className="flex gap-1 p-1 bg-gray-100 rounded-xl w-fit">
+        {tabs.map(t => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === t.key ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Icon className="w-4 h-4" />
+              {t.label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${activeTab === t.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'}`}>
+                {t.count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab === 'staff'      && <DataTable data={staffRows}            columns={staffColumns} />}
+      {activeTab === 'associates' && <DataTable data={initialAssociates}    columns={associateColumns} />}
+
+      {/* ── Dialogs ── */}
+      {confirmUser && (
+        <ConfirmDialog
+          open
+          title={confirmUser.is_active ? 'Deactivate User' : 'Activate User'}
+          description={`Are you sure you want to ${confirmUser.is_active ? 'deactivate' : 'activate'} ${confirmUser.full_name}?`}
+          confirmLabel={confirmUser.is_active ? 'Deactivate' : 'Activate'}
+          destructive={confirmUser.is_active}
+          onConfirm={() => toggleUserStatus(confirmUser)}
+          onCancel={() => setConfirmUser(null)}
+        />
+      )}
+      {deleteUser && (
+        <ConfirmDialog
+          open
+          title="Delete User"
+          description={`Are you sure you want to completely delete ${deleteUser.full_name}? This cannot be undone.`}
+          confirmLabel="Delete"
+          destructive
+          onConfirm={() => handleDeleteUser(deleteUser)}
+          onCancel={() => setDeleteUser(null)}
+        />
+      )}
+      <Dialog open={!!resetPasswordUser} onOpenChange={o => { if (!o) { setResetPasswordUser(null); setNewPassword('') } }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Change Password — {resetPasswordUser?.full_name}</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>New Password</Label>
+              <Input type="password" placeholder="Min 8 characters" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+              {newPassword.length > 0 && newPassword.length < 8 && <p className="text-xs text-red-500 mt-1">Minimum 8 characters required</p>}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => { setResetPasswordUser(null); setNewPassword('') }}>Cancel</Button>
+              <Button onClick={handleUpdatePassword} disabled={isPending || newPassword.length < 8}>
+                {isPending ? 'Updating...' : 'Update Password'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

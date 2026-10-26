@@ -1,0 +1,420 @@
+'use client'
+import { useState, useEffect, useCallback } from 'react'
+import { createClient } from '@/crm/lib/supabase/client'
+import { Button } from '@/crm/components/ui/button'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/crm/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/crm/components/ui/select'
+import { Input } from '@/crm/components/ui/input'
+import { Label } from '@/crm/components/ui/label'
+import { Badge } from '@/crm/components/ui/badge'
+import { toast } from 'sonner'
+import { Plus } from 'lucide-react'
+import { format } from 'date-fns'
+
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const fmt = (n: number) =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n)
+
+type PayrollRow = { id: string; month: number; year: number; incentive: number; net: number; status: string; payment_date: string | null }
+type Employee = { id: string; name: string }
+type StudentIncentive = { id: string; full_name: string; course_name: string; enrollment_date: string | null; incentive_amount: number }
+
+interface Props {
+  role: string
+  myEmployeeId: string | null
+  employees: Employee[]
+  studentIncentives?: StudentIncentive[]
+}
+
+export function IncentiveClient({ role, myEmployeeId, employees, studentIncentives = [] }: Props) {
+  const canAdd = role === 'admin' || role === 'backend'
+  const defaultView = myEmployeeId ?? (canAdd && employees.length > 0 ? employees[0].id : '')
+  const [payrollRows, setPayrollRows] = useState<PayrollRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [viewEmployeeId, setViewEmployeeId] = useState(defaultView)
+  const [showAdd, setShowAdd] = useState(false)
+  const [selectedEmployee, setSelectedEmployee] = useState(myEmployeeId ?? (employees[0]?.id ?? ''))
+  const [addMonth, setAddMonth] = useState(String(new Date().getMonth() + 1))
+  const [addYear, setAddYear] = useState(String(new Date().getFullYear()))
+  const [addIncentive, setAddIncentive] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [mentorIncentives, setMentorIncentives] = useState<{ id: string; studentId?: string; studentName: string; amount: number; reason: string | null; created_at: string }[]>([])
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function loadMentorInc() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      // read approved mentorship payments for this mentor (shows old + new)
+      const { data } = await (supabase as any).from('mentorship_payments')
+        .select('id, incentive_amount, salary_percentage, approved_at, created_at, mentorship:student_mentorships!inner(telecaller_id, student:students(id, full_name))')
+        .eq('status', 'approved').eq('mentorship.telecaller_id', user.id)
+        .order('approved_at', { ascending: false })
+      const rows = ((data ?? []) as any[])
+        .map(p => ({
+          id: p.id as string,
+          studentId: p.mentorship?.student?.id as string | undefined,
+          studentName: (p.mentorship?.student?.full_name ?? 'student') as string,
+          amount: Number(p.incentive_amount ?? p.salary_percentage ?? 0),
+          reason: `Mentorship — ${p.mentorship?.student?.full_name ?? 'student'}`,
+          created_at: (p.approved_at ?? p.created_at) as string,
+        }))
+        .filter(m => m.amount > 0)
+      setMentorIncentives(rows)
+    }
+    loadMentorInc().catch(() => {})
+  }, [supabase])
+
+  const fetchPayroll = useCallback(async () => {
+    if (!viewEmployeeId) { setPayrollRows([]); setLoading(false); return }
+    setLoading(true)
+    const { data } = await supabase
+      .from('payroll')
+      .select('id, month, year, incentive, net, status, payment_date')
+      .eq('employee_id', viewEmployeeId)
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+    setPayrollRows((data ?? []) as PayrollRow[])
+    setLoading(false)
+  }, [viewEmployeeId])
+
+  useEffect(() => { fetchPayroll() }, [fetchPayroll])
+
+  async function handleAdd() {
+    if (!selectedEmployee) { toast.error('Select an employee'); return }
+    const incentiveAmt = parseFloat(addIncentive)
+    if (isNaN(incentiveAmt) || incentiveAmt <= 0) { toast.error('Enter valid incentive amount'); return }
+    setSaving(true)
+    try {
+      const { data: existing } = await supabase
+        .from('payroll')
+        .select('id, incentive, gross, net')
+        .eq('employee_id', selectedEmployee)
+        .eq('month', Number(addMonth))
+        .eq('year', Number(addYear))
+        .maybeSingle()
+
+      if (existing) {
+        // Add on top of whatever incentive is already there (e.g. mentorship credit)
+        // so the entered incentive and mentorship amount both count.
+        await supabase.from('payroll').update({
+          incentive: ((existing as any).incentive ?? 0) + incentiveAmt,
+          gross: ((existing as any).gross ?? 0) + incentiveAmt,
+          net: ((existing as any).net ?? 0) + incentiveAmt,
+        } as never).eq('id', (existing as any).id)
+      } else {
+        // No payroll yet this month — build a full row from the employee's salary
+        // structure so basic/HRA/allowances aren't lost.
+        const { data: emp } = await (supabase as any).from('employees')
+          .select('basic_salary, hra, allowances, pf_deduction, tds_deduction').eq('id', selectedEmployee).maybeSingle()
+        const basic = Number(emp?.basic_salary ?? 0)
+        const hra = Number(emp?.hra ?? 0)
+        const allowances = Number(emp?.allowances ?? 0)
+        const pf = Number(emp?.pf_deduction ?? 0)
+        const tds = Number(emp?.tds_deduction ?? 0)
+        const gross = basic + hra + allowances + incentiveAmt
+        await supabase.from('payroll').insert({
+          employee_id: selectedEmployee,
+          month: Number(addMonth),
+          year: Number(addYear),
+          basic, hra, allowances,
+          incentive: incentiveAmt,
+          gross,
+          pf, tds, other_deductions: 0, leave_deduction: 0,
+          net: gross - pf - tds,
+          status: 'draft',
+        } as never)
+      }
+      toast.success('Incentive saved successfully')
+      setShowAdd(false)
+      setAddIncentive('')
+      fetchPayroll()
+    } catch {
+      toast.error('Failed to save incentive')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const mentorIncentiveGroups = Object.values(mentorIncentives.reduce((acc, item) => {
+    const key = item.studentId ?? item.studentName
+    if (!acc[key]) {
+      acc[key] = {
+        id: key,
+        studentName: item.studentName,
+        amount: 0,
+        count: 0,
+        latestDate: item.created_at,
+      }
+    }
+    acc[key].amount += Number(item.amount)
+    acc[key].count += 1
+    if (new Date(item.created_at) > new Date(acc[key].latestDate)) {
+      acc[key].latestDate = item.created_at
+    }
+    return acc
+  }, {} as Record<string, { id: string; studentName: string; amount: number; count: number; latestDate: string }>))
+    .sort((a, b) => new Date(b.latestDate).getTime() - new Date(a.latestDate).getTime())
+  const studentEnrollmentTotal = studentIncentives.reduce((s, r) => s + (r.incentive_amount ?? 0), 0)
+  const mentorshipTotal = mentorIncentives.reduce((s, r) => s + Number(r.amount), 0)
+  const totalIncentive = (role === 'lead' || role === 'counselor')
+    ? studentEnrollmentTotal + mentorshipTotal
+    : payrollRows.reduce((s, r) => s + (r.incentive ?? 0), 0)
+  const paidIncentive = payrollRows.filter((r) => r.status === 'paid').reduce((s, r) => s + (r.incentive ?? 0), 0)
+  const unpaidIncentive = totalIncentive - paidIncentive
+  const years = Array.from({ length: 5 }, (_, i) => String(new Date().getFullYear() - i))
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        {canAdd && employees.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 font-medium">Employee:</span>
+            <Select value={viewEmployeeId} onValueChange={(v) => setViewEmployeeId(v ?? '')}>
+              <SelectTrigger className="w-48 h-9">
+                <SelectValue>{employees.find(e => e.id === viewEmployeeId)?.name ?? 'Select employee'}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {employees.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        {canAdd && (
+          <Button size="sm" onClick={() => setShowAdd(true)} className="ml-auto">
+            <Plus className="mr-2 h-4 w-4" /> Add Incentive for Old Month
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="rounded-lg border p-3 sm:p-4 bg-blue-50">
+          <p className="text-xs sm:text-sm text-blue-700 font-medium">Total Incentive</p>
+          <p className="text-lg sm:text-2xl font-bold text-blue-900 break-words">{fmt(totalIncentive)}</p>
+        </div>
+        <div className="rounded-lg border p-3 sm:p-4 bg-green-50">
+          <p className="text-xs sm:text-sm text-green-700 font-medium">Paid</p>
+          <p className="text-lg sm:text-2xl font-bold text-green-900 break-words">{fmt(paidIncentive)}</p>
+        </div>
+        <div className="rounded-lg border p-3 sm:p-4 bg-amber-50">
+          <p className="text-xs sm:text-sm text-amber-700 font-medium">Pending / Not Paid</p>
+          <p className="text-lg sm:text-2xl font-bold text-amber-900 break-words">{fmt(unpaidIncentive)}</p>
+        </div>
+      </div>
+
+      <div className="rounded-lg border overflow-hidden">
+        <div className="px-4 py-3 border-b bg-gray-50">
+          <h3 className="font-semibold text-sm">Month-wise Incentive Breakdown</h3>
+        </div>
+        {loading ? (
+          <div className="px-4 py-8 text-center text-sm text-gray-500">Loading...</div>
+        ) : payrollRows.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-gray-500">
+            {viewEmployeeId ? 'No payroll records found.' : 'No employee record linked to your account. Contact admin.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 text-gray-600 font-medium whitespace-nowrap">Month</th>
+                <th className="text-right px-4 py-2 text-gray-600 font-medium whitespace-nowrap">Incentive</th>
+                <th className="text-right px-4 py-2 text-gray-600 font-medium whitespace-nowrap">Net Pay</th>
+                <th className="text-right px-4 py-2 text-gray-600 font-medium whitespace-nowrap">Payment Date</th>
+                <th className="text-right px-4 py-2 text-gray-600 font-medium whitespace-nowrap">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {payrollRows.map((row, i) => (
+                <tr key={i} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium whitespace-nowrap">{MONTH_NAMES[row.month - 1]} {row.year}</td>
+                  <td className="px-4 py-3 text-right text-blue-700 font-semibold whitespace-nowrap">{fmt(row.incentive ?? 0)}</td>
+                  <td className="px-4 py-3 text-right whitespace-nowrap">{fmt(row.net ?? 0)}</td>
+                  <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">
+                    {row.payment_date ? new Date(row.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Badge
+                      variant={row.status === 'paid' ? 'default' : row.status === 'processed' ? 'secondary' : 'outline'}
+                      className="text-xs"
+                    >
+                      {row.status === 'paid' ? 'Paid' : row.status === 'processed' ? 'Processed' : 'Pending'}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          </div>
+        )}
+      </div>
+
+      {/* Mentorship incentives (credited on payment approval) */}
+      {mentorIncentives.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-base">Mentorship Incentives</h3>
+            <span className="text-sm text-blue-700 font-bold bg-blue-50 px-3 py-1 rounded-full">
+              Total: {fmt(mentorshipTotal)}
+            </span>
+          </div>
+          <div className="rounded-lg border overflow-hidden bg-white divide-y">
+            {mentorIncentiveGroups.map(mi => (
+              <div key={mi.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-800 truncate">Mentorship — {mi.studentName}</p>
+                  <p className="text-xs text-gray-400">
+                    {mi.count} payment{mi.count > 1 ? 's' : ''} · Latest {format(new Date(mi.latestDate), 'dd MMM yyyy')}
+                  </p>
+                </div>
+                <span className="text-sm font-bold text-emerald-600 font-mono">+{fmt(Number(mi.amount))}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Student-wise incentive detail — only for lead/telecaller */}
+      {(role === 'lead' || role === 'counselor') && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-base">My Student Enrollments — Month-wise</h3>
+            <span className="text-sm text-blue-700 font-bold bg-blue-50 px-3 py-1 rounded-full">
+              Total: {fmt(studentEnrollmentTotal)}
+            </span>
+          </div>
+
+          {studentIncentives.length === 0 ? (
+            <div className="rounded-lg border px-4 py-10 text-center text-sm text-gray-400">
+              No student incentives found
+            </div>
+          ) : (() => {
+            // Group students by enrollment month
+            const monthMap: Record<string, { label: string; total: number; students: typeof studentIncentives }> = {}
+            for (const s of studentIncentives) {
+              const d = s.enrollment_date ? new Date(s.enrollment_date) : null
+              const key = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : 'unknown'
+              const label = d ? format(d, 'MMMM yyyy') : 'Unknown Date'
+              if (!monthMap[key]) monthMap[key] = { label, total: 0, students: [] }
+              monthMap[key].total += s.incentive_amount
+              monthMap[key].students.push(s)
+            }
+            const months = Object.entries(monthMap).sort((a, b) => b[0].localeCompare(a[0]))
+
+            return (
+              <div className="space-y-3">
+                {months.map(([key, { label, total, students }]) => (
+                  <div key={key} className="rounded-lg border overflow-hidden">
+                    {/* Month header */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                        <span className="font-semibold text-sm text-blue-900">{label}</span>
+                        <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                          {students.length} student{students.length > 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      <span className="font-bold text-blue-700">{fmt(total)}</span>
+                    </div>
+                    {/* Students in this month */}
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[440px] text-sm">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 text-xs whitespace-nowrap">Student</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 text-xs whitespace-nowrap">Course</th>
+                          <th className="px-4 py-2 text-left font-medium text-gray-500 text-xs whitespace-nowrap">Date</th>
+                          <th className="px-4 py-2 text-right font-medium text-gray-500 text-xs whitespace-nowrap">Incentive</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {students.map((s) => (
+                          <tr key={s.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5 font-medium whitespace-nowrap">{s.full_name}</td>
+                            <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{s.course_name}</td>
+                            <td className="px-4 py-2.5 text-gray-500 text-xs whitespace-nowrap">
+                              {s.enrollment_date ? format(new Date(s.enrollment_date), 'dd MMM') : '—'}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-semibold text-green-600 whitespace-nowrap">{fmt(s.incentive_amount)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Incentive for Old Month</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {employees.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Employee</Label>
+                <Select value={selectedEmployee} onValueChange={(v) => setSelectedEmployee(v ?? '')}>
+                  <SelectTrigger><SelectValue placeholder="Select employee" /></SelectTrigger>
+                  <SelectContent>
+                    {employees.map((e) => (
+                      <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Month</Label>
+                <Select value={addMonth} onValueChange={(v) => setAddMonth(v ?? '')}>
+
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {MONTH_NAMES.map((m, i) => (
+                      <SelectItem key={i + 1} value={String(i + 1)}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Year</Label>
+                <Select value={addYear} onValueChange={(v) => setAddYear(v ?? '')}>
+
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {years.map((y) => (
+                      <SelectItem key={y} value={y}>{y}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Incentive Amount (₹)</Label>
+              <Input
+                type="number"
+                min="0"
+                placeholder="0"
+                value={addIncentive}
+                onChange={(e) => setAddIncentive(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+              <Button onClick={handleAdd} disabled={saving}>
+                {saving ? 'Saving...' : 'Save Incentive'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

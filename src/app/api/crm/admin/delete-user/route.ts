@@ -1,0 +1,62 @@
+import { createClient } from '@/crm/lib/supabase/service'
+import { NextResponse } from 'next/server'
+import { createServerClient } from '@/crm/lib/supabase/server'
+import { isCrmManagedUser } from '@/crm/lib/api-auth'
+
+export async function POST(request: Request) {
+    try {
+        const supabase = await createServerClient()
+        const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !currentUser) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { data } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', currentUser.id)
+            .single()
+
+        const profile = data as any
+
+        if (!['admin', 'backend'].includes(profile?.role)) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const { userId } = await request.json()
+
+        if (!userId) {
+            return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
+        }
+
+        if (userId === currentUser.id || !(await isCrmManagedUser(userId))) {
+            return NextResponse.json({ error: 'This account cannot be deleted from the CRM' }, { status: 403 })
+        }
+
+        // Initialize admin client to delete the user
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+        if (deleteError) {
+            throw deleteError
+        }
+
+        return NextResponse.json({ success: true })
+    } catch (error) {
+        const err = error as any
+        console.error('Delete user error full:', err)
+        return NextResponse.json(
+            {
+                error: err.message || 'Internal server error',
+                details: err.details || err.hint || null,
+                code: err.code || null
+            },
+            { status: 500 }
+        )
+    }
+}

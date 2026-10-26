@@ -5,10 +5,6 @@ import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
-/**
- * Structural, so both `config/admin-nav.ts` and `config/crm-nav.ts` satisfy it
- * — the two shells render the same sidebar and only differ in their links.
- */
 type NavGroup = {
   title: string;
   items: { label: string; href: string }[];
@@ -27,11 +23,9 @@ export function AdminNav({
   /**
    * Exactly one item is active: the longest href the current path sits under.
    *
-   * A plain `startsWith` per item lit up two entries at once — on
-   * /crm/hrms/payroll both "HRMS" and "Payroll" matched — and would also match
-   * a false prefix, so /crm/students would light up for /crm/students-archive.
-   * Comparing on a path boundary fixes the second; taking the longest match
-   * fixes the first.
+   * Comparing on a path boundary stops a false prefix match (/admin/news
+   * lighting up for /admin/newsletters); taking the longest match keeps a
+   * nested page from lighting up its parent too.
    */
   const active = groups
     .flatMap((group) => group.items)

@@ -1,0 +1,57 @@
+import { createServerClient } from '@/crm/lib/supabase/server'
+import { Sidebar } from '@/crm/components/shared/Sidebar'
+import { Topbar } from '@/crm/components/shared/Topbar'
+import { MobileBottomNav } from '@/crm/components/shared/MobileBottomNav'
+import type { UserRole, Profile } from '@/crm/types/app.types'
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let userProfile: Profile = {
+    id: '',
+    email: user?.email ?? '',
+    full_name: 'Admin',
+    role: 'admin' as UserRole,
+    is_active: true,
+    created_at: new Date().toISOString(),
+  }
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single() as { data: { id: string; email: string; full_name: string; role: string; phone: string | null; is_active: boolean; created_at: string } | null }
+
+    if (profile) {
+      userProfile = {
+        id: profile.id,
+        email: profile.email,
+        full_name: profile.full_name,
+        role: profile.role as UserRole,
+        phone: profile.phone ?? undefined,
+        is_active: profile.is_active,
+        created_at: profile.created_at,
+      }
+    }
+  }
+
+  return (
+    <div className="flex h-screen overflow-clip app-bg">
+      <Sidebar role={userProfile.role} />
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        <Topbar user={userProfile} />
+        <main className="flex-1 overflow-y-auto flex flex-col">
+          <div className="flex-1 p-4 md:p-6 pb-24 md:pb-6 overflow-x-hidden">
+            {children}
+          </div>
+          <footer className="w-full py-4 pb-24 md:pb-4 text-center text-sm text-gray-500 border-t border-gray-200/70 mt-auto">
+            Developed by <a href="https://blinks-ai.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-600 hover:text-blue-700 hover:underline">Blinks AI</a>
+          </footer>
+        </main>
+      </div>
+      <MobileBottomNav role={userProfile.role} />
+    </div>
+  )
+}

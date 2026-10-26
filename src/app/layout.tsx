@@ -1,11 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Montserrat } from "next/font/google";
 
-import { offices } from "@/config/nav";
 import { siteConfig } from "@/config/site";
-import { JsonLd, organizationSchema, webSiteSchema } from "@/lib/seo/json-ld";
-
-import "./globals.css";
 
 /**
  * Montserrat carries both roles — headings and body — matching the reference
@@ -46,6 +42,11 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
+/**
+ * Shared document shell. Stylesheets are imported by each section's layout —
+ * the website (site + admin) and the CRM ship separate design systems, and a
+ * single global import here would leak one into the other.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -57,9 +58,6 @@ export default function RootLayout({
     <html lang="en" className={montserrat.variable}>
       <body>
         {children}
-        {/* §10 — site-level graph, emitted once for every page. */}
-        <JsonLd data={organizationSchema(siteConfig, offices[0]?.address ?? "")} />
-        <JsonLd data={webSiteSchema(siteConfig)} />
       </body>
     </html>
   );

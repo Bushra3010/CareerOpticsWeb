@@ -7,7 +7,12 @@ import { MobileTabBar } from "@/components/site/mobile-tab-bar";
 import { SiteFooter } from "@/components/site/site-footer";
 import { SiteHeader } from "@/components/site/site-header";
 import { WhatsAppFab } from "@/components/site/whatsapp-fab";
+import { offices } from "@/config/nav";
+import { siteConfig } from "@/config/site";
 import { getLeadFormOptions } from "@/lib/queries/leads";
+import { JsonLd, organizationSchema, webSiteSchema } from "@/lib/seo/json-ld";
+
+import "../globals.css";
 
 /** Public site shell — PRD §4. */
 export default async function SiteLayout({
@@ -34,6 +39,9 @@ export default async function SiteLayout({
         <QuickEnquiryModal options={leadOptions} />
         <CookieConsent />
         <DeferredToaster />
+        {/* §10 — site-level graph, emitted once for every page. */}
+        <JsonLd data={organizationSchema(siteConfig, offices[0]?.address ?? "")} />
+        <JsonLd data={webSiteSchema(siteConfig)} />
       </div>
     </MobileMenuProvider>
   );

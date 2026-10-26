@@ -50,8 +50,8 @@ export async function signIn(
 
   // A signed-in account still needs an active profile row to be staff; the
   // admin layout enforces that and bounces anyone who does not have one.
-  // Honour any valid same-origin `next` path so CRM visitors land back in the
-  // CRM, not on the admin dashboard.
+  // Honour any valid same-origin `next` path so a bounced visitor lands back
+  // on the admin page they asked for.
   const target =
     parsed.data.next &&
     parsed.data.next.startsWith("/") &&

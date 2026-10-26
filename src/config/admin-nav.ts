@@ -9,7 +9,6 @@ import type { UserRole } from "@/lib/auth";
 export type AdminNavItem = {
   label: string;
   href: string;
-  /** `manager` is the CRM's tier and lives in config/crm-nav.ts, not here. */
   area: "leads" | "content" | "admin";
 };
 
@@ -21,8 +20,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [{ label: "Dashboard", href: "/admin", area: "leads" }],
   },
   {
-    // Raw record of what the site captured. Admissions are worked in the CRM,
-    // which is a separate application at /crm.
+    // Raw record of what the site's enquiry forms captured.
     title: "Website",
     items: [{ label: "Enquiries", href: "/admin/leads", area: "leads" }],
   },
@@ -72,9 +70,4 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   super_admin: "Super admin",
   editor: "Content editor",
   counsellor: "Counsellor",
-  telecaller: "Telecaller",
-  backend: "Backend",
-  finance: "Finance",
-  associate: "Associate (portal)",
-  student: "Student (portal)",
 };

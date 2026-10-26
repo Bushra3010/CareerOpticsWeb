@@ -14,6 +14,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { LoginOptions } from "@/components/site/login-options";
 import { levelNav, mainNav } from "@/config/nav";
 import { siteConfig, telHref, whatsappHref } from "@/config/site";
 
@@ -71,6 +72,11 @@ export function MobileNavSheet({
             </Link>
           ))}
         </nav>
+
+        <div className="border-t p-4">
+          <p className="pb-2 text-sm font-semibold text-ink">Login</p>
+          <LoginOptions />
+        </div>
 
         <div className="mt-auto border-t p-4">
           <Button asChild size="lg" className="w-full">

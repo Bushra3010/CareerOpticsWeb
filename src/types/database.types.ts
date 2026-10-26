@@ -1033,14 +1033,7 @@ export type Database = {
       user_role:
         | "super_admin"
         | "editor"
-        | "counsellor"
-        // CRM roles, added by 0007_crm_roles.sql
-        | "telecaller"
-        | "backend"
-        | "finance"
-        // Portal roles, added by 0009_crm_extra_roles.sql
-        | "associate"
-        | "student";
+        | "counsellor";
     };
     CompositeTypes: { [_ in never]: never };
   };

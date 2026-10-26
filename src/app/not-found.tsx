@@ -6,6 +6,8 @@ import { Logo } from "@/components/site/logo";
 import { Button } from "@/components/ui/button";
 import { siteConfig, telHref } from "@/config/site";
 
+import "./globals.css";
+
 /**
  * 404 — PRD §11.
  *

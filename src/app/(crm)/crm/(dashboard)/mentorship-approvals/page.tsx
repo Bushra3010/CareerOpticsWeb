@@ -1,0 +1,964 @@
+'use client'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
+import { createClient } from '@/crm/lib/supabase/client'
+import { Button } from '@/crm/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/crm/components/ui/select'
+import { toast } from 'sonner'
+import {
+  CheckCircle2, XCircle, GraduationCap, RefreshCw, IndianRupee,
+  Users, Search, Award, UserCog, Clock, ClipboardList, Download, FileText, X,
+  ChevronDown, ChevronRight, Trash2,
+} from 'lucide-react'
+import { format } from 'date-fns'
+
+function fmtEnroll(n: string | null | undefined) {
+  if (!n) return '—'
+  if (n.startsWith('ENR-')) return 'HD-' + n.slice(4).replace(/[^0-9]/g, '')
+  return n
+}
+
+interface Counselor { id: string; full_name: string }
+interface StudentRow {
+  id: string
+  full_name: string
+  guardian_name: string | null
+  enrollment_number: string | null
+  phone: string | null
+  mode: string | null
+  mentor_telecaller_id: string | null
+  course: { name: string } | null
+  department: { name: string } | null
+  sub_section: { name: string } | null
+  session: { name: string } | null
+}
+
+const MODE_CLS: Record<string, string> = {
+  attending: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  'non-attending': 'bg-orange-50 text-orange-700 border-orange-200',
+}
+
+const TYPE_LABELS: Record<string, { label: string; cls: string }> = {
+  practical:  { label: 'Practical',  cls: 'bg-emerald-100 text-emerald-800' },
+  assignment: { label: 'Assignment', cls: 'bg-blue-100 text-blue-800' },
+  theory:     { label: 'Theory',     cls: 'bg-blue-100 text-blue-800' },
+  work_assignment: { label: 'Work Assignment', cls: 'bg-blue-100 text-blue-800' },
+  exam:       { label: 'Exam',       cls: 'bg-blue-100 text-blue-800' },
+}
+
+const AVATAR = ['from-blue-500 to-blue-600','from-blue-500 to-cyan-600','from-emerald-500 to-teal-600','from-rose-500 to-pink-600','from-amber-500 to-orange-600','from-indigo-500 to-blue-600']
+function pal(name: string) { let h = 0; for (let i=0;i<name.length;i++) h=(h*31+name.charCodeAt(i))&0xffff; return AVATAR[h%AVATAR.length] }
+function inits(name: string) { return name.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase() }
+
+export default function MentorshipDashboardPage() {
+  const supabase = createClient()
+
+  const [tab, setTab] = useState<'students' | 'approvals' | 'approved'>('students')
+  const [students, setStudents] = useState<StudentRow[]>([])
+  const [counselors, setCounselors] = useState<Counselor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [changingId, setChangingId] = useState<string | null>(null)
+
+  // filters
+  const [counselorFilter, setCounselorFilter] = useState<string>('all') // 'all' | id | 'unassigned'
+  const [departmentFilter, setDepartmentFilter] = useState('all')
+  const [courseFilter, setCourseFilter] = useState('all')
+  const [boardFilter, setBoardFilter] = useState('all')
+  const [sessionFilter, setSessionFilter] = useState('all')
+  const [search, setSearch] = useState('')
+
+  // approvals
+  const [mentorships, setMentorships] = useState<any[]>([])
+  const [approvedMentorships, setApprovedMentorships] = useState<any[]>([])
+  const [approvingId, setApprovingId] = useState<string | null>(null)
+  const [salaryPct, setSalaryPct] = useState<Record<string, string>>({})
+  const [adminRemarks, setAdminRemarks] = useState<Record<string, string>>({})
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [previewImg, setPreviewImg] = useState<string | null>(null)
+  const [expandedApproved, setExpandedApproved] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const paymentSelect = `*, mentorship:student_mentorships!mentorship_payments_mentorship_id_fkey(
+            managed_by, total_amount,
+            student:students(id, full_name, enrollment_number, phone),
+            telecaller:profiles!student_mentorships_telecaller_id_fkey(id, full_name)
+          )`
+      const [studRes, conRes, pendRes, approvedRes] = await Promise.all([
+        (supabase as any).from('students')
+          .select(`id, full_name, guardian_name, enrollment_number, phone, mode, mentor_telecaller_id,
+            course:courses(name), department:departments(name),
+            sub_section:department_sub_sections(name), session:sessions(name)`)
+          .neq('status', 'dropped').order('full_name'),
+        (supabase as any).from('profiles').select('id, full_name')
+          .in('role', ['counselor', 'lead']).eq('is_active', true).order('full_name'),
+        (supabase as any).from('mentorship_payments')
+          .select(paymentSelect)
+          .eq('status', 'pending').order('created_at', { ascending: false }),
+        (supabase as any).from('mentorship_payments')
+          .select(paymentSelect)
+          .eq('status', 'approved').order('approved_at', { ascending: false }),
+      ])
+      setStudents((studRes.data ?? []) as StudentRow[])
+      setCounselors((conRes.data ?? []) as Counselor[])
+      setMentorships(pendRes.data ?? [])
+      setApprovedMentorships(approvedRes.data ?? [])
+    } catch {
+      toast.error('Failed to load mentorship data')
+    } finally {
+      setLoading(false)
+    }
+  }, [supabase])
+
+  useEffect(() => { load() }, [load])
+
+  async function exportExcel() {
+    try {
+      const xlsx = await import('xlsx')
+      const rows = filtered.map((s, i) => ({
+        'S.No': i + 1,
+        Enrollment: fmtEnroll(s.enrollment_number),
+        Name: s.full_name,
+        "Father's Name": s.guardian_name || '-',
+        Phone: s.phone || '-',
+        Mode: s.mode || '-',
+        Department: s.department?.name || '-',
+        Course: s.course?.name || '-',
+        Board: s.sub_section?.name || '-',
+        Session: s.session?.name || '-',
+        Mentor: s.mentor_telecaller_id ? (conName[s.mentor_telecaller_id] ?? '-') : 'Unassigned',
+      }))
+      const ws = xlsx.utils.json_to_sheet(rows)
+      const wb = xlsx.utils.book_new()
+      xlsx.utils.book_append_sheet(wb, ws, 'Mentorship')
+      xlsx.writeFile(wb, `mentorship-students-${format(new Date(), 'yyyy-MM-dd')}.xlsx`)
+      toast.success('Exported successfully')
+    } catch {
+      toast.error('Export failed')
+    }
+  }
+
+  async function changeMentor(studentId: string, value: string) {
+    const newMentor = value === 'none' ? null : value
+    setChangingId(studentId)
+    try {
+      const { data, error } = await (supabase as any)
+        .from('students')
+        .update({ mentor_telecaller_id: newMentor })
+        .eq('id', studentId)
+        .select('id')
+      if (error) throw error
+      if (!data || (data as any[]).length === 0) throw new Error('Update blocked (permission)')
+      setStudents(prev => prev.map(s => s.id === studentId ? { ...s, mentor_telecaller_id: newMentor } : s))
+      toast.success(newMentor ? 'Mentor updated' : 'Mentor removed')
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to update mentor')
+    } finally {
+      setChangingId(null)
+    }
+  }
+
+  function incentiveAmountFor(id: string) {
+    const raw = salaryPct[id]?.trim()
+    const amount = raw ? Number(raw) : NaN
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Enter mentor incentive amount before approval')
+    }
+    return amount
+  }
+
+  function hasValidIncentive(id: string) {
+    const raw = salaryPct[id]?.trim()
+    const amount = raw ? Number(raw) : NaN
+    return Number.isFinite(amount) && amount > 0
+  }
+
+  function missingIncentiveCount(ids: string[]) {
+    return ids.filter(id => !hasValidIncentive(id)).length
+  }
+
+  // Approve a payment + credit the mentor's incentive (best-effort ledger)
+  async function markApproved(id: string, userId?: string) {
+    const amt = incentiveAmountFor(id)
+    const { error } = await (supabase as any).from('mentorship_payments').update({
+      status: 'approved',
+      incentive_amount: amt,
+      admin_remarks: adminRemarks[id] || null,
+      approved_by: userId ?? null,
+      approved_at: new Date().toISOString(),
+    }).eq('id', id)
+    if (error) throw error
+    const m = mentorships.find(x => x.id === id)
+    const mentorId = m?.mentorship?.telecaller?.id
+    if (mentorId) {
+      // detailed ledger entry (best-effort)
+      try {
+        await (supabase as any).from('mentor_incentives').insert({
+          mentor_id: mentorId,
+          payment_id: id,
+          student_id: m?.mentorship?.student?.id ?? null,
+          amount: amt,
+          reason: `Mentorship — ${m?.mentorship?.student?.full_name ?? 'student'}`,
+          created_by: userId ?? null,
+        })
+      } catch {}
+      // credit the mentor's payroll incentive for the current month → reflects in HRMS + Incentive page
+      try { await creditPayrollIncentive(mentorId, amt) } catch {}
+    }
+  }
+
+  // Add the incentive to the mentor's payroll (current month) so it shows in HRMS + their Incentive page
+  async function creditPayrollIncentive(mentorProfileId: string, amount: number) {
+    const { data: emp } = await (supabase as any).from('employees')
+      .select('id, basic_salary, hra, allowances, pf_deduction, tds_deduction, salary_cycle_start_day').eq('profile_id', mentorProfileId).maybeSingle()
+    if (!emp) return
+    // Map today's date to the employee's billing cycle. e.g. cycle start 22 →
+    // June payroll covers 22 May–21 June, so a date on/after the 22nd belongs to
+    // the next month's payroll period.
+    const now = new Date()
+    const cycleStartDay = Number(emp.salary_cycle_start_day ?? 1)
+    let m = now.getMonth() // 0-based
+    let year = now.getFullYear()
+    if (cycleStartDay > 1 && now.getDate() >= cycleStartDay) {
+      m += 1
+      if (m > 11) { m = 0; year += 1 }
+    }
+    const month = m + 1
+    const { data: existing } = await (supabase as any).from('payroll')
+      .select('id, incentive, gross, net').eq('employee_id', emp.id).eq('month', month).eq('year', year).maybeSingle()
+    if (existing) {
+      await (supabase as any).from('payroll').update({
+        incentive: (existing.incentive ?? 0) + amount,
+        gross: (existing.gross ?? 0) + amount,
+        net: (existing.net ?? 0) + amount,
+      }).eq('id', existing.id)
+    } else {
+      // No payroll generated yet this month — build a full row from the employee's
+      // salary structure so basic/HRA/allowances aren't lost (mentorship incentive added on top)
+      const basic = Number(emp.basic_salary ?? 0)
+      const hra = Number(emp.hra ?? 0)
+      const allowances = Number(emp.allowances ?? 0)
+      const pf = Number(emp.pf_deduction ?? 0)
+      const tds = Number(emp.tds_deduction ?? 0)
+      const gross = basic + hra + allowances + amount
+      const net = gross - pf - tds
+      await (supabase as any).from('payroll').insert({
+        employee_id: emp.id, month, year,
+        basic, hra, allowances, incentive: amount, gross,
+        pf, tds, other_deductions: 0, leave_deduction: 0, net, status: 'draft',
+      })
+    }
+  }
+
+  // Subtract a previously-credited incentive from the mentor's payroll for the
+  // billing cycle the payment was approved in (used when deleting an installment).
+  async function reversePayrollIncentive(mentorProfileId: string, amount: number, refDate?: string | null) {
+    if (!mentorProfileId || !amount) return
+    const { data: emp } = await (supabase as any).from('employees')
+      .select('id, salary_cycle_start_day').eq('profile_id', mentorProfileId).maybeSingle()
+    if (!emp) return
+    const d = refDate ? new Date(refDate) : new Date()
+    const cycleStartDay = Number(emp.salary_cycle_start_day ?? 1)
+    let m = d.getMonth()
+    let year = d.getFullYear()
+    if (cycleStartDay > 1 && d.getDate() >= cycleStartDay) {
+      m += 1
+      if (m > 11) { m = 0; year += 1 }
+    }
+    const month = m + 1
+    const { data: existing } = await (supabase as any).from('payroll')
+      .select('id, incentive, gross, net').eq('employee_id', emp.id).eq('month', month).eq('year', year).maybeSingle()
+    if (!existing) return
+    const newInc = Math.max((existing.incentive ?? 0) - amount, 0)
+    const removed = (existing.incentive ?? 0) - newInc
+    await (supabase as any).from('payroll').update({
+      incentive: newInc,
+      gross: Math.max((existing.gross ?? 0) - removed, 0),
+      net: Math.max((existing.net ?? 0) - removed, 0),
+    }).eq('id', existing.id)
+  }
+
+  // Delete a single (duplicate / wrong) approved installment and reverse its incentive.
+  async function deleteApprovedPayment(m: any) {
+    if (!window.confirm(`Delete this installment?\n\n${m.note ?? 'Payment'} · ₹${Number(m.amount ?? 0).toLocaleString('en-IN')}\n\nIts incentive will also be removed from the mentor's payroll.`)) return
+    setDeletingId(m.id)
+    try {
+      const inc = Number(m.incentive_amount ?? m.salary_percentage ?? 0)
+      const mentorId = m.mentorship?.telecaller?.id
+      if (mentorId && inc > 0) { try { await reversePayrollIncentive(mentorId, inc, m.approved_at) } catch {} }
+      try { await (supabase as any).from('mentor_incentives').delete().eq('payment_id', m.id) } catch {}
+      const { error } = await (supabase as any).from('mentorship_payments').delete().eq('id', m.id)
+      if (error) throw error
+      toast.success('Installment deleted')
+      await load()
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Failed to delete installment')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  async function approve(id: string) {
+    setApprovingId(id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await markApproved(id, user?.id)
+      toast.success('Payment approved')
+      setMentorships(prev => prev.filter(m => m.id !== id))
+      setSelectedIds(prev => { const s = new Set(prev); s.delete(id); return s })
+    } catch (e: any) { toast.error(e?.message ?? 'Failed to approve') } finally { setApprovingId(null) }
+  }
+
+  async function reject(id: string) {
+    setApprovingId(id)
+    try {
+      const { error } = await (supabase as any).from('mentorship_payments')
+        .update({ status: 'rejected', admin_remarks: adminRemarks[id] || null }).eq('id', id)
+      if (error) throw error
+      toast.success('Payment rejected')
+      setMentorships(prev => prev.filter(m => m.id !== id))
+      setSelectedIds(prev => { const s = new Set(prev); s.delete(id); return s })
+    } catch (e: any) { toast.error(e?.message ?? 'Failed to reject') } finally { setApprovingId(null) }
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
+  }
+  function toggleSelectAll() {
+    setSelectedIds(prev => prev.size === mentorships.length ? new Set() : new Set(mentorships.map(m => m.id)))
+  }
+
+  async function bulkApprove() {
+    if (selectedIds.size === 0) return
+    await approveIds(Array.from(selectedIds))
+  }
+
+  async function approveIds(ids: string[]) {
+    if (ids.length === 0) return
+    const missingCount = missingIncentiveCount(ids)
+    if (missingCount > 0) {
+      toast.error(`Enter mentor incentive for ${missingCount} selected payment${missingCount !== 1 ? 's' : ''}`)
+      return
+    }
+    setBulkBusy(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      for (const id of ids) await markApproved(id, user?.id)
+      toast.success(`Approved ${ids.length} payment${ids.length !== 1 ? 's' : ''}`)
+      setMentorships(prev => prev.filter(m => !ids.includes(m.id)))
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        ids.forEach(id => next.delete(id))
+        return next
+      })
+    } catch (e: any) { toast.error(e?.message ?? 'Bulk approve failed') } finally { setBulkBusy(false) }
+  }
+
+  async function bulkReject() {
+    if (selectedIds.size === 0) return
+    await rejectIds(Array.from(selectedIds))
+  }
+
+  async function rejectIds(ids: string[]) {
+    if (ids.length === 0) return
+    setBulkBusy(true)
+    try {
+      const { error } = await (supabase as any).from('mentorship_payments')
+        .update({ status: 'rejected' }).in('id', ids)
+      if (error) throw error
+      toast.success(`Rejected ${ids.length} record${ids.length !== 1 ? 's' : ''}`)
+      setMentorships(prev => prev.filter(m => !ids.includes(m.id)))
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        ids.forEach(id => next.delete(id))
+        return next
+      })
+    } catch { toast.error('Bulk reject failed') } finally { setBulkBusy(false) }
+  }
+
+  // derived
+  const conName = useMemo(() => Object.fromEntries(counselors.map(c => [c.id, c.full_name])), [counselors])
+  const departmentOptions = useMemo(() => Array.from(new Set(students.map(s => s.department?.name).filter(Boolean) as string[])).sort(), [students])
+  const courseOptions = useMemo(() => Array.from(new Set(students.map(s => s.course?.name).filter(Boolean) as string[])).sort(), [students])
+  const boardOptions = useMemo(() => Array.from(new Set(students.map(s => s.sub_section?.name).filter(Boolean) as string[])).sort(), [students])
+  const sessionOptions = useMemo(() => Array.from(new Set(students.map(s => s.session?.name).filter(Boolean) as string[])).sort(), [students])
+
+  const counselorCounts = useMemo(() => {
+    const m: Record<string, number> = {}
+    students.forEach(s => { if (s.mentor_telecaller_id) m[s.mentor_telecaller_id] = (m[s.mentor_telecaller_id] ?? 0) + 1 })
+    return m
+  }, [students])
+
+  const withMentor = students.filter(s => s.mentor_telecaller_id).length
+  const withoutMentor = students.length - withMentor
+
+  const filtered = useMemo(() => students.filter(s => {
+    if (counselorFilter === 'unassigned' && s.mentor_telecaller_id) return false
+    if (counselorFilter !== 'all' && counselorFilter !== 'unassigned' && s.mentor_telecaller_id !== counselorFilter) return false
+    if (departmentFilter !== 'all' && s.department?.name !== departmentFilter) return false
+    if (courseFilter !== 'all' && s.course?.name !== courseFilter) return false
+    if (boardFilter !== 'all' && s.sub_section?.name !== boardFilter) return false
+    if (sessionFilter !== 'all' && s.session?.name !== sessionFilter) return false
+    if (search) {
+      const q = search.toLowerCase()
+      if (!s.full_name.toLowerCase().includes(q) && !(s.phone ?? '').includes(search) && !fmtEnroll(s.enrollment_number).toLowerCase().includes(q)) return false
+    }
+    return true
+  }), [students, counselorFilter, departmentFilter, courseFilter, boardFilter, sessionFilter, search])
+  const filteredStudentIds = useMemo(() => new Set(filtered.map(s => s.id)), [filtered])
+
+  const approvalGroups = useMemo(() => Object.values(mentorships.reduce((acc: Record<string, any>, m: any) => {
+    const key = m.mentorship_id ?? m.mentorship?.student?.id ?? m.id
+    if (!acc[key]) {
+      acc[key] = {
+        id: key,
+        student: m.mentorship?.student,
+        mentorName: m.mentorship?.telecaller?.full_name,
+        totalAmount: m.mentorship?.total_amount,
+        pendingAmount: 0,
+        latestCreatedAt: m.created_at,
+        payments: [],
+      }
+    }
+    acc[key].pendingAmount += Number(m.amount ?? 0)
+    acc[key].payments.push(m)
+    if (new Date(m.created_at) > new Date(acc[key].latestCreatedAt)) {
+      acc[key].latestCreatedAt = m.created_at
+    }
+    return acc
+  }, {})).filter((g: any) => !g.student?.id || filteredStudentIds.has(g.student.id))
+    .sort((a: any, b: any) => new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime()), [mentorships, filteredStudentIds])
+
+  const approvedGroups = useMemo(() => Object.values(approvedMentorships.reduce((acc: Record<string, any>, m: any) => {
+    const key = m.mentorship?.student?.id ?? m.mentorship_id ?? m.id
+    if (!acc[key]) {
+      acc[key] = {
+        id: key,
+        student: m.mentorship?.student,
+        mentorName: m.mentorship?.telecaller?.full_name,
+        totalAmount: 0,
+        paidAmount: 0,
+        incentiveAmount: 0,
+        latestApprovedAt: m.approved_at ?? m.created_at,
+        caseIds: new Set<string>(),
+        payments: [],
+      }
+    }
+    if (m.mentorship_id && !acc[key].caseIds.has(m.mentorship_id)) {
+      acc[key].caseIds.add(m.mentorship_id)
+      acc[key].totalAmount += Number(m.mentorship?.total_amount ?? 0)
+    }
+    acc[key].paidAmount += Number(m.amount ?? 0)
+    acc[key].incentiveAmount += Number(m.incentive_amount ?? m.salary_percentage ?? 0)
+    acc[key].payments.push(m)
+    const rowDate = m.approved_at ?? m.created_at
+    if (new Date(rowDate) > new Date(acc[key].latestApprovedAt)) {
+      acc[key].latestApprovedAt = rowDate
+    }
+    return acc
+  }, {})).map((g: any) => {
+    // Total can never be less than what was actually collected/approved — if the
+    // case total wasn't set (or extra installments were approved), fall back to paid.
+    const total = Math.max(Number(g.totalAmount ?? 0), Number(g.paidAmount ?? 0))
+    return { ...g, totalAmount: total, dueAmount: Math.max(total - Number(g.paidAmount ?? 0), 0) }
+  }).filter((g: any) => !g.student?.id || filteredStudentIds.has(g.student.id))
+    .sort((a: any, b: any) => new Date(b.latestApprovedAt).getTime() - new Date(a.latestApprovedAt).getTime()), [approvedMentorships, filteredStudentIds])
+
+  const approvedTotals = useMemo(() => approvedGroups.reduce((acc: any, g: any) => {
+    acc.total += Number(g.totalAmount ?? 0)
+    acc.paid += Number(g.paidAmount ?? 0)
+    acc.due += Number(g.dueAmount ?? 0)
+    acc.incentive += Number(g.incentiveAmount ?? 0)
+    return acc
+  }, { total: 0, paid: 0, due: 0, incentive: 0 }), [approvedGroups])
+
+  return (
+    <div className="space-y-5">
+      {/* Hero */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-600 to-indigo-700 p-6 text-white">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center"><Award className="w-4 h-4" /></div>
+              <h1 className="text-xl font-bold tracking-tight">Mentorship Dashboard</h1>
+            </div>
+            <p className="text-blue-200 text-sm mt-1">Counselor-wise students, mentor assignment & work approvals</p>
+          </div>
+          <button onClick={load} className="flex items-center gap-1.5 bg-white/15 hover:bg-white/25 transition-colors px-3 py-1.5 rounded-lg text-sm font-medium flex-shrink-0">
+            <RefreshCw className="w-3.5 h-3.5" /> Refresh
+          </button>
+        </div>
+        <div className="relative grid grid-cols-2 md:grid-cols-5 gap-3 mt-5">
+          {[
+            { icon: Users, label: 'Total Students', value: students.length },
+            { icon: UserCog, label: 'With Mentor', value: withMentor },
+            { icon: GraduationCap, label: 'Without Mentor', value: withoutMentor },
+            { icon: Clock, label: 'Pending Approvals', value: mentorships.length },
+            { icon: CheckCircle2, label: 'Approved', value: approvedMentorships.length },
+          ].map(s => (
+            <div key={s.label} className="bg-white/15 rounded-xl px-3 py-3 backdrop-blur-sm">
+              <s.icon className="w-4 h-4 text-white/70 mb-1" />
+              <p className="text-2xl font-bold">{s.value}</p>
+              <p className="text-[11px] text-white/70 font-medium">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button onClick={() => setTab('students')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab==='students' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <Users className="w-4 h-4" /> Students & Mentors
+        </button>
+        <button onClick={() => setTab('approvals')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab==='approvals' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <ClipboardList className="w-4 h-4" /> Approvals
+          {mentorships.length > 0 && <span className="bg-amber-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{mentorships.length}</span>}
+        </button>
+        <button onClick={() => setTab('approved')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors ${tab==='approved' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          <CheckCircle2 className="w-4 h-4" /> Approved
+          {approvedMentorships.length > 0 && <span className="bg-emerald-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5">{approvedMentorships.length}</span>}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-48"><div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" /></div>
+      ) : (
+        <>
+          {/* Shared filter bar — visible on all tabs so any student can be found */}
+          {/* Counselor chips */}
+          <div className="flex gap-1.5 flex-wrap">
+            <button onClick={() => setCounselorFilter('all')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${counselorFilter==='all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+              All <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${counselorFilter==='all'?'bg-white/20':'bg-gray-100 text-gray-500'}`}>{students.length}</span>
+            </button>
+            {counselors.filter(c => counselorCounts[c.id]).map(c => (
+              <button key={c.id} onClick={() => setCounselorFilter(c.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${counselorFilter===c.id ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                {c.full_name} <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${counselorFilter===c.id?'bg-white/20':'bg-gray-100 text-gray-500'}`}>{counselorCounts[c.id]}</span>
+              </button>
+            ))}
+            <button onClick={() => setCounselorFilter('unassigned')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${counselorFilter==='unassigned' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-600 border-amber-200 hover:border-amber-400'}`}>
+              Unassigned <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${counselorFilter==='unassigned'?'bg-white/20':'bg-amber-100'}`}>{withoutMentor}</span>
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[180px] max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name, phone, enroll…"
+                className="w-full pl-9 pr-3 h-9 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:border-blue-400" />
+            </div>
+            <Select value={departmentFilter} onValueChange={(v) => setDepartmentFilter(v ?? '')}>
+              <SelectTrigger className="w-auto min-w-[150px] h-9 text-xs gap-1">
+                <span className="text-gray-400 font-semibold">Department:</span><SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {departmentOptions.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={courseFilter} onValueChange={(v) => setCourseFilter(v ?? '')}>
+              <SelectTrigger className="w-auto min-w-[140px] h-9 text-xs gap-1">
+                <span className="text-gray-400 font-semibold">Course:</span><SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {courseOptions.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={boardFilter} onValueChange={(v) => setBoardFilter(v ?? '')}>
+              <SelectTrigger className="w-auto min-w-[120px] h-9 text-xs gap-1">
+                <span className="text-gray-400 font-semibold">Board:</span><SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {boardOptions.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={sessionFilter} onValueChange={(v) => setSessionFilter(v ?? '')}>
+              <SelectTrigger className="w-auto min-w-[120px] h-9 text-xs gap-1">
+                <span className="text-gray-400 font-semibold">Session:</span><SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                {sessionOptions.map(se => <SelectItem key={se} value={se}>{se}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            {(departmentFilter!=='all' || courseFilter!=='all' || boardFilter!=='all' || sessionFilter!=='all' || search || counselorFilter!=='all') && (
+              <button onClick={() => { setDepartmentFilter('all'); setCourseFilter('all'); setBoardFilter('all'); setSessionFilter('all'); setSearch(''); setCounselorFilter('all') }} className="text-xs text-blue-600 hover:underline">Clear</button>
+            )}
+            <Button variant="outline" size="sm" onClick={exportExcel} className="gap-1.5 h-9 ml-auto" disabled={filtered.length === 0}>
+              <Download className="w-3.5 h-3.5" /> Export Excel
+            </Button>
+          </div>
+
+          {tab === 'students' ? (
+          <>
+          {/* Table */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 bg-white rounded-xl border-2 border-dashed border-gray-200">
+              <GraduationCap className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+              <p className="font-semibold text-gray-500">No students found</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+              <div className="overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <table className="text-sm" style={{ width: 'max-content', minWidth: '100%' }}>
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      {['S.No','Enrollment','Student',"Father's Name",'Phone','Mode','Department','Course','Board','Session','Mentor (change)'].map(h => (
+                        <th key={h} className="text-left px-3 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-500 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filtered.map((s, idx) => {
+                      return (
+                        <tr key={s.id} className="hover:bg-blue-50/30 transition-colors">
+                          <td className="px-3 py-3 text-gray-400 text-xs tabular-nums">{idx + 1}</td>
+                          <td className="px-3 py-3"><span className="font-mono text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-lg whitespace-nowrap">{fmtEnroll(s.enrollment_number)}</span></td>
+                          <td className="px-3 py-3">
+                            <div className="flex items-center gap-2.5 min-w-[150px]">
+                              <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${pal(s.full_name)} flex items-center justify-center text-white font-bold text-xs flex-shrink-0`}>{inits(s.full_name)}</div>
+                              <span className="font-semibold text-gray-900 text-sm whitespace-nowrap">{s.full_name}</span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap">{s.guardian_name ?? '—'}</td>
+                          <td className="px-3 py-3 text-xs text-gray-600 whitespace-nowrap">{s.phone ?? '—'}</td>
+                          <td className="px-3 py-3">{s.mode ? <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold border whitespace-nowrap ${MODE_CLS[s.mode] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>{s.mode === 'attending' ? 'Attending' : 'Non-Attending'}</span> : <span className="text-gray-400 text-xs">—</span>}</td>
+                          <td className="px-3 py-3">{s.department?.name ? <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-lg font-medium whitespace-nowrap">{s.department.name}</span> : <span className="text-gray-400 text-xs">—</span>}</td>
+                          <td className="px-3 py-3"><span className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-lg font-medium whitespace-nowrap">{s.course?.name ?? '—'}</span></td>
+                          <td className="px-3 py-3">{s.sub_section?.name ? <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-lg font-bold whitespace-nowrap">{s.sub_section.name}</span> : <span className="text-gray-400 text-xs">—</span>}</td>
+                          <td className="px-3 py-3 text-xs text-gray-500 whitespace-nowrap">{s.session?.name ?? '—'}</td>
+                          <td className="px-3 py-3">
+                            <div className="min-w-[170px]">
+                              <Select value={s.mentor_telecaller_id ?? 'none'} onValueChange={(v) => changeMentor(s.id, v ?? 'none')} disabled={changingId === s.id}>
+                                <SelectTrigger className={`h-8 text-xs ${s.mentor_telecaller_id ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                                  <SelectValue placeholder="Assign mentor…">
+                                    {changingId === s.id ? 'Updating…' : (s.mentor_telecaller_id ? conName[s.mentor_telecaller_id] ?? 'Unknown' : 'Assign mentor…')}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">— Remove mentor —</SelectItem>
+                                  {counselors.map(c => <SelectItem key={c.id} value={c.id}>{c.full_name}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="px-4 py-2 border-t border-gray-100 bg-gray-50 text-xs text-gray-400 font-medium">
+                {filtered.length} student{filtered.length !== 1 ? 's' : ''}
+                {counselorFilter !== 'all' && counselorFilter !== 'unassigned' && ` · Mentor: ${conName[counselorFilter] ?? ''}`}
+              </div>
+            </div>
+          )}
+        </>
+      ) : tab === 'approvals' ? (
+        /* ── APPROVALS TAB ── */
+        mentorships.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground bg-white border rounded-xl">
+            <GraduationCap className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No pending mentorships</p>
+            <p className="text-xs mt-1">Submitted work from counselors will appear here</p>
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-hidden bg-white">
+            <div className="px-4 py-2.5 bg-blue-50 border-b flex items-center gap-3 flex-wrap">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-gray-300 accent-blue-600 cursor-pointer"
+                  checked={mentorships.length > 0 && selectedIds.size === mentorships.length}
+                  ref={el => { if (el) el.indeterminate = selectedIds.size > 0 && selectedIds.size < mentorships.length }}
+                  onChange={toggleSelectAll}
+                />
+                <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Pending Approvals</span>
+              </label>
+              {selectedIds.size > 0 ? (
+                <div className="flex items-center gap-2 ml-auto">
+                  <span className="text-xs font-semibold text-blue-700">{selectedIds.size} selected</span>
+                  <Button size="sm" className="h-7 text-xs gap-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50" disabled={bulkBusy || missingIncentiveCount(Array.from(selectedIds)) > 0} onClick={bulkApprove}>
+                    {bulkBusy ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Approve {selectedIds.size}</>}
+                  </Button>
+                  <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-red-600 border-red-200 hover:bg-red-50" disabled={bulkBusy} onClick={bulkReject}>
+                    <XCircle className="w-3.5 h-3.5" /> Reject
+                  </Button>
+                </div>
+              ) : (
+                <span className="text-xs text-blue-600 ml-auto">{mentorships.length} pending</span>
+              )}
+            </div>
+            <div className="divide-y">
+              {approvalGroups.map((group: any) => {
+                const stu = group.student
+                const groupIds = group.payments.map((p: any) => p.id)
+                const selectedCount = groupIds.filter((id: string) => selectedIds.has(id)).length
+                const allSelected = selectedCount === groupIds.length
+                return (
+                  <div key={group.id} className={`px-4 py-4 ${selectedCount > 0 ? 'bg-blue-50/40' : ''}`}>
+                    <div className="flex items-start gap-3 flex-wrap sm:flex-nowrap">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 mt-1 rounded border-gray-300 accent-blue-600 cursor-pointer flex-shrink-0"
+                        checked={allSelected}
+                        ref={el => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < groupIds.length }}
+                        onChange={() => {
+                          setSelectedIds(prev => {
+                            const next = new Set(prev)
+                            if (allSelected) groupIds.forEach((id: string) => next.delete(id))
+                            else groupIds.forEach((id: string) => next.add(id))
+                            return next
+                          })
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm font-bold text-gray-800">{stu?.full_name ?? '—'}</span>
+                          {stu?.enrollment_number && <span className="text-xs text-gray-400 font-mono">{fmtEnroll(stu.enrollment_number)}</span>}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 flex items-center gap-0.5">
+                            <IndianRupee className="w-2.5 h-2.5" />{Number(group.pendingAmount).toLocaleString('en-IN')} received
+                          </span>
+                          <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
+                            {group.payments.length} installment{group.payments.length > 1 ? 's' : ''}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                          Mentor: <span className="font-semibold text-gray-700">{group.mentorName ?? '—'}</span>
+                          {group.totalAmount != null && <> · Case total ₹{group.totalAmount}</>}
+                          <> · Latest {format(new Date(group.latestCreatedAt), 'dd MMM yyyy')}</>
+                        </p>
+                        <div className="mt-3 rounded-lg border border-gray-100 overflow-hidden">
+                          {group.payments.map((m: any) => (
+                            <div key={m.id} className="px-3 py-2 bg-gray-50/60 border-b last:border-b-0">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-gray-800">
+                                    {m.note ?? 'Payment'} · ₹{Number(m.amount ?? 0).toLocaleString('en-IN')}
+                                  </p>
+                                  <p className="text-[11px] text-gray-400">{m.paid_on ? format(new Date(m.paid_on), 'dd MMM yyyy') : format(new Date(m.created_at), 'dd MMM yyyy')}</p>
+                                </div>
+                                {m.screenshot_url ? (
+                                  <button
+                                    onClick={() => setPreviewImg(m.screenshot_url)}
+                                    className="inline-flex items-center gap-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-lg hover:bg-blue-100"
+                                  >
+                                    <FileText className="w-3 h-3" /> Proof
+                                  </button>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                                    <XCircle className="w-3 h-3" /> No proof
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <div className={`flex items-center gap-1 border rounded px-2 h-7 bg-white ${hasValidIncentive(m.id) ? 'border-gray-300' : 'border-red-300 bg-red-50/40'}`}>
+                                  <span className="text-gray-400 text-xs font-bold">₹</span>
+                                  <input type="number" min="0" step="1" placeholder="Incentive"
+                                    value={salaryPct[m.id] ?? ''} onChange={e => setSalaryPct(p => ({ ...p, [m.id]: e.target.value }))}
+                                    required
+                                    aria-invalid={!hasValidIncentive(m.id)}
+                                    className={`w-28 h-full text-xs focus:outline-none ${hasValidIncentive(m.id) ? '' : 'placeholder:text-red-400'}`} />
+                                </div>
+                                {!hasValidIncentive(m.id) && <span className="text-[10px] font-semibold text-red-500">Required</span>}
+                                <input type="text" placeholder="Admin remarks"
+                                  value={adminRemarks[m.id] ?? ''} onChange={e => setAdminRemarks(p => ({ ...p, [m.id]: e.target.value }))}
+                                  className="flex-1 min-w-[160px] h-7 text-xs border border-gray-300 rounded px-2 focus:outline-none focus:ring-1 focus:ring-blue-400 bg-white" />
+                                <Button size="sm" className="h-7 text-xs gap-1 bg-green-600 hover:bg-green-700" disabled={approvingId === m.id || bulkBusy} onClick={() => approve(m.id)}>
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> Approve
+                                </Button>
+                                <Button size="sm" variant="outline" className="h-7 text-xs gap-1 text-red-600 border-red-200 hover:bg-red-50" disabled={approvingId === m.id || bulkBusy} onClick={() => reject(m.id)}>
+                                  <XCircle className="w-3.5 h-3.5" /> Reject
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-2 mt-3 flex-wrap">
+                          <div className="text-xs text-gray-500">
+                            Selected: <span className="font-semibold text-gray-700">{selectedCount}/{groupIds.length}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex sm:flex-col gap-2 flex-shrink-0">
+                        <Button size="sm" className="h-7 text-xs gap-1.5 bg-green-600 hover:bg-green-700 flex-1 disabled:opacity-50" disabled={bulkBusy || missingIncentiveCount(groupIds) > 0} onClick={() => approveIds(groupIds)}>
+                          {bulkBusy ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 className="w-3.5 h-3.5" /> Approve All</>}
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5 text-red-600 border-red-200 hover:bg-red-50 flex-1" disabled={bulkBusy} onClick={() => rejectIds(groupIds)}>
+                          <XCircle className="w-3.5 h-3.5" /> Reject All
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      ) : (
+        /* ── APPROVED TAB ── */
+        approvedGroups.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground bg-white border rounded-xl">
+            <CheckCircle2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No approved mentorship payments</p>
+            <p className="text-xs mt-1">Approved mentorship earnings will appear student-wise here</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: 'Total Mentorship', value: approvedTotals.total, cls: 'text-gray-900 bg-gray-50' },
+                { label: 'Paid', value: approvedTotals.paid, cls: 'text-emerald-700 bg-emerald-50' },
+                { label: 'Due', value: approvedTotals.due, cls: 'text-amber-700 bg-amber-50' },
+                { label: 'Approved Incentive', value: approvedTotals.incentive, cls: 'text-blue-700 bg-blue-50' },
+              ].map(item => (
+                <div key={item.label} className={`rounded-xl border px-4 py-3 ${item.cls}`}>
+                  <p className="text-[11px] uppercase tracking-wide font-bold opacity-70">{item.label}</p>
+                  <p className="text-xl font-extrabold">₹{Number(item.value).toLocaleString('en-IN')}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border overflow-hidden bg-white">
+              <div className="px-4 py-2.5 bg-emerald-50 border-b flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Approved Student-wise Summary</span>
+                <span className="text-xs text-emerald-700 font-semibold">{approvedGroups.length} student{approvedGroups.length !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-[11px] uppercase tracking-wide text-gray-500 text-left">
+                      <th className="px-3 py-2.5 font-bold w-12">S.No</th>
+                      <th className="px-3 py-2.5 font-bold">Student</th>
+                      <th className="px-3 py-2.5 font-bold">Mentor</th>
+                      <th className="px-3 py-2.5 font-bold text-center">Inst.</th>
+                      <th className="px-3 py-2.5 font-bold text-right">Total</th>
+                      <th className="px-3 py-2.5 font-bold text-right">Paid</th>
+                      <th className="px-3 py-2.5 font-bold text-right">Due</th>
+                      <th className="px-3 py-2.5 font-bold text-right">Incentive</th>
+                      <th className="px-3 py-2.5 w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {approvedGroups.map((group: any, i: number) => {
+                      const stu = group.student
+                      const open = expandedApproved === group.id
+                      return (
+                        <Fragment key={group.id}>
+                          <tr
+                            onClick={() => setExpandedApproved(open ? null : group.id)}
+                            className={`cursor-pointer transition-colors ${open ? 'bg-blue-50/50' : 'hover:bg-gray-50'}`}
+                          >
+                            <td className="px-3 py-3 text-gray-400 font-semibold">{i + 1}</td>
+                            <td className="px-3 py-3">
+                              <p className="font-bold text-gray-900 whitespace-nowrap">{stu?.full_name ?? '—'}</p>
+                              {stu?.enrollment_number && <p className="text-[11px] text-gray-400 font-mono">{fmtEnroll(stu.enrollment_number)}</p>}
+                            </td>
+                            <td className="px-3 py-3 text-gray-600 whitespace-nowrap">{group.mentorName ?? '—'}</td>
+                            <td className="px-3 py-3 text-center">
+                              <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">{group.payments.length}</span>
+                            </td>
+                            <td className="px-3 py-3 text-right font-bold text-gray-800 whitespace-nowrap">₹{Number(group.totalAmount).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3 text-right font-bold text-emerald-700 whitespace-nowrap">₹{Number(group.paidAmount).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3 text-right font-bold text-amber-700 whitespace-nowrap">₹{Number(group.dueAmount).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3 text-right font-bold text-blue-700 whitespace-nowrap">₹{Number(group.incentiveAmount).toLocaleString('en-IN')}</td>
+                            <td className="px-3 py-3 text-gray-400">{open ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</td>
+                          </tr>
+                          {open && (
+                            <tr className="bg-gray-50/60">
+                              <td colSpan={9} className="px-4 py-3">
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide mb-2">
+                                  Subject-wise installments · {group.mentorName ?? '—'}
+                                </p>
+                                <div className="rounded-lg border border-gray-200 bg-white overflow-hidden divide-y">
+                                  {group.payments.map((m: any, idx: number) => (
+                                    <div key={m.id} className="flex items-center justify-between gap-3 px-3 py-2 flex-wrap">
+                                      <div className="flex items-center gap-2.5 min-w-0">
+                                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">{idx + 1}</span>
+                                        <div className="min-w-0">
+                                          <p className="text-xs font-semibold text-gray-800">
+                                            {m.note ?? 'Payment'} · ₹{Number(m.amount ?? 0).toLocaleString('en-IN')}
+                                          </p>
+                                          <p className="text-[11px] text-gray-400">
+                                            Paid {m.paid_on ? format(new Date(m.paid_on), 'dd MMM yyyy') : '—'}
+                                            {m.approved_at && <> · Approved {format(new Date(m.approved_at), 'dd MMM yyyy')}</>}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg whitespace-nowrap">
+                                          Incentive ₹{Number(m.incentive_amount ?? m.salary_percentage ?? 0).toLocaleString('en-IN')}
+                                        </span>
+                                        {m.screenshot_url && (
+                                          <button
+                                            onClick={(e) => { e.stopPropagation(); setPreviewImg(m.screenshot_url) }}
+                                            className="inline-flex items-center gap-1.5 bg-white border border-blue-200 text-blue-700 text-[11px] font-semibold px-2.5 py-1 rounded-lg hover:bg-blue-50"
+                                          >
+                                            <FileText className="w-3 h-3" /> Proof
+                                          </button>
+                                        )}
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); deleteApprovedPayment(m) }}
+                                          disabled={deletingId === m.id}
+                                          title="Delete this installment"
+                                          className="inline-flex items-center gap-1.5 bg-white border border-red-200 text-red-600 text-[11px] font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                                        >
+                                          {deletingId === m.id
+                                            ? <div className="w-3 h-3 border-2 border-red-300 border-t-red-600 rounded-full animate-spin" />
+                                            : <Trash2 className="w-3 h-3" />} Delete
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )
+      )}
+        </>
+      )}
+
+      {/* Screenshot preview */}
+      {previewImg && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setPreviewImg(null)}
+        >
+          <button
+            onClick={() => setPreviewImg(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 flex items-center justify-center hover:bg-white"
+          >
+            <X className="w-5 h-5 text-gray-700" />
+          </button>
+          {/\.pdf($|\?)/i.test(previewImg) ? (
+            <iframe src={previewImg} className="w-full max-w-3xl h-[80vh] rounded-xl bg-white" onClick={e => e.stopPropagation()} />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={previewImg} alt="Proof" className="max-w-full max-h-[85vh] rounded-xl object-contain" onClick={e => e.stopPropagation()} />
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

@@ -1,5 +1,8 @@
 import { LeadDialog } from "@/components/forms/lead-dialog";
 import { Logo } from "@/components/site/logo";
+import { LogIn } from "lucide-react";
+
+import { LoginChooser } from "@/components/site/login-chooser";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -25,16 +28,27 @@ export function SiteHeader() {
       <div className="flex h-16 w-full items-center justify-between px-4 lg:px-6">
         <Logo priority showName />
 
-        <LeadDialog
-          source="contact"
-          title="Get free counselling"
-          description="Tell us what you are looking for and a counsellor will call you back."
-          fields={["city", "level", "message"]}
-        >
-          <Button className="bg-brand-blue hover:bg-brand-blue-900">
-            <span className="hidden sm:inline">Need&nbsp;</span>Counselling
-          </Button>
-        </LeadDialog>
+        <div className="flex items-center gap-2">
+          {/* Staff, student and associate sign-in chooser. */}
+          <LoginChooser>
+            <Button variant="outline">
+              <LogIn aria-hidden />
+              {/* Icon-only on narrow phones, where the CTA needs the room. */}
+              <span className="sr-only sm:not-sr-only">Login</span>
+            </Button>
+          </LoginChooser>
+
+          <LeadDialog
+            source="contact"
+            title="Get free counselling"
+            description="Tell us what you are looking for and a counsellor will call you back."
+            fields={["city", "level", "message"]}
+          >
+            <Button className="bg-brand-blue hover:bg-brand-blue-900">
+              <span className="hidden sm:inline">Need&nbsp;</span>Counselling
+            </Button>
+          </LeadDialog>
+        </div>
       </div>
     </header>
   );

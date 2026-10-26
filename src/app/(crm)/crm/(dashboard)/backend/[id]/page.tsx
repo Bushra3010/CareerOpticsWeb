@@ -1,0 +1,44 @@
+import { createServerClient } from '@/crm/lib/supabase/server'
+import { notFound, redirect } from 'next/navigation'
+import { StudentDetailClient } from './client'
+
+interface Props {
+  params: { id: string }
+}
+
+export default async function StudentDetailPage({ params }: Props) {
+  const { id } = await params
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) redirect('/crm/login')
+
+  const { data: student } = await supabase
+    .from('students')
+    .select(`
+      *,
+      course:courses(id, name, is_active, created_at),
+      sub_course:sub_courses(id, name, is_active, created_at, course_id),
+      department:departments(id, name),
+      sub_section:department_sub_sections(id, name),
+      session:sessions(id, name),
+      counsellor:profiles!students_assigned_counsellor_fkey(id, email, full_name, role, is_active, created_at)
+    `)
+    .eq('id', id)
+    .single()
+
+  if (!student) notFound()
+
+  const { data: payments } = await supabase
+    .from('payments')
+    .select('*, recorder:profiles(id, email, full_name, role, is_active, created_at)')
+    .eq('student_id', id)
+    .order('payment_date', { ascending: false })
+
+  return (
+    <StudentDetailClient
+      student={student as never}
+      payments={(payments ?? []) as never}
+    />
+  )
+}

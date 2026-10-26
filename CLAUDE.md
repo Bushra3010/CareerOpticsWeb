@@ -29,9 +29,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
-- **CRM phase 1 — done.** dcwcrm merged into a separate `crm` schema: leads pipeline,
-  students, payments, CSV bulk import. **Both migrations still need applying by hand —
-  see the CRM section below.**
+- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project. See the CRM section below.
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
@@ -48,7 +46,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Mobile home is a distinct layout, not just a reflow.** Below `lg` the page leads with `MobileQuickStart` (heading, search, `GoalCitySelector`) then a rounded-card hero, then `MobileExplore`; study goals become a 2-col list and Top Universities become list rows. Each pair is `lg:hidden` / `hidden lg:block`, so both variants ship in the HTML — that is deliberate (no JS breakpoint switching) but it is why the page HTML grew.
 - `GoalCitySelector` (§6.4, finally built) uses native `<select>` for the same reason the P11 filter panel does: works pre-hydration, gives Android its own picker, near-zero bundle. Choosing either option routes to `/colleges?stream=&city=`. City options are restricted to cities that actually have a published college — 18 of 120 — so a pick never lands on an empty result page.
 - **The course chip bar is `hidden lg:block`.** It stays in the HTML for crawlers, but on a phone it pushed the search below the fold and `MobileExplore` covers the same destinations.
-- **The mobile bottom bar is a 5-tab nav** (Home · Colleges · Courses · Counselling · Profile), replacing the old Call · WhatsApp · Apply trio. Conversion is preserved by making **Counselling** the accent tab: it opens `LeadDialog` rather than routing. **Profile** opens the nav drawer — there is no student login in v1 (§3, deferred to §18) — and Call and WhatsApp both live in that drawer now.
+- **The mobile bottom bar is a 5-tab nav** (Home · Colleges · Courses · Counselling · Profile), replacing the old Call · WhatsApp · Apply trio. Conversion is preserved by making **Counselling** the accent tab: it opens `LeadDialog` rather than routing. **Profile** opens the nav drawer, which carries the Staff / Student / Associate login options alongside Call and WhatsApp.
 - The mobile header is Logo · bell · account. The bell links to `/news` and carries **no unread dot**: there is no notification system, and a badge that never clears is a false signal on a page asking for a phone number. `MobileMenuProvider` holds the drawer state so the header button and the Profile tab open the same sheet, still lazily loaded on first open.
 - `MobileTabBar` is a client component in the `(site)` layout, so it counts against **every** route. Home is now 178 kB of the 180 kB §11 budget — roughly 2 kB spare. `/style-guide` is 212 kB but is internal `noindex` scaffolding, not a public route.
 - **Home is 178 kB First Load JS, not the 161 kB recorded above** — that figure predates the P4–P11 shared code. Measured against a clean worktree build of the previous commit, so 176 kB is the real baseline. Only ~4 kB of headroom against the §11 budget.
@@ -144,70 +142,48 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **Slugs are immutable.** A rename goes in `next.config.ts` redirects, not by editing the row — otherwise every indexed URL and inbound link breaks. The table is wired and currently holds only the legacy `/tenth`, `/twelve`, `/ug`, `/pg` paths.
 - **No CSP yet.** Baseline headers are set; a full policy needs the GTM and Meta domains from P12, and a wrong CSP that blocks the site is worse than none.
 
-## CRM (dcwcrm merged in) — phase 1 done
+## CRM (ported from HELLODOCTOR)
 
-The consultancy CRM is a **separate application at `/crm`**, on a **separate
-`crm` Postgres schema inside the same Supabase project**. Migrations
-`0007_crm_roles.sql` onwards.
+The earlier natively-rebuilt CRM (migrations 0007–0025) was removed. The CRM is
+now a port of the HELLODOCTOR project's CRM, kept close to its source so fixes
+there can be carried across.
 
-**🔴 Neither migration is applied to the live project yet.** Paste them into the
-Supabase SQL Editor **separately and in that order** — `0005` only widens
-`user_role`, and Postgres refuses to *use* a new enum value in the transaction
-that adds it, which is the only reason it is its own file. Then add `crm` to
-**Project Settings → API → Exposed schemas**, or every CRM query 404s.
-
-Shipped: pipeline dashboard, leads list (filters, status, assignment,
-follow-ups, notes, CSV export), lead detail + create/edit, students list and
-detail with the payment ledger, and CSV bulk import.
-
-- **`/crm` is its own shell, not a section of `/admin`.** A telecaller works
-  leads all day and never opens a college page; an editor never sees a
-  student's fees. Two shells means neither scrolls past the other's nav.
-  They share one login, one `profiles` row and one `can()` — `config/crm-nav.ts`
-  is the CRM's nav, `config/admin-nav.ts` the website's, and each shell links
-  to the other only when the role can actually use it. `/admin/crm/*` 307s to
-  `/crm/*` for staff bookmarks; 307 not 308, because a permanent redirect is
-  cached forever and these are internal noindex routes.
-- **Middleware gates `/crm` as well as `/admin`,** and `next` carries the
-  visitor back to the CRM page they asked for. That parameter is only ever
-  honoured for a same-origin path — a leading `//` or a backslash would walk
-  the user off the site.
-- **A separate schema, not merged tables.** `courses`, `leads`, `lead_activities`
-  and `sessions` exist in both products with different shapes. Reconciling four
-  colliding tables would have meant rewriting the live website's queries; a
-  schema keeps the site untouched. The one deliberate exception is `profiles` —
-  shared, with `telecaller`/`backend`/`finance` added to `user_role`, so staff
-  have one login and one role.
-- **`public.push_lead_to_crm()` is the bridge** — an after-insert trigger on
-  `public.leads`. Website sources (`home_hero`, `college_finder`, …) are not in
-  `crm.leads.source`'s CHECK, so they fold into `metadata.website_source` and
-  the row lands as `source='website'`. A counsellor sees website enquiries and
-  walk-ins in one pipeline without either table changing shape.
-- **Rebuilt natively, not copied.** dcwcrm is `@base-ui/react` +
-  `@tanstack/react-table`; this codebase is radix/shadcn. A literal port would
-  drag a second UI library and ~2,800 incompatible lines in for the leads module
-  alone, and blow the §11 budget. Every CRM route is 137–143 kB.
-- **Import is CSV, not xlsx.** The npm `xlsx` build dcwcrm uses (0.18.5) has open
-  prototype-pollution and ReDoS advisories and SheetJS moved distribution off
-  npm. `lib/csv.ts` is a small RFC 4180 reader instead. The uploaded file is
-  never stored — it is re-read from the same input on commit, so a spreadsheet of
-  student phone numbers never reaches Storage.
-- **PostgREST `.in()` travels in the URL.** 2,000 numbers is a ~22 kB request the
-  server rejects, and the swallowed error made dedupe silently do nothing while
-  reporting "0 duplicates". Chunk any `.in()` built from user data, and never
-  treat its error as an empty result.
-- **`crm.leads.status` and `.source` are CHECK constraints, not enums** — so new
-  values need no `ALTER TYPE` dance. Keep `config/crm.ts` in step with them;
-  `db:verify` asserts an unknown source is rejected.
-- **Money totals recompute, never increment.** `recordPayment` sums the receipts
-  for the student. Incrementing `amount_paid` loses a payment whenever two
-  counsellors record at the same moment, and the error compounds.
-- **The service role appears exactly once in the CRM**, on the import batch
-  insert, with `created_by` stamped before the write. Everything else uses the
-  cookie-bound client so `crm.is_crm_staff()` RLS stays the real boundary.
-- **Deferred to phase 2+ (user's call):** HRMS, associates portal, student
-  portal, mentorship, litigation, dispatch, analytics, targets, push
-  notifications.
+- **Where things live.** Pages: `src/app/(crm)/crm/**` (staff dashboard,
+  `/crm/associate/*` portal, `/crm/student/*` portal). Components, UI kit,
+  Supabase clients, stores and types: `src/crm/**`. API routes:
+  `src/app/api/crm/**`. Its UI kit is `@base-ui/react`-based and separate from
+  the website's `components/ui` — do not mix the two.
+- **Separate schema, one project.** Every CRM table is in `crm` (0027), because
+  `leads`, `profiles` and `courses` exist in both products with different
+  shapes. `src/crm/lib/supabase/*` pins clients to `db: { schema: 'crm' }`; the
+  service-role helper is `src/crm/lib/supabase/service.ts`. `crm` must stay in
+  Project Settings → API → Exposed schemas. Every crm function has its
+  search_path pinned to `crm, public, extensions`.
+- **Separate stylesheet.** The root layout imports no CSS; `(site)` and
+  `(admin)` import `app/globals.css`, `(crm)` imports `app/(crm)/globals.css`.
+  Links from the website into `/crm` are plain `<a>` (see `loginOptions` in
+  `config/nav.ts`) so a client transition never carries one design system into
+  the other.
+- **Bridge.** `public.push_lead_to_crm()` (0028) copies every website lead into
+  `crm.leads` as `source='website'`, with the page-level source in
+  `metadata.website_source`. It only warns on failure — a CRM problem must
+  never fail the website's form.
+- **Shared auth.** Staff, students and associates are all `auth.users`. Since
+  0028 a new auth user gets an *inactive* `public.profiles` row, so a portal
+  login never becomes website staff. Website staff are activated explicitly.
+- **Middleware** routes `/crm` by `crm.profiles.role`: students to the student
+  portal, associates to theirs, everyone else to `/crm/dashboard`.
+- **Security fixes over the HELLODOCTOR original** — keep them if re-syncing:
+  every service-role API route is guarded by `requireCrmStaff()`
+  (`src/crm/lib/api-auth.ts`); password reset / delete only touch
+  CRM-managed accounts (`isCrmManagedUser`), never active website staff;
+  0029 turns RLS on for the five associate tables (Aadhaar, PAN, bank) and
+  makes call notes, expenses, litigation and form config staff-only.
+- **Lint.** `no-explicit-any` and `no-unescaped-entities` are off for the CRM
+  paths only (`eslint.config.mjs`); the website keeps the strict rules.
+- **Known gaps:** `xlsx@0.18.5` (lead import/export) has open advisories;
+  bank/UPI details on fee pages are placeholders; Admin → Prospectus shows
+  HELLODOCTOR demo rows; `CRON_SECRET` and `SMTP_*` are unset.
 
 ## §2 Tech stack (fixed — do not substitute)
 

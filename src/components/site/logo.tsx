@@ -17,7 +17,7 @@ const nameSuffix = siteConfig.legalName.replace(siteConfig.name, "").trim();
  *
  * `showName` sets the company name beside the mark. The asset already carries a
  * wordmark, but at h-12 it is only a few pixels tall and unreadable — this is
- * the legible copy. Off by default so the footer, admin, CRM and 404 lockups
+ * the legible copy. Off by default so the footer, admin and 404 lockups
  * are unchanged; the site header opts in.
  */
 export function Logo({

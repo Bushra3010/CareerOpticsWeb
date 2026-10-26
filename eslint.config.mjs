@@ -20,6 +20,16 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    // The CRM is ported from the HELLODOCTOR project and kept close to its
+    // source so future fixes there can be carried across. Its loose typing is
+    // inherited, not new; the website code stays on the strict rules.
+    files: ["src/crm/**", "src/app/(crm)/**", "src/app/api/crm/**"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "react/no-unescaped-entities": "off",
+    },
+  },
 ];
 
 export default eslintConfig;

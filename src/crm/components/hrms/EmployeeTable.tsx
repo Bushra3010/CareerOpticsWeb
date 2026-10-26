@@ -1,0 +1,406 @@
+'use client'
+
+import { useState, useTransition, useEffect } from 'react'
+import { format } from 'date-fns'
+import { Edit, Plus, Search, UserCheck, UserX, Building2 } from 'lucide-react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { DataTable } from '@/crm/components/shared/DataTable'
+import { Button } from '@/crm/components/ui/button'
+import { Input } from '@/crm/components/ui/input'
+import { Label } from '@/crm/components/ui/label'
+import { Badge } from '@/crm/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/crm/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/crm/components/ui/select'
+import { employeeSchema, type EmployeeFormData } from '@/crm/lib/validations/employee.schema'
+import type { ColumnDef } from '@tanstack/react-table'
+import type { UserRole } from '@/crm/types/app.types'
+import { ROLE_LABELS } from '@/crm/types/app.types'
+
+interface EmployeeRow {
+  id: string
+  profile_id: string
+  employee_code: string
+  full_name: string
+  role: UserRole
+  department: string
+  designation: string
+  joining_date: string
+  status: 'active' | 'inactive'
+}
+
+interface EmployeeTableProps {
+  data: EmployeeRow[]
+}
+
+const ROLES: UserRole[] = ['admin', 'lead', 'counselor', 'backend', 'housekeeping']
+
+export default function EmployeeTable({ data: initialData }: EmployeeTableProps) {
+  const [data, setData] = useState(initialData)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [statusFilter, setStatusFilter] = useState<'active' | 'inactive' | 'all'>('active')
+  const [showForm, setShowForm] = useState(false)
+  const [editingEmployee, setEditingEmployee] = useState<EmployeeRow | null>(null)
+  const [isPending, startTransition] = useTransition()
+  const router = useRouter()
+
+  const { register, handleSubmit, setValue, reset, watch, formState: { errors } } = useForm<EmployeeFormData>({
+    resolver: zodResolver(employeeSchema),
+    defaultValues: { role: 'lead', hra: 0, allowances: 0, pf_deduction: 0, tds_deduction: 0, salary_cycle_start_day: 1 },
+  })
+
+  // Auto-sync cycle start day with joining date
+  const watchedJoiningDate = watch('joining_date')
+  const [lastSyncedDate, setLastSyncedDate] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (watchedJoiningDate && watchedJoiningDate !== lastSyncedDate) {
+      const day = new Date(watchedJoiningDate).getDate()
+      if (!isNaN(day)) {
+        setValue('salary_cycle_start_day', day)
+        setLastSyncedDate(watchedJoiningDate)
+      }
+    }
+  }, [watchedJoiningDate, lastSyncedDate, setValue])
+
+  const filtered = data.filter((e) => {
+    const matchSearch =
+      !search ||
+      e.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      e.employee_code.toLowerCase().includes(search.toLowerCase())
+    const matchRole = roleFilter === 'all' || e.role === roleFilter
+    const matchStatus = statusFilter === 'all' || e.status === statusFilter
+    return matchSearch && matchRole && matchStatus
+  })
+
+  // Department-wise grouping
+  const grouped = filtered.reduce((acc, e) => {
+    const dept = e.department && e.department !== '—' ? e.department : 'No Department'
+    if (!acc[dept]) acc[dept] = []
+    acc[dept].push(e)
+    return acc
+  }, {} as Record<string, EmployeeRow[]>)
+  const departments = Object.keys(grouped).sort((a, b) =>
+    a === 'No Department' ? 1 : b === 'No Department' ? -1 : a.localeCompare(b))
+
+  const toggleActive = (emp: EmployeeRow) => {
+    const makeActive = emp.status === 'inactive'
+    if (!confirm(`${emp.full_name} ko ${makeActive ? 'ACTIVE' : 'INACTIVE'} karein?${makeActive ? '' : ' Wo attendance, payroll aur dropdowns se hat jayenge.'}`)) return
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/crm/hrms/employees', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: emp.id, is_active: makeActive }),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to update status')
+        }
+        setData(prev => prev.map(e => e.id === emp.id ? { ...e, status: makeActive ? 'active' : 'inactive' } : e))
+        toast.success(`${emp.full_name} ${makeActive ? 'activated' : 'deactivated'}`)
+        router.refresh()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Failed to update status')
+      }
+    })
+  }
+
+  const onSubmit = (values: EmployeeFormData) => {
+    startTransition(async () => {
+      try {
+        const method = editingEmployee ? 'PATCH' : 'POST'
+        const payload = editingEmployee ? { ...values, id: editingEmployee.id } : values
+
+        const res = await fetch('/api/crm/hrms/employees', {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || `Failed to ${editingEmployee ? 'update' : 'create'} employee`)
+        }
+        const { employee } = await res.json()
+
+        if (editingEmployee) {
+          setData((prev) => prev.map((e) => e.id === employee.id ? employee : e))
+          toast.success('Employee updated')
+        } else {
+          setData((prev) => [employee, ...prev])
+          toast.success('Employee created')
+        }
+
+        setShowForm(false)
+        setEditingEmployee(null)
+        reset()
+        router.refresh()
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : `Failed to ${editingEmployee ? 'update' : 'create'} employee`)
+      }
+    })
+  }
+
+  const handleEdit = async (id: string) => {
+    const emp = data.find(e => e.id === id)
+    if (!emp) return
+
+    startTransition(async () => {
+      try {
+        // Fetch full detail via API (avoids RLS recursion issues on client)
+        const res = await fetch(`/api/crm/hrms/employees?id=${id}`)
+        if (!res.ok) {
+          const err = await res.json()
+          throw new Error(err.error || 'Failed to fetch employee details')
+        }
+        const { employee: fullEmp } = await res.json()
+
+        const formData: EmployeeFormData = {
+          full_name: fullEmp.full_name || '',
+          email: fullEmp.email || '',
+          phone: fullEmp.phone || '',
+          role: fullEmp.role || 'lead',
+          department: fullEmp.department || '',
+          designation: fullEmp.designation || '',
+          joining_date: fullEmp.joining_date || '',
+          basic_salary: fullEmp.basic_salary || 0,
+          hra: fullEmp.hra || 0,
+          allowances: fullEmp.allowances || 0,
+          pf_deduction: fullEmp.pf_deduction || 0,
+          tds_deduction: fullEmp.tds_deduction || 0,
+          bank_account_masked: fullEmp.bank_account || '',
+          bank_ifsc: fullEmp.bank_ifsc || '',
+          salary_cycle_start_day: fullEmp.salary_cycle_start_day || 1,
+        }
+
+        setEditingEmployee(emp)
+        reset({ ...formData, role: formData.role as 'admin' | 'lead' | 'counselor' | 'backend' | 'housekeeping' })
+        setShowForm(true)
+      } catch (e: unknown) {
+        toast.error(e instanceof Error ? e.message : 'Failed to load employee details')
+      }
+    })
+  }
+
+  const columns: ColumnDef<EmployeeRow>[] = [
+    { accessorKey: 'employee_code', header: 'Code' },
+    { accessorKey: 'full_name', header: 'Name' },
+    {
+      accessorKey: 'role',
+      header: 'Role',
+      cell: ({ getValue }) => {
+        const role = getValue() as UserRole
+        return <Badge variant="outline">{ROLE_LABELS[role] ?? role}</Badge>
+      },
+    },
+    { accessorKey: 'department', header: 'Department' },
+    { accessorKey: 'designation', header: 'Designation' },
+    {
+      accessorKey: 'joining_date',
+      header: 'Joining Date',
+      cell: ({ getValue }) => {
+        const val = getValue() as string | null | undefined
+        if (!val || val === '—') return '—'
+        return format(new Date(val), 'dd MMM yyyy')
+      },
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      cell: ({ getValue }) => (
+        <Badge variant={getValue() === 'active' ? 'default' : 'secondary'} className="capitalize">
+          {getValue() as string}
+        </Badge>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleEdit(row.original.id)
+            }}
+            disabled={isPending}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            title={row.original.status === 'active' ? 'Deactivate (employee left)' : 'Activate'}
+            className={`h-8 w-8 ${row.original.status === 'active' ? 'text-red-500 hover:text-red-600 hover:bg-red-50' : 'text-green-600 hover:text-green-700 hover:bg-green-50'}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              toggleActive(row.original)
+            }}
+            disabled={isPending}
+          >
+            {row.original.status === 'active' ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-8"
+            placeholder="Search name or code…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v || 'all')}>
+          <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Roles</SelectItem>
+            {ROLES.map((r) => (
+              <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg">
+          {(['active', 'inactive', 'all'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-all ${
+                statusFilter === s ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <Button onClick={() => { setEditingEmployee(null); reset({ role: 'lead', hra: 0, allowances: 0, pf_deduction: 0, tds_deduction: 0, salary_cycle_start_day: 1 }); setShowForm(true) }}>
+          <Plus className="mr-2 h-4 w-4" /> Add Employee
+        </Button>
+      </div>
+
+      {departments.length === 0 ? (
+        <div className="text-center py-16 border rounded-xl bg-white">
+          <p className="font-medium text-gray-500">No employees found</p>
+        </div>
+      ) : (
+        departments.map(dept => (
+          <div key={dept} className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-blue-600" />
+              <h2 className="text-sm font-bold text-gray-800">{dept}</h2>
+              <span className="text-xs text-gray-400 font-medium">({grouped[dept].length})</span>
+            </div>
+            <DataTable
+              data={grouped[dept]}
+              columns={columns}
+              onRowClick={(row) => router.push(`/crm/hrms/${row.id}`)}
+            />
+          </div>
+        ))
+      )}
+
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingEmployee ? 'Edit Employee' : 'Add Employee'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Full Name</Label>
+                <Input {...register('full_name')} />
+                {errors.full_name && <p className="text-xs text-red-500">{errors.full_name.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Email</Label>
+                <Input type="email" {...register('email')} disabled={!!editingEmployee} />
+                {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Phone</Label>
+                <Input {...register('phone')} />
+                {errors.phone && <p className="text-xs text-red-500">{errors.phone.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Role</Label>
+                <Select onValueChange={(v) => setValue('role', v as 'admin' | 'lead' | 'counselor' | 'backend' | 'housekeeping')} defaultValue="lead">
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Department</Label>
+                <Input {...register('department')} />
+                {errors.department && <p className="text-xs text-red-500">{errors.department.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Designation</Label>
+                <Input {...register('designation')} />
+                {errors.designation && <p className="text-xs text-red-500">{errors.designation.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Joining Date</Label>
+                <Input type="date" {...register('joining_date')} />
+                {errors.joining_date && <p className="text-xs text-red-500">{errors.joining_date.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>Basic Salary (₹)</Label>
+                <Input type="number" min="0" {...register('basic_salary', { valueAsNumber: true })} />
+                {errors.basic_salary && <p className="text-xs text-red-500">{errors.basic_salary.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <Label>HRA (₹)</Label>
+                <Input type="number" min="0" {...register('hra', { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Allowances (₹)</Label>
+                <Input type="number" min="0" {...register('allowances', { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>PF Deduction (₹)</Label>
+                <Input type="number" min="0" {...register('pf_deduction', { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>TDS Deduction (₹)</Label>
+                <Input type="number" min="0" {...register('tds_deduction', { valueAsNumber: true })} />
+              </div>
+              <div className="space-y-1">
+                <Label>Bank Account (masked)</Label>
+                <Input {...register('bank_account_masked')} placeholder="XXXX1234" />
+              </div>
+              <div className="space-y-1">
+                <Label>Bank IFSC</Label>
+                <Input {...register('bank_ifsc')} placeholder="SBIN0001234" />
+              </div>
+              <div className="space-y-1">
+                <Label>Salary Cycle Start Day (1-31)</Label>
+                <Input type="number" min="1" max="31" {...register('salary_cycle_start_day', { valueAsNumber: true })} />
+                {errors.salary_cycle_start_day && <p className="text-xs text-red-500">{errors.salary_cycle_start_day.message}</p>}
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button type="submit" disabled={isPending}>{isPending ? (editingEmployee ? 'Updating…' : 'Creating…') : (editingEmployee ? 'Update Employee' : 'Create Employee')}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
