@@ -11,10 +11,10 @@ import { Input } from '@/crm/components/ui/input'
 import { Button } from '@/crm/components/ui/button'
 import { format } from 'date-fns'
 
-// Display helper: ENR-873254X → HD-873254
+// Display helper: ENR-873254X → CO-873254
 function fmtEnroll(n: string | null | undefined) {
   if (!n) return n
-  if (n.startsWith('ENR-')) return 'HD-' + n.slice(4).replace(/[^0-9]/g, '')
+  if (n.startsWith('ENR-')) return 'CO-' + n.slice(4).replace(/[^0-9]/g, '')
   return n
 }
 

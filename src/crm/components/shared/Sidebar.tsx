@@ -83,7 +83,7 @@ export function Sidebar({ role }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-[#0e7c8f] text-white'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
                   : 'text-gray-300 hover:bg-white/10 hover:text-white'
               )}
               title={collapsed ? item.label : undefined}
@@ -102,7 +102,7 @@ export function Sidebar({ role }: SidebarProps) {
       {/* Desktop sidebar — hidden on mobile */}
       <div
         className={cn(
-          'hidden md:flex flex-col h-full bg-[#142a52] text-white transition-all duration-300 flex-shrink-0',
+          'hidden md:flex flex-col h-full bg-gradient-to-b from-[#082c6b] to-[#0a2a5e] text-white transition-all duration-300 flex-shrink-0',
           sidebarCollapsed ? 'w-16' : 'w-60'
         )}
       >
@@ -112,7 +112,7 @@ export function Sidebar({ role }: SidebarProps) {
               <img src="/brand-logo.png" alt="CareerOptics" className="w-10 h-10 rounded bg-white p-0.5" />
               <div className="flex flex-col justify-center">
                 <span className="font-bold text-xs leading-tight">CareerOptics</span>
-                <span className="text-[10px] text-[#6cc04a] font-bold leading-tight uppercase tracking-wider mt-0.5">Admission CRM</span>
+                <span className="text-[10px] text-yellow-400 font-bold leading-tight uppercase tracking-wider mt-0.5">Admission CRM</span>
               </div>
             </div>
           )}
@@ -135,13 +135,13 @@ export function Sidebar({ role }: SidebarProps) {
             onClick={() => setMobileSidebarOpen(false)}
           />
           {/* Drawer panel */}
-          <div className="absolute left-0 top-0 h-full w-72 flex flex-col bg-[#142a52] text-white shadow-2xl">
+          <div className="absolute left-0 top-0 h-full w-72 flex flex-col bg-gradient-to-b from-[#082c6b] to-[#0a2a5e] text-white shadow-2xl">
             <div className="flex items-center justify-between p-4 border-b border-white/10">
               <div className="flex items-center gap-3">
                 <img src="/brand-logo.png" alt="CareerOptics" className="w-9 h-9 rounded bg-white p-0.5" />
                 <div className="flex flex-col justify-center">
                   <span className="font-bold text-sm leading-tight">CareerOptics</span>
-                  <span className="text-[10px] text-[#6cc04a] font-bold leading-tight uppercase tracking-wider mt-0.5">Admission CRM</span>
+                  <span className="text-[10px] text-yellow-400 font-bold leading-tight uppercase tracking-wider mt-0.5">Admission CRM</span>
                 </div>
               </div>
               <button

@@ -58,7 +58,7 @@ const STATUS_CFG: Record<string, { label: string; cls: string }> = {
 
 function fmtEnroll(n: string | null | undefined) {
   if (!n) return '—'
-  if (n.startsWith('ENR-')) return 'HD-' + n.slice(4).replace(/[^0-9]/g, '')
+  if (n.startsWith('ENR-')) return 'CO-' + n.slice(4).replace(/[^0-9]/g, '')
   return n
 }
 const BOARD_BADGE: Record<string, string> = {

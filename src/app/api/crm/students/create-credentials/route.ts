@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     )
 
     // Always use enrollment-derived email so login page can always derive it the same way
-    const portalEmail = `${student.enrollment_number.toLowerCase().replace(/[^a-z0-9]/g, '')}@hdportal.in`
+    const portalEmail = `${student.enrollment_number.toLowerCase().replace(/[^a-z0-9]/g, '')}@portal.careeropticsedu.in`
     const username = student.enrollment_number
 
     if (student.portal_user_id) {

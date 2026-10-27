@@ -2,34 +2,27 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Home, GraduationCap, Wallet, BookOpen,
-  HelpCircle, User, LogOut, Gift, Package, Award,
+  Home, User, BookOpen, FileText, CalendarDays, Trophy, Bell,
+  CreditCard, Download, Headphones, LogOut, GraduationCap,
 } from 'lucide-react'
 import { cn } from '@/crm/lib/utils'
 import { createClient } from '@/crm/lib/supabase/client'
 import { useUIStore } from '@/crm/store/useUIStore'
 
-interface StudentInfo {
-  id: string
-  full_name: string
-  enrollment_number: string
-  profile_photo_url: string | null
-  course_name: string | null
-}
+export const STUDENT_NAV = [
+  { label: 'Dashboard',          href: '/crm/student/dashboard',     icon: Home },
+  { label: 'Profile',            href: '/crm/student/profile',       icon: User },
+  { label: 'My Courses',         href: '/crm/student/materials',     icon: BookOpen },
+  { label: 'Applications',       href: '/crm/student/admission',     icon: FileText },
+  { label: 'Exam & Admit Card',  href: '/crm/student/exam',          icon: CalendarDays },
+  { label: 'Results',            href: '/crm/student/results',       icon: Trophy },
+  { label: 'Notifications',      href: '/crm/student/notifications', icon: Bell, badge: true },
+  { label: 'Payments',           href: '/crm/student/accounts',      icon: CreditCard },
+  { label: 'Downloads',          href: '/crm/student/downloads',     icon: Download },
+  { label: 'Help & Support',     href: '/crm/student/support',       icon: Headphones },
+] as const
 
-const NAV = [
-  { label: 'Dashboard',      href: '/crm/student/dashboard', icon: Home },
-  { label: 'My Admission',   href: '/crm/student/admission', icon: GraduationCap },
-  { label: 'Accounts',       href: '/crm/student/accounts',  icon: Wallet },
-  { label: 'Study Materials',href: '/crm/student/materials',   icon: BookOpen },
-  { label: 'Dispatch',       href: '/crm/student/dispatch',    icon: Package },
-  { label: 'Mentorship',     href: '/crm/student/mentorship',  icon: Award },
-  { label: 'Help & Support', href: '/crm/student/support',     icon: HelpCircle },
-  { label: 'Refer & Earn',   href: '/crm/student/refer',       icon: Gift },
-  { label: 'My Profile',     href: '/crm/student/profile',     icon: User },
-]
-
-export function StudentSidebar({ student }: { student: StudentInfo }) {
+export function StudentSidebar({ unreadCount = 0 }: { unreadCount?: number }) {
   const pathname = usePathname()
   const { mobileSidebarOpen: mobileOpen, setMobileSidebarOpen: setMobileOpen } = useUIStore()
   const supabase = createClient()
@@ -39,76 +32,54 @@ export function StudentSidebar({ student }: { student: StudentInfo }) {
     window.location.replace('/crm/student/login')
   }
 
-  function fmtEnroll(n: string) {
-    if (n.startsWith('ENR-')) return 'HD-' + n.slice(4).replace(/[^0-9]/g, '')
-    return n
-  }
-
-  const initials = student.full_name
-    .split(' ')
-    .map(w => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase()
-
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-white border-r border-gray-100">
-      {/* Logo */}
-      <div className="px-4 py-4 border-b border-gray-100">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center shrink-0 shadow-sm">
-            <GraduationCap className="h-5 w-5 text-white" />
-          </div>
-          <div className="min-w-0">
-            <p className="font-extrabold text-gray-900 text-[13px] leading-tight">CareerOptics Portal</p>
-            <p className="text-[11px] text-blue-600 font-semibold truncate">{fmtEnroll(student.enrollment_number)}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-3 space-y-0.5 overflow-y-auto">
-        {NAV.map(({ label, href, icon: Icon }) => {
+    <div className="flex h-full flex-col bg-gradient-to-b from-[#082c6b] to-[#0a2a5e] text-white">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+        {STUDENT_NAV.map(({ label, href, icon: Icon, ...rest }) => {
           const active = pathname === href || (href !== '/crm/student/dashboard' && pathname.startsWith(href))
+          const showBadge = 'badge' in rest && unreadCount > 0
           return (
             <Link
               key={href}
               href={href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all',
+                'flex items-center gap-4 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors',
                 active
-                  ? 'bg-blue-600 text-white shadow-sm shadow-blue-200'
-                  : 'text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40'
+                  : 'text-white/90 hover:bg-white/10 hover:text-white'
               )}
             >
-              <Icon className={cn('h-[18px] w-[18px] shrink-0', active ? 'text-white' : 'text-gray-400')} />
-              {label}
+              <Icon className="h-[22px] w-[22px] shrink-0" />
+              <span className="flex-1">{label}</span>
+              {showBadge && (
+                <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
             </Link>
           )
         })}
-      </nav>
 
-      {/* Footer */}
-      <div className="px-3 pb-4 border-t border-gray-100 pt-3">
-        <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center shrink-0 shadow-sm">
-            <span className="text-[11px] font-bold text-white">{initials}</span>
-          </div>
-          <div className="min-w-0">
-            <p className="text-[12px] font-bold text-gray-900 truncate leading-tight">{student.full_name}</p>
-            {student.course_name && (
-              <p className="text-[11px] text-gray-400 truncate">{student.course_name}</p>
-            )}
-          </div>
-        </div>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-500 hover:bg-red-50 rounded-xl transition-colors font-medium"
+          className="flex w-full items-center gap-4 rounded-xl px-4 py-3 text-[15px] font-medium text-white/90 transition-colors hover:bg-white/10 hover:text-white"
         >
-          <LogOut className="h-4 w-4" />
-          Sign Out
+          <LogOut className="h-[22px] w-[22px] shrink-0" />
+          Logout
         </button>
+      </nav>
+
+      {/* "Your Future, Our Mission" card */}
+      <div className="m-3 overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 via-blue-800 to-[#082c6b] p-5 text-center shadow-inner">
+        <GraduationCap className="mx-auto h-10 w-10 text-white" />
+        <p className="mt-2 font-serif text-2xl leading-tight font-bold text-white italic -rotate-6">
+          Your Future
+        </p>
+        <p className="font-serif text-2xl leading-tight font-bold text-yellow-400 italic -rotate-6">
+          Our Mission
+        </p>
+        <div className="mx-auto mt-2 h-1 w-28 -rotate-6 rounded-full bg-yellow-400" />
       </div>
     </div>
   )
@@ -116,15 +87,15 @@ export function StudentSidebar({ student }: { student: StudentInfo }) {
   return (
     <>
       {/* Desktop */}
-      <div className="hidden md:flex w-56 shrink-0 flex-col h-full">
+      <aside className="hidden h-full w-72 shrink-0 flex-col md:flex">
         <SidebarContent />
-      </div>
+      </aside>
 
       {/* Mobile drawer (opened from the topbar hamburger / bottom-nav More) */}
       {mobileOpen && (
         <>
-          <div className="md:hidden fixed inset-0 bg-black/40 z-40" onClick={() => setMobileOpen(false)} />
-          <div className="md:hidden fixed left-0 top-0 h-full w-60 z-50 shadow-xl">
+          <div className="fixed inset-0 z-40 bg-black/40 md:hidden" onClick={() => setMobileOpen(false)} />
+          <div className="fixed top-0 left-0 z-50 h-full w-72 shadow-xl md:hidden">
             <SidebarContent />
           </div>
         </>

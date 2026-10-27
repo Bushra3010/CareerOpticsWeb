@@ -13,7 +13,7 @@ import { format } from 'date-fns'
 
 function fmtEnroll(n: string | null | undefined) {
   if (!n) return '—'
-  if (n.startsWith('ENR-')) return 'HD-' + n.slice(4).replace(/[^0-9]/g, '')
+  if (n.startsWith('ENR-')) return 'CO-' + n.slice(4).replace(/[^0-9]/g, '')
   return n
 }
 

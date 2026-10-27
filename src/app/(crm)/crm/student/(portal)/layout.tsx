@@ -26,12 +26,18 @@ export default async function StudentPortalLayout({ children }: { children: Reac
     course_name: ((student as { course: { name: string } | null }).course)?.name ?? null,
   }
 
+  const { count: unreadCount } = await (supabase as any)
+    .from('student_notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('student_id', studentInfo.id)
+    .eq('is_read', false)
+
   return (
-    <div className="flex h-screen overflow-hidden app-bg">
-      <StudentSidebar student={studentInfo} />
-      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <StudentTopbar student={studentInfo} />
-        <main className="flex-1 overflow-y-auto">
+    <div className="flex h-screen flex-col overflow-hidden bg-[#f5f8fd]">
+      <StudentTopbar student={studentInfo} unreadCount={unreadCount ?? 0} />
+      <div className="flex min-h-0 flex-1">
+        <StudentSidebar unreadCount={unreadCount ?? 0} />
+        <main className="min-w-0 flex-1 overflow-y-auto">
           <div className="p-4 md:p-6 pb-24 md:pb-6">
             {children}
           </div>

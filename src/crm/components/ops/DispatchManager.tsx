@@ -481,7 +481,7 @@ export function DispatchManager() {
     const docs = g.rows
     const fmtDate = (v: string | null) => v ? format(new Date(v + 'T00:00:00'), 'dd MMM yyyy') : '—'
     const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
-    const receiptNo = `HD-${(isInbound ? 'R' : 'D')}${(d.created_at ? new Date(d.created_at).getTime() : Date.now()).toString().slice(-8)}`
+    const receiptNo = `CO-${(isInbound ? 'R' : 'D')}${(d.created_at ? new Date(d.created_at).getTime() : Date.now()).toString().slice(-8)}`
     const rows = docs.map((x, i) => `
       <tr>
         <td style="text-align:center">${i + 1}</td>

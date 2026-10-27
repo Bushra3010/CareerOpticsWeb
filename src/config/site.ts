@@ -32,7 +32,11 @@ function resolveSiteUrl(): string {
  */
 export const siteConfig = {
   name: "CareerOptics",
-  legalName: "CareerOptics Education Service",
+  legalName: "CareerOptics Education Service Pvt. Ltd.",
+  /** Shown under the wordmark in the header. */
+  certification: "An ISO 9001:2015 Certified Education Organization",
+  /** Header "Call Now" line — the admissions desk on the client's banners. */
+  callNow: { tel: "+918252532179", display: "8252532179" },
   tagline: "Your career. Our guidance.",
   description:
     "Discover colleges, courses and exams across India. Free admission counselling for students after 10th, 12th, graduation and post-graduation.",

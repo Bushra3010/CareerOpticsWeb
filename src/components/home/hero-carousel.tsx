@@ -114,7 +114,9 @@ function HeroSlide({
 
   return (
     <CarouselItem className="pl-0" aria-label={banner.title ? `Banner: ${banner.title}` : undefined}>
-      <div className="relative mx-4 h-[240px] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:h-[420px] lg:rounded-none">
+      {/* 5:2 — the ratio the client's banners are designed at (1600×640), so
+          the whole artwork, text included, shows on every screen width. */}
+      <div className="relative mx-4 aspect-[5/2] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:rounded-none">
         {/* Mobile image — hidden on desktop, shown on mobile. */}
         {mobileSrc ? (
           <div className="lg:hidden absolute inset-0">

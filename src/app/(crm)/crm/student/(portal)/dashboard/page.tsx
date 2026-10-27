@@ -8,6 +8,7 @@ import {
   CircleDot, Circle,
 } from 'lucide-react'
 import { StudentLifecycle, lifecycleProgress } from '@/crm/components/shared/StudentLifecycle'
+import { StudentWelcome } from '@/crm/components/student/StudentWelcome'
 
 const VER: Record<string, { label: string; color: string; bg: string; border: string; done: boolean; active: boolean }> = {
   pending:   { label: 'Pending',   color: 'text-amber-700',  bg: 'bg-amber-50',  border: 'border-amber-200', done: false, active: true },
@@ -160,9 +161,12 @@ export default async function StudentDashboardPage() {
   const firstName = s.full_name.split(' ')[0]
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-5">
+      <StudentWelcome firstName={firstName} />
 
-      {/* Welcome Banner */}
+      <h2 className="pt-2 text-xl font-extrabold text-gray-900">My Admission</h2>
+
+      {/* Enrolment summary */}
       <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 rounded-2xl p-6 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-[0.07]" style={{
           backgroundImage: 'radial-gradient(circle, white 1.5px, transparent 1.5px)',
@@ -172,8 +176,8 @@ export default async function StudentDashboardPage() {
           <GraduationCap className="w-28 h-28 text-white" />
         </div>
         <div className="relative">
-          <p className="text-blue-200 text-sm font-medium">Welcome back,</p>
-          <h1 className="text-2xl font-extrabold mt-1 tracking-tight">{s.full_name}</h1>
+          <p className="text-blue-200 text-sm font-medium">Enrolment</p>
+          <p className="text-2xl font-extrabold mt-1 tracking-tight">{s.full_name}</p>
           <div className="flex flex-wrap gap-2 mt-3">
             <span className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm text-xs px-3 py-1.5 rounded-full font-semibold">
               {s.enrollment_number}

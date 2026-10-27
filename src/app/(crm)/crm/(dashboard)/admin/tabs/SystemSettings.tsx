@@ -43,7 +43,7 @@ const DEFAULTS: Settings = {
   low_balance_alert_enabled: true,
   otp_expiry_minutes: 10,
   rate_limit_registration: 5,
-  invoice_prefix: 'HD',
+  invoice_prefix: 'CO',
   invoice_terms: 'All fees paid are non-refundable. This invoice is system-generated and valid without signature.',
   invoice_gst_number: '',
   invoice_company_name: 'CareerOptics',
@@ -208,8 +208,8 @@ export function SystemSettings() {
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <Label className="text-xs">Invoice Prefix</Label>
-                <Input value={settings.invoice_prefix} onChange={e => upd('invoice_prefix', e.target.value)} className="h-8 text-sm mt-1" placeholder="HD" />
-                <p className="text-[10px] text-muted-foreground mt-1">e.g. HD-INV-202604-00001</p>
+                <Input value={settings.invoice_prefix} onChange={e => upd('invoice_prefix', e.target.value)} className="h-8 text-sm mt-1" placeholder="CO" />
+                <p className="text-[10px] text-muted-foreground mt-1">e.g. CO-INV-202604-00001</p>
               </div>
               <div>
                 <Label className="text-xs">GST Number</Label>

@@ -103,7 +103,7 @@ export default function ProfilePage() {
   }
 
   function fmtEnroll(n: string) {
-    if (n.startsWith('ENR-')) return 'HD-' + n.slice(4).replace(/[^0-9]/g, '')
+    if (n.startsWith('ENR-')) return 'CO-' + n.slice(4).replace(/[^0-9]/g, '')
     return n
   }
 

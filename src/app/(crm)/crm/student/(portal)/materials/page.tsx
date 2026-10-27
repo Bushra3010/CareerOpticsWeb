@@ -78,7 +78,7 @@ export default async function MaterialsPage() {
             <div className="space-y-2">
               {[
                 { step: '1', text: 'Go to bosseonline.in and click "Student Login"' },
-                { step: '2', text: 'Enter your Enrollment Number (e.g. HD-873254) as User ID' },
+                { step: '2', text: 'Enter your Enrollment Number (e.g. CO-873254) as User ID' },
                 { step: '3', text: 'Enter your Date of Birth (DD/MM/YYYY) as password' },
                 { step: '4', text: 'Access study material, admit card, results & more' },
               ].map(({ step, text }) => (

@@ -62,11 +62,15 @@ export function Logo({
           twice. */}
       {showName ? (
         <span className="ml-2.5 hidden leading-tight sm:block">
-          <span className="font-display block text-lg font-extrabold tracking-tight text-brand-blue-900">
-            {siteConfig.name}
+          <span className="font-display block text-xl font-extrabold tracking-tight">
+            <span className="text-brand-blue">Career</span>
+            <span className="text-brand-red">Optics</span>
           </span>
-          <span className="block text-xs font-semibold tracking-wide text-brand-red uppercase">
+          <span className="block text-xs font-bold tracking-wide text-brand-blue-900 uppercase">
             {nameSuffix}
+          </span>
+          <span className="hidden text-[10px] font-medium text-muted-foreground lg:block">
+            {siteConfig.certification}
           </span>
         </span>
       ) : null}

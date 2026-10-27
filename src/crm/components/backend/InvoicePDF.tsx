@@ -308,7 +308,7 @@ export function amountInWords(amount: number): string {
 export const InvoicePDF = ({ student, payments, logoBase64, receipt }: InvoiceProps) => {
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
   const balance = (student.total_fee || 0) - totalPaid
-  const invoiceNo = `HD-${student.enrollment_date ? format(new Date(student.enrollment_date), 'yyyyMM') : format(new Date(), 'yyyyMM')}-${student.id.slice(-4).toUpperCase()}`
+  const invoiceNo = `CO-${student.enrollment_date ? format(new Date(student.enrollment_date), 'yyyyMM') : format(new Date(), 'yyyyMM')}-${student.id.slice(-4).toUpperCase()}`
   const receiptNo = receipt ? `HDR-${format(new Date(receipt.date), 'yyyyMMdd')}-${student.id.slice(-4).toUpperCase()}` : ''
 
   return (

@@ -137,14 +137,14 @@ export default function StudentLoginPage() {
                     </Label>
                     <Input
                       id="username"
-                      placeholder="e.g. HD-873254"
+                      placeholder="e.g. CO-873254"
                       className="h-11 rounded-xl border-gray-300 focus:border-blue-500 uppercase"
                       {...register('username')}
                       autoComplete="username"
                       autoCapitalize="characters"
                     />
                     {errors.username && <p className="text-xs text-red-500">{errors.username.message}</p>}
-                    <p className="text-xs text-gray-400">Enter your enrollment number exactly as given (e.g. HD-873254)</p>
+                    <p className="text-xs text-gray-400">Enter your enrollment number exactly as given (e.g. CO-873254)</p>
                   </div>
 
                   <div className="space-y-1.5">

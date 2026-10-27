@@ -35,6 +35,19 @@ export const mainNav: NavLink[] = [
   { label: "Blogs", href: "/blogs" },
 ];
 
+/**
+ * Desktop header links. "Admission" and "Our Facilities" are sections of the
+ * home page (the D.El.Ed / B.Ed application band and "Why CareerOptics").
+ */
+export const headerNav: NavLink[] = [
+  { label: "Home", href: "/" },
+  { label: "About Us", href: "/about" },
+  { label: "Courses", href: "/courses" },
+  { label: "Admission", href: "/#teaching-programmes" },
+  { label: "Our Facilities", href: "/#why-us" },
+  { label: "Contact Us", href: "/contact" },
+];
+
 export const levelNav: NavLink[] = [
   { label: "After 10th", href: "/after-10th" },
   { label: "After 12th", href: "/after-12th" },
