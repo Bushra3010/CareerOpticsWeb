@@ -120,12 +120,11 @@ async function crmGate(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Every path except static assets and image files. `/admin` and `/crm`
-     * need the gate; the public site needs the session cookie rotated so a
-     * signed-in counsellor browsing the site does not get logged out.
-     */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
-  ],
+  /*
+   * Only the gated areas. Running middleware on public pages forced every
+   * request past Netlify's CDN cache to an edge function (~1 s per page) for
+   * no benefit: public pages read no session. Staff browsing the public site
+   * keep their session; it is refreshed the next time they open /admin or /crm.
+   */
+  matcher: ["/admin", "/admin/:path*", "/crm", "/crm/:path*"],
 };
