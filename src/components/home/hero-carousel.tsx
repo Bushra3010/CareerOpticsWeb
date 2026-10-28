@@ -114,9 +114,10 @@ function HeroSlide({
 
   return (
     <CarouselItem className="pl-0" aria-label={banner.title ? `Banner: ${banner.title}` : undefined}>
-      {/* 5:2 — the ratio the client's banners are designed at (1600×640), so
-          the whole artwork, text included, shows on every screen width. */}
-      <div className="relative mx-4 aspect-[5/2] overflow-hidden rounded-2xl bg-brand-blue-900 lg:mx-0 lg:rounded-none">
+      {/* 14:5 sits between the client's banner shapes (2.5:1 to 3:1). With
+          object-contain the whole artwork — phone numbers included — shows on
+          every screen; the slack is a thin surface-coloured band. */}
+      <div className="relative mx-4 aspect-[14/5] overflow-hidden rounded-2xl bg-surface lg:mx-0 lg:rounded-none">
         {/* Mobile image — hidden on desktop, shown on mobile. */}
         {mobileSrc ? (
           <div className="lg:hidden absolute inset-0">
@@ -126,7 +127,7 @@ function HeroSlide({
               fill
               priority={priority}
               sizes="100vw"
-              className="object-cover"
+              className="object-contain"
             />
           </div>
         ) : null}
@@ -139,7 +140,7 @@ function HeroSlide({
               fill
               priority={priority}
               sizes="100vw"
-              className="object-cover"
+              className="object-contain"
             />
           </div>
         ) : null}

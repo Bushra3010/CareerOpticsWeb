@@ -69,14 +69,22 @@ export function ScholarshipSection({
         </div>
       </div>
 
-      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-brand-blue-50">
+      {/* With artwork: the client's posters are square and full of text, so
+          show the whole thing. Without: a 16:10 branded placeholder. */}
+      <div
+        className={
+          image
+            ? "relative mx-auto aspect-square w-full max-w-md overflow-hidden rounded-xl bg-brand-blue-50 shadow-card"
+            : "relative aspect-[16/10] overflow-hidden rounded-xl bg-brand-blue-50"
+        }
+      >
         {image ? (
           <Image
             src={image}
             alt={scholarship.title}
             fill
-            sizes="(min-width: 1024px) 600px, 100vw"
-            className="object-cover"
+            sizes="(min-width: 1024px) 448px, 100vw"
+            className="object-contain"
           />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
