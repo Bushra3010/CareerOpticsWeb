@@ -47,50 +47,46 @@ export default async function PressReleasePage() {
             Press coverage will be listed here.
           </p>
         ) : (
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((item) => {
               const src = imageSrc(item.image_url);
               const when = formatDate(item.published_on);
-
-              // §17 forbids dead links — an item without a URL is a plain card.
-              const Wrapper = item.article_url ? "a" : "div";
+              // The article if there is one, otherwise the full-size clipping.
+              // §17 forbids dead links, so a card with neither is not a link.
+              const href = item.article_url ?? src;
+              const Wrapper = href ? "a" : "div";
 
               return (
                 <li key={item.id}>
                   <Wrapper
-                    {...(item.article_url
-                      ? {
-                          href: item.article_url,
-                          target: "_blank",
-                          rel: "noopener noreferrer",
-                        }
-                      : {})}
-                    className="card-lift flex h-full flex-col items-center gap-2 rounded-xl border bg-card p-6 text-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
+                    {...(href ? { href, target: "_blank", rel: "noopener noreferrer" } : {})}
+                    className="card-lift flex h-full flex-col overflow-hidden rounded-xl border bg-card focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
                   >
                     {src ? (
-                      <Image
-                        src={src}
-                        alt={item.publication ?? "Publication"}
-                        width={140}
-                        height={48}
-                        className="h-12 w-auto object-contain"
-                      />
-                    ) : (
-                      <span className="font-display text-h3 text-brand-blue-900">
+                      <div className="relative aspect-[4/5] bg-surface">
+                        <Image
+                          src={src}
+                          alt={item.publication ?? "Newspaper clipping"}
+                          fill
+                          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                          className="object-contain p-2"
+                        />
+                      </div>
+                    ) : null}
+                    <div className="flex flex-1 flex-col gap-1 p-4">
+                      <span className="font-display text-base font-bold text-ink">
                         {item.publication}
                       </span>
-                    )}
-                    {when ? (
-                      <span className="text-sm text-muted-foreground tabular-nums">
-                        {when}
-                      </span>
-                    ) : null}
-                    {item.article_url ? (
-                      <span className="mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold text-brand-blue-400">
-                        Read article
-                        <ExternalLink className="size-3.5" aria-hidden />
-                      </span>
-                    ) : null}
+                      {when ? (
+                        <span className="text-sm text-muted-foreground tabular-nums">{when}</span>
+                      ) : null}
+                      {href ? (
+                        <span className="mt-auto inline-flex items-center gap-1 pt-2 text-sm font-semibold text-brand-blue-400">
+                          {item.article_url ? "Read article" : "View full clipping"}
+                          <ExternalLink className="size-3.5" aria-hidden />
+                        </span>
+                      ) : null}
+                    </div>
                   </Wrapper>
                 </li>
               );

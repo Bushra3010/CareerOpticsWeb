@@ -19,7 +19,7 @@ import { siteConfig } from "@/config/site";
 export function SiteHeader() {
   return (
     <header className="site-header sticky top-0 z-40 bg-white">
-      <div className="flex h-16 w-full items-center justify-between gap-4 px-4 lg:h-20 lg:px-6">
+      <div className="flex h-16 w-full items-center justify-between gap-3 px-4 lg:h-20 lg:px-6">
         <Logo priority showName imageClassName="h-12 w-auto lg:h-16" />
 
         <HeaderNav />
@@ -39,9 +39,11 @@ export function SiteHeader() {
             className="inline-flex items-center gap-2 rounded-full bg-brand-red px-4 py-2 text-white shadow-card transition-colors hover:bg-brand-red-600 focus-visible:ring-2 focus-visible:ring-brand-blue-400 focus-visible:ring-offset-2 focus-visible:outline-none lg:px-5 lg:py-2.5"
           >
             <Phone className="size-5 shrink-0" aria-hidden />
+            {/* The number shows where there is room: phones/tablets and wide
+                desktops. Between lg and 2xl the six links need the space. */}
             <span className="leading-tight">
               <span className="block text-sm font-bold">Call Now</span>
-              <span className="hidden text-sm font-bold tabular-nums sm:block">
+              <span className="hidden text-sm font-bold tabular-nums sm:block lg:hidden 2xl:block">
                 {siteConfig.callNow.display}
               </span>
             </span>
