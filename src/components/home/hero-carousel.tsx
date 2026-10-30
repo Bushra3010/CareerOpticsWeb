@@ -34,29 +34,6 @@ export function HeroCarousel({ banners }: { banners: HeroBanner[] }) {
     };
   }, [api]);
 
-  // Slides have different heights; size the viewport to the active one so a
-  // shorter banner never leaves a gap below it.
-  React.useEffect(() => {
-    if (!api) return;
-    const fit = () => {
-      const slide = api.slideNodes()[api.selectedScrollSnap()];
-      if (slide) api.rootNode().style.height = `${slide.offsetHeight}px`;
-    };
-    const observer = new ResizeObserver(fit);
-    api.slideNodes().forEach((node) => observer.observe(node));
-    api.rootNode().style.transition = "height 300ms ease-out";
-    fit();
-    // `select` fires as the slide starts moving; `settle` re-checks once it
-    // has landed, in case an image finished loading in between.
-    api.on("select", fit);
-    api.on("settle", fit);
-    return () => {
-      observer.disconnect();
-      api.off("select", fit);
-      api.off("settle", fit);
-    };
-  }, [api]);
-
   React.useEffect(() => {
     if (!api || paused || banners.length < 2) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -81,7 +58,7 @@ export function HeroCarousel({ banners }: { banners: HeroBanner[] }) {
       onBlurCapture={() => setPaused(false)}
     >
       <Carousel setApi={setApi} opts={{ loop: true }} className="w-full">
-        <CarouselContent className="ml-0 items-start">
+        <CarouselContent className="ml-0">
           {banners.map((banner, index) => (
             <HeroSlide
               key={banner.id}
@@ -137,34 +114,22 @@ function HeroSlide({
 
   return (
     <CarouselItem className="pl-0" aria-label={banner.title ? `Banner: ${banner.title}` : undefined}>
-      {/* Each banner renders at its own aspect ratio, full width — the
-          client's artwork ranges from about 2:1 to 3:1 and is dense with text,
-          so neither cropping nor letterboxing is acceptable. The carousel
-          viewport animates to the active slide's height (see HeroCarousel). */}
-      <div className="relative mx-4 overflow-hidden rounded-2xl bg-surface lg:mx-0 lg:rounded-none">
+      {/* Every slide is the same 14:5 frame so the hero never changes size.
+          The client's banners run from about 2:1 to 3:1 and are dense with
+          text, so the artwork is contained (never cropped) and any spare width
+          is filled with a blurred copy of the same banner rather than a bar. */}
+      <div className="relative mx-4 aspect-[14/5] overflow-hidden rounded-2xl bg-surface lg:mx-0 lg:rounded-none">
         {/* Mobile image — hidden on desktop, shown on mobile. */}
         {mobileSrc ? (
-          <Image
-            src={mobileSrc}
-            alt=""
-            width={1600}
-            height={640}
-            priority={priority}
-            sizes="100vw"
-            className="block h-auto w-full lg:hidden"
-          />
+          <div className="absolute inset-0 lg:hidden">
+            <SlideArt src={mobileSrc} priority={priority} />
+          </div>
         ) : null}
         {/* Desktop image — hidden on mobile, shown on desktop. */}
         {desktopSrc ? (
-          <Image
-            src={desktopSrc}
-            alt=""
-            width={1600}
-            height={640}
-            priority={priority}
-            sizes="100vw"
-            className="hidden h-auto w-full lg:block"
-          />
+          <div className="absolute inset-0 hidden lg:block">
+            <SlideArt src={desktopSrc} priority={priority} />
+          </div>
         ) : null}
         {/* The banner title is the page's only h1. It is visually removed but
             kept for the document outline and search results — a home page with
@@ -174,5 +139,32 @@ function HeroSlide({
         ) : null}
       </div>
     </CarouselItem>
+  );
+}
+
+/** Banner contained in the frame, over a blurred cover-fill of itself. */
+function SlideArt({ src, priority }: { src: string; priority: boolean }) {
+  return (
+    <>
+      <Image
+        src={src}
+        alt=""
+        aria-hidden
+        fill
+        sizes="64px"
+        className="scale-110 object-cover opacity-70 blur-2xl"
+      />
+      {/* Later slides load eagerly too: lazy-loading them meant a slide could
+          appear as only the blurred backdrop for a moment after it scrolled in. */}
+      <Image
+        src={src}
+        alt=""
+        fill
+        priority={priority}
+        loading={priority ? undefined : "eager"}
+        sizes="100vw"
+        className="object-contain"
+      />
+    </>
   );
 }
