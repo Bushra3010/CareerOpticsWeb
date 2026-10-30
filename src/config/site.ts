@@ -50,10 +50,9 @@ export const siteConfig = {
   leadEmail: "leads@careeroptics.in",
   supportEmail: "info@careeroptics.in",
   social: {
-    facebook: "https://facebook.com/careeroptics",
-    instagram: "https://instagram.com/careeroptics",
-    youtube: "https://youtube.com/@careeroptics",
-    linkedin: "https://linkedin.com/company/careeroptics",
+    facebook: "https://www.facebook.com/share/1E2nDvxmPc/",
+    instagram: "https://www.instagram.com/careeropticseducationservice/",
+    youtube: "https://www.youtube.com/@opticscareer",
   },
 } as const;
 

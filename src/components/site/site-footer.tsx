@@ -6,7 +6,6 @@ import { Logo } from "@/components/site/logo";
 import {
   FacebookIcon,
   InstagramIcon,
-  LinkedinIcon,
   YoutubeIcon,
 } from "@/components/site/social-icons";
 import { footerNav, mapQuery, offices } from "@/config/nav";
@@ -16,7 +15,6 @@ const socials = [
   { label: "Facebook", href: siteConfig.social.facebook, Icon: FacebookIcon },
   { label: "Instagram", href: siteConfig.social.instagram, Icon: InstagramIcon },
   { label: "YouTube", href: siteConfig.social.youtube, Icon: YoutubeIcon },
-  { label: "LinkedIn", href: siteConfig.social.linkedin, Icon: LinkedinIcon },
 ];
 
 /** §5.1 item 17 — 4 columns, office addresses, map, copyright. */
