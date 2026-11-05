@@ -1,0 +1,6 @@
+.env*
+!.env.example
+.netlify
+whatsapp-bot/node_modules
+whatsapp-bot/auth
+whatsapp-bot/qr.png
