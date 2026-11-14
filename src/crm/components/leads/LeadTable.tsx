@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator
 } from '@/crm/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/crm/components/ui/select'
+import { useCollegeCourses, useWebsiteColleges } from '@/crm/lib/website-catalog'
 import { LeadTransferModal } from './LeadTransferModal'
 import { LeadForm } from './LeadForm'
 import { ConvertLeadModal } from './ConvertLeadModal'
@@ -85,6 +86,11 @@ const PAGE_SIZE_OPTIONS = [10, 20, 30, 50]
 export function LeadTable({ leads, isLoading, onRefresh, onLeadUpdate, courses = [], telecallers = [], isTelecaller = false }: LeadTableProps) {
   const router = useRouter()
   const { filters, setFilters, clearFilters } = useLeadStore()
+  // College filter options come from the website catalogue; picking a college
+  // narrows the course filter to that college's courses.
+  const websiteColleges = useWebsiteColleges()
+  const collegeCourses = useCollegeCourses(filters.college_id)
+  const courseOptions = collegeCourses ? courses.filter(c => collegeCourses.some(w => w.name === c.name)) : courses
   const [search, setSearch] = useState(filters.search ?? '')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [transferLeadIds, setTransferLeadIds] = useState<string[]>([])
@@ -139,7 +145,7 @@ export function LeadTable({ leads, isLoading, onRefresh, onLeadUpdate, courses =
     setSelected((prev) => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
 
-  const activeFilters = filters.status?.length || filters.source?.length || filters.assigned_to?.length || filters.course_id?.length || filters.mode || filters.city || filters.followup_from || filters.followup_to
+  const activeFilters = filters.status?.length || filters.source?.length || filters.assigned_to?.length || filters.course_id?.length || filters.college_id || filters.mode || filters.city || filters.followup_from || filters.followup_to
 
   function toggleStatus(s: LeadStatus) {
     const cur = filters.status ?? []
@@ -326,15 +332,32 @@ export function LeadTable({ leads, isLoading, onRefresh, onLeadUpdate, courses =
               </Select>
             )}
 
-            {/* Course filter */}
+            {/* College filter — website colleges */}
+            {websiteColleges.length > 0 && (
+              <Select value={filters.college_id ?? ''} onValueChange={(v) => { setFilters({ college_id: v || undefined, course_id: undefined }); setPage(1) }}>
+                <SelectTrigger className={`w-40 h-8 text-xs ${filters.college_id ? 'border-blue-300 bg-blue-50 text-blue-700' : ''}`}>
+                  <SelectValue placeholder="College">
+                    <span className="truncate">{websiteColleges.find(c => c.id === filters.college_id)?.name ?? 'All colleges'}</span>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">All colleges</SelectItem>
+                  {websiteColleges.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Course filter — narrowed to the chosen college's courses */}
             {courses.length > 0 && (
               <Select value={filters.course_id?.[0] ?? ''} onValueChange={(v) => { setFilters({ course_id: v ? [v] : undefined }); setPage(1) }}>
-                <SelectTrigger className={`w-28 h-8 text-xs ${filters.course_id?.length ? 'border-blue-300 bg-blue-50 text-blue-700' : ''}`}>
-                  <SelectValue placeholder="Course" />
+                <SelectTrigger className={`w-40 h-8 text-xs ${filters.course_id?.length ? 'border-blue-300 bg-blue-50 text-blue-700' : ''}`}>
+                  <SelectValue placeholder="Course">
+                    <span className="truncate">{courses.find(c => c.id === filters.course_id?.[0])?.name ?? (collegeCourses ? `All ${courseOptions.length} courses` : 'All courses')}</span>
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">All courses</SelectItem>
-                  {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {courseOptions.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             )}

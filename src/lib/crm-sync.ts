@@ -47,3 +47,42 @@ export async function syncCrmCourse(previousName: string | null, name: string) {
     console.error("CRM course sync failed:", error);
   }
 }
+
+/**
+ * Website enquiries reach `crm.leads` through the `push_lead_to_crm` trigger,
+ * which does not carry the college the student applied to. Stamp it onto the
+ * CRM lead's metadata so the CRM's college filter finds website leads too.
+ * Never throws.
+ */
+export async function tagCrmLeadCollege(websiteLeadId: string, collegeId: string | null) {
+  if (!collegeId) return;
+  try {
+    const opts = { auth: { autoRefreshToken: false, persistSession: false } } as const;
+    const pub = createClient(publicEnv.supabaseUrl, serverEnv.supabaseServiceRoleKey, opts);
+    const crm = createClient(publicEnv.supabaseUrl, serverEnv.supabaseServiceRoleKey, {
+      ...opts,
+      db: { schema: "crm" },
+    });
+
+    const { data: college } = await pub.from("colleges").select("name").eq("id", collegeId).maybeSingle();
+    const { data: lead } = await crm
+      .from("leads")
+      .select("id, metadata")
+      .eq("metadata->>website_lead_id", websiteLeadId)
+      .maybeSingle();
+    if (!lead) return;
+
+    await crm
+      .from("leads")
+      .update({
+        metadata: {
+          ...((lead.metadata as Record<string, unknown> | null) ?? {}),
+          college_id: collegeId,
+          college_name: (college as { name?: string } | null)?.name ?? null,
+        },
+      })
+      .eq("id", lead.id);
+  } catch (error) {
+    console.error("CRM lead college tag failed:", error);
+  }
+}

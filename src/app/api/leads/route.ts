@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { tagCrmLeadCollege } from "@/lib/crm-sync";
 import { notifyCounsellors } from "@/lib/leads/notify";
 import { limitLeads } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -139,6 +140,9 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+
+  // Carry the applied-to college into the CRM lead; never fails the request.
+  await tagCrmLeadCollege(data.id, insert.college_id ?? null);
 
   // Notification failures must not fail a lead that is already saved.
   const notified = await notifyCounsellors(lead, data.id);

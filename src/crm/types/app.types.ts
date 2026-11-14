@@ -72,6 +72,8 @@ export interface LeadFilters {
   source?: LeadSource[]
   assigned_to?: string[]
   course_id?: string[]
+  /** Website college id, matched against extra_data / metadata `college_id`. */
+  college_id?: string
   sub_course_id?: string[]
   department_id?: string[]
   sub_section_id?: string[]

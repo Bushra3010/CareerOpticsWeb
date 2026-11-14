@@ -94,6 +94,10 @@ export function LeadsClient() {
       if (filters.source?.length) query = query.in('source', filters.source)
       if (isAdmin && filters.assigned_to?.length) query = query.in('assigned_to', filters.assigned_to)
       if (filters.course_id?.length) query = query.in('course_id', filters.course_id)
+      // College lives in extra_data (CRM-entered) or metadata (website leads).
+      if (filters.college_id && /^[0-9a-f-]{36}$/i.test(filters.college_id)) {
+        query = query.or(`extra_data->>college_id.eq.${filters.college_id},metadata->>college_id.eq.${filters.college_id}`)
+      }
       if (filters.city) query = query.ilike('city', `%${filters.city}%`)
       if (filters.mode) query = query.eq('mode', filters.mode)
       if (filters.followup_from) query = query.gte('next_followup_date', filters.followup_from)

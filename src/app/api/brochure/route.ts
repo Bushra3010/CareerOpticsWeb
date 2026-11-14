@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { tagCrmLeadCollege } from "@/lib/crm-sync";
 import { notifyCounsellors } from "@/lib/leads/notify";
 import { limitLeads } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -112,6 +113,8 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
+
+  await tagCrmLeadCollege(inserted.id, lead.college_id ?? null);
 
   // An editor may have stored an absolute URL instead of a bucket path; only a
   // path can be signed. Absolute URLs are not returned — that would be an open
