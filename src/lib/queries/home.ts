@@ -386,3 +386,19 @@ export async function getGoalCityOptions() {
 }
 
 export type GoalCityOptions = Awaited<ReturnType<typeof getGoalCityOptions>>;
+
+/** Latest published blog posts for the home strip — same columns as /blogs. */
+export async function getLatestBlogs(limit = 3) {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("blogs")
+    .select(
+      "id, title, slug, excerpt, cover_url, category, tags, author, read_minutes, published_at, meta_title, meta_description",
+    )
+    .eq("status", "published")
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) throw new Error(`blogs: ${error.message}`);
+  return data ?? [];
+}

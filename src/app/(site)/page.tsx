@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 
+import { ArticleCard } from "@/components/content/article-card";
 import { CollegeCarousel } from "@/components/home/college-carousel";
 import { CollegeFinderBand } from "@/components/home/college-finder-band";
 import { ExamCard } from "@/components/home/exam-card";
@@ -26,6 +27,7 @@ import {
   getGalleryItems,
   getHeroBanners,
   getHomeFaqs,
+  getLatestBlogs,
   getPressReleases,
   getGoalCityOptions,
   getSiteStats,
@@ -57,6 +59,7 @@ export default async function HomePage() {
     press,
     faqs,
     goalCityOptions,
+    blogs,
   ] = await Promise.all([
     getHeroBanners(),
     getStudyGoals(),
@@ -69,6 +72,7 @@ export default async function HomePage() {
     getPressReleases(),
     getHomeFaqs(),
     getGoalCityOptions(),
+    getLatestBlogs(),
   ]);
 
   return (
@@ -155,6 +159,24 @@ export default async function HomePage() {
       {scholarship ? (
         <Section id="scholarship" title="Scholarships & Education Loans" tinted>
           <ScholarshipSection scholarship={scholarship} />
+        </Section>
+      ) : null}
+
+      {/* Blog — the three latest posts, managed from /admin/blogs */}
+      {blogs.length > 0 ? (
+        <Section
+          id="blog"
+          title="Latest from Our Blog"
+          description="Admission guides, scheme explainers and counselling advice from our team."
+          action={{ label: "View all blogs", href: "/blogs" }}
+        >
+          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {blogs.map((article) => (
+              <li key={article.id}>
+                <ArticleCard article={article} basePath="/blogs" headingLevel="h3" />
+              </li>
+            ))}
+          </ul>
         </Section>
       ) : null}
 

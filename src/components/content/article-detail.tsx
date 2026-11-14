@@ -2,7 +2,7 @@ import Image from "next/image";
 
 import { Clock, User } from "lucide-react";
 
-import { formatArticleDate } from "@/components/content/article-index";
+import { formatArticleDate } from "@/components/content/article-card";
 import { Prose } from "@/components/content/prose";
 import { InlineLeadCard } from "@/components/forms/inline-lead-card";
 import { PageHeader } from "@/components/taxonomy/page-header";
@@ -71,7 +71,7 @@ export function ArticleDetail({
 
       <div className="container-site py-8 lg:py-12">
         {cover ? (
-          <div className="relative mb-8 aspect-[16/7] max-w-3xl overflow-hidden rounded-xl bg-brand-blue-50">
+          <div className="relative mb-8 aspect-[14/5] max-w-3xl overflow-hidden rounded-xl bg-brand-blue-50">
             <Image
               src={cover}
               alt=""
