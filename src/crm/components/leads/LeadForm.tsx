@@ -16,6 +16,7 @@ import {
   type Lead, type Course, type SubCourse, type Profile,
   type Department, type DepartmentSubSection, type Session
 } from '@/crm/types/app.types'
+import { feeHint, useCollegeCourses, useWebsiteColleges } from '@/crm/lib/website-catalog'
 
 interface FormField {
   id: string
@@ -107,6 +108,10 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
   const [formFields, setFormFields] = useState<FormField[]>([])
   const [customValues, setCustomValues] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
+  // College the student is interested in — the website's own college list.
+  const [collegeId, setCollegeId] = useState<string>((lead as any)?.extra_data?.college_id ?? '')
+  const websiteColleges = useWebsiteColleges()
+  const collegeCourses = useCollegeCourses(collegeId)
   const [duplicateLead, setDuplicateLead] = useState<{ id: string; full_name: string; phone: string } | null>(null)
   const supabase = createClient()
 
@@ -246,8 +251,10 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
     try {
       // session_id column may not exist in DB — exclude from payload
       const { notes, next_followup_time, session_id: _sid, ...rest } = data
+      const college = websiteColleges.find(c => c.id === collegeId)
       const mergedExtra = {
         ...(Object.keys(customValues).length ? customValues : {}),
+        ...(college ? { college_id: college.id, college_name: college.name } : {}),
         ...(next_followup_time ? { followup_time: next_followup_time } : {}),
       }
       const payload = {
@@ -569,8 +576,34 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
         <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
           <SectionHeader icon={BookOpen} title="Course Preference" color="border-emerald-200" />
           <div className="grid grid-cols-2 gap-4">
+            {/* College — straight from the website catalogue; narrows Course. */}
+            <div className="col-span-2">
+              <FieldWrapper label="College / University">
+                <Select
+                  value={collegeId}
+                  onValueChange={(v) => {
+                    const id = v || ''
+                    setCollegeId(id)
+                    setValue('course_id', '')
+                    setValue('sub_course_id', '' as any)
+                  }}
+                >
+                  <SelectTrigger className="bg-white border-emerald-200">
+                    <SelectValue placeholder="Any college">
+                      {websiteColleges.find(c => c.id === collegeId)?.name}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Any college</SelectItem>
+                    {websiteColleges.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ''}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </FieldWrapper>
+            </div>
             {isVisible('course_id') && (
-              <FieldWrapper label="Course">
+              <FieldWrapper label={collegeCourses ? `Course (${collegeCourses.length} at this college)` : 'Course'}>
                 <Select value={watch('course_id') || ''} onValueChange={(v) => { setValue('course_id', v || ''); setValue('sub_course_id', '' as any) }}>
                   <SelectTrigger className="bg-white border-emerald-200">
                     <SelectValue placeholder="Select course">
@@ -579,9 +612,15 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">No course</SelectItem>
-                    {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                    {(collegeCourses ? courses.filter(c => collegeCourses.some(w => w.name === c.name)) : courses)
+                      .map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+                {collegeCourses ? (
+                  <p className="mt-1 text-xs text-emerald-700">
+                    {feeHint(collegeCourses.find(w => w.name === courses.find(c => c.id === watch('course_id'))?.name)) ?? 'Pick a course to see the website fee'}
+                  </p>
+                ) : null}
               </FieldWrapper>
             )}
 

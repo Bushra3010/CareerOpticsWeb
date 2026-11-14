@@ -19,6 +19,7 @@ import {
     type Department, type DepartmentSubSection, type Session,
     PAYMENT_MODE_LABELS
 } from '@/crm/types/app.types'
+import { feeHint, useCollegeCourses, useWebsiteColleges } from '@/crm/lib/website-catalog'
 
 interface Associate { id: string; name: string; associate_code: string | null }
 interface Telecaller { id: string; full_name: string }
@@ -76,6 +77,16 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     const [counsellors, setCounsellors] = useState<Profile[]>([])
     const [associates, setAssociates] = useState<Associate[]>([])
     const [loading, setLoading] = useState(false)
+    // College from the website catalogue; saved as the student's university_name.
+    const websiteColleges = useWebsiteColleges()
+    const [collegeId, setCollegeId] = useState('')
+    const collegeCourses = useCollegeCourses(collegeId)
+    useEffect(() => {
+        const saved = (student as any)?.university_name
+        if (!saved || collegeId || websiteColleges.length === 0) return
+        const match = websiteColleges.find(c => c.name === saved)
+        if (match) setCollegeId(match.id)
+    }, [websiteColleges, student, collegeId])
 
     // Mentorship state
     const [leads, setLeads] = useState<Telecaller[]>([])
@@ -241,6 +252,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
                 mode: data.mode || null,
                 enrollment_date: data.enrollment_date || null,
                 session_id: data.session_id || null,
+                ...(collegeId ? { university_name: websiteColleges.find(c => c.id === collegeId)?.name ?? null } : {}),
             }
 
             const { data: { user } } = await supabase.auth.getUser()
@@ -615,6 +627,24 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
                     <div className="bg-emerald-50/50 rounded-xl p-4 border border-emerald-100">
                         <SectionHeader icon={BookOpen} title="Academic Details" color="border-emerald-200" />
                         <div className="grid grid-cols-2 gap-4">
+                            {/* College — straight from the website catalogue; narrows Course. */}
+                            <div className="col-span-2">
+                                <FieldWrapper label="College / University">
+                                    <Select value={collegeId} onValueChange={(v) => { setCollegeId(v || ''); setValue('course_id', ''); setValue('sub_course_id', '') }}>
+                                        <SelectTrigger className="bg-white border-emerald-200">
+                                            <SelectValue placeholder={(student as any)?.university_name || 'Select college'}>
+                                                {websiteColleges.find(c => c.id === collegeId)?.name}
+                                            </SelectValue>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">Any college</SelectItem>
+                                            {websiteColleges.map((c) => (
+                                                <SelectItem key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ''}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </FieldWrapper>
+                            </div>
                             <FieldWrapper label="Session">
                                 <Select value={watch('session_id') || ''} onValueChange={(v) => setValue('session_id', v || '')}>
                                     <SelectTrigger className="bg-white border-emerald-200">
@@ -629,7 +659,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
                                 </Select>
                             </FieldWrapper>
 
-                            <FieldWrapper label="Course">
+                            <FieldWrapper label={collegeCourses ? `Course (${collegeCourses.length} at this college)` : 'Course'}>
                                 <Select value={watch('course_id') || ''} onValueChange={(v) => { setValue('course_id', v || ''); setValue('sub_course_id', '') }}>
                                     <SelectTrigger className="bg-white border-emerald-200">
                                         <SelectValue placeholder="Select course">
@@ -638,9 +668,15 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="">No course</SelectItem>
-                                        {courses.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                        {(collegeCourses ? courses.filter(c => collegeCourses.some(w => w.name === c.name)) : courses)
+                                            .map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
+                                {collegeCourses ? (
+                                    <p className="mt-1 text-xs text-emerald-700">
+                                        {feeHint(collegeCourses.find(w => w.name === courses.find(c => c.id === watch('course_id'))?.name)) ?? 'Pick a course to see the website fee'}
+                                    </p>
+                                ) : null}
                             </FieldWrapper>
 
                             <FieldWrapper label="Standard">
