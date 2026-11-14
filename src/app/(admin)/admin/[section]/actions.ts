@@ -7,6 +7,7 @@ import { z } from "zod";
 import { can, requireStaff } from "@/lib/auth";
 import { fieldsFor, type Field } from "@/config/admin-fields";
 import { findSection } from "@/config/admin-content";
+import { syncCrmCourse } from "@/lib/crm-sync";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -167,6 +168,13 @@ export async function saveRow(formData: FormData): Promise<SaveResult> {
 
   const supabase = await createClient();
 
+  // Courses are mirrored into the CRM by name; note the old name for renames.
+  let previousCourseName: string | null = null;
+  if (section.table === "courses" && id) {
+    const { data } = await supabase.from("courses").select("name").eq("id", String(id)).maybeSingle();
+    previousCourseName = (data as { name?: string } | null)?.name ?? null;
+  }
+
   const { error } = id
     ? await supabase.from(section.table).update(patch as never).eq("id", String(id))
     : await supabase.from(section.table).insert(patch as never);
@@ -177,6 +185,10 @@ export async function saveRow(formData: FormData): Promise<SaveResult> {
       ? "That slug is already taken — slugs must be unique."
       : error.message;
     return { ok: false, error: message };
+  }
+
+  if (section.table === "courses" && typeof patch.name === "string") {
+    await syncCrmCourse(previousCourseName, patch.name);
   }
 
   revalidatePath(`/admin/${section.slug}`);
