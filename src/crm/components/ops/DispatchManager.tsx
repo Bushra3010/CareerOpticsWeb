@@ -13,6 +13,7 @@ import {
   Package, X, ArrowDownToLine, Send, ChevronRight, Plus, Printer, MessageCircle,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { fetchDirectorSeal } from '@/crm/lib/seal'
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -475,7 +476,12 @@ export function DispatchManager() {
   }
 
   // Build a printable receipt for the student covering every document in the group.
-  function downloadReceipt(g: DispatchGroup) {
+  async function downloadReceipt(g: DispatchGroup) {
+    // Open the window synchronously (inside the click) so pop-up blockers allow
+    // it, then fill it once the director's seal has loaded.
+    const w = window.open('', '_blank')
+    if (!w) { toast.error('Allow pop-ups to download the receipt'); return }
+    const seal = await fetchDirectorSeal()
     const d = g.head
     const isInbound = d.dispatch_type === 'inbound'
     const docs = g.rows
@@ -511,7 +517,9 @@ export function DispatchManager() {
       table{width:100%;border-collapse:collapse;margin-top:6px}
       th,td{border:1px solid #e2e8f0;padding:8px 10px;font-size:13px;text-align:left}
       th{background:#eff6ff;text-transform:uppercase;font-size:10px;letter-spacing:.5px;color:#2563eb}
-      .sign{display:flex;justify-content:space-between;margin-top:42px;font-size:12px;color:#64748b}
+      .sign{display:flex;justify-content:space-between;align-items:flex-end;margin-top:42px;font-size:12px;color:#64748b}
+      .sign .auth{display:flex;flex-direction:column;align-items:center}
+      .sign img{width:110px;height:auto;margin-bottom:4px}
       .foot{text-align:center;font-size:11px;color:#94a3b8;padding:14px;border-top:1px dashed #e2e8f0}
     </style></head><body>
       <div class="wrap">
@@ -533,14 +541,12 @@ export function DispatchManager() {
             <thead><tr><th style="width:42px;text-align:center">#</th><th>Document</th><th>Status</th><th>Remarks</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
-          <div class="sign"><span>Receiver's Signature</span><span>Authorised Signatory</span></div>
+          <div class="sign"><span>Receiver's Signature</span><span class="auth">${seal ? `<img src="${seal}" alt="">` : ''}<span>Authorised Signatory</span></span></div>
         </div>
         <div class="foot">This is a system-generated receipt from CareerOptics</div>
       </div>
       <script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
     </body></html>`
-    const w = window.open('', '_blank')
-    if (!w) { toast.error('Allow pop-ups to download the receipt'); return }
     w.document.write(html)
     w.document.close()
   }

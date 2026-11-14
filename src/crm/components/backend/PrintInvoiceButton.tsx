@@ -7,6 +7,7 @@ import { createClient } from '@/crm/lib/supabase/client'
 import { InvoicePDF } from './InvoicePDF'
 import { Student, Payment } from '@/crm/types/app.types'
 import { toast } from 'sonner'
+import { fetchDirectorSeal } from '@/crm/lib/seal'
 
 interface PrintInvoiceButtonProps {
     student: Student
@@ -16,23 +17,26 @@ export function PrintInvoiceButton({ student }: PrintInvoiceButtonProps) {
     const [loading, setLoading] = useState(false)
     const [payments, setPayments] = useState<Payment[]>([])
     const [logoBase64, setLogoBase64] = useState<string>('')
+    const [sealBase64, setSealBase64] = useState<string>('')
     const [ready, setReady] = useState(false)
     const supabase = createClient()
 
     async function handlePrepare() {
         setLoading(true)
         try {
-            const [paymentsRes, logoRes] = await Promise.all([
+            const [paymentsRes, logoRes, sealRes] = await Promise.all([
                 supabase.from('payments').select('*').eq('student_id', student.id).order('payment_date', { ascending: true }),
                 fetch('/brand-logo.png').then(r => r.blob()).then(blob => new Promise<string>((resolve) => {
                     const reader = new FileReader()
                     reader.onloadend = () => resolve(reader.result as string)
                     reader.readAsDataURL(blob)
                 })).catch(() => ''),
+                fetchDirectorSeal(),
             ])
             if (paymentsRes.error) throw paymentsRes.error
             setPayments(paymentsRes.data ?? [])
             setLogoBase64(logoRes)
+            setSealBase64(sealRes)
             setReady(true)
         } catch (err) {
             toast.error('Failed to load payment history')
@@ -45,7 +49,7 @@ export function PrintInvoiceButton({ student }: PrintInvoiceButtonProps) {
     if (ready) {
         return (
             <PDFDownloadLink
-                document={<InvoicePDF student={student} payments={payments} logoBase64={logoBase64} />}
+                document={<InvoicePDF student={student} payments={payments} logoBase64={logoBase64} sealBase64={sealBase64} />}
                 fileName={`Invoice_${student.full_name.replace(/\s+/g, '_')}.pdf`}
                 className="flex items-center"
             >

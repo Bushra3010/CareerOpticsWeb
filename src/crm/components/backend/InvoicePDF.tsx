@@ -278,6 +278,8 @@ interface InvoiceProps {
   student: Student
   payments: Payment[]
   logoBase64?: string
+  /** Director signature + seal (data URL); printed above "Authorised Signatory". */
+  sealBase64?: string
   /** When set, renders a RECEIPT for this amount instead of the full invoice. */
   receipt?: ReceiptDetails
 }
@@ -305,7 +307,7 @@ export function amountInWords(amount: number): string {
   return `${parts.join(' ')} Rupees${paise ? ` and ${twoDigits(paise)} Paise` : ''} Only`
 }
 
-export const InvoicePDF = ({ student, payments, logoBase64, receipt }: InvoiceProps) => {
+export const InvoicePDF = ({ student, payments, logoBase64, sealBase64, receipt }: InvoiceProps) => {
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0)
   const balance = (student.total_fee || 0) - totalPaid
   const invoiceNo = `CO-${student.enrollment_date ? format(new Date(student.enrollment_date), 'yyyyMM') : format(new Date(), 'yyyyMM')}-${student.id.slice(-4).toUpperCase()}`
@@ -507,6 +509,7 @@ export const InvoicePDF = ({ student, payments, logoBase64, receipt }: InvoicePr
               <Text style={[styles.footerLeft, { marginTop: 4, color: ACCENT }]}>Thank you for choosing CareerOptics!</Text>
             </View>
             <View style={styles.footerRight}>
+              {sealBase64 ? <Image src={sealBase64} style={{ width: 86, height: 82, marginBottom: 2 }} /> : null}
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Authorised Signatory</Text>
             </View>

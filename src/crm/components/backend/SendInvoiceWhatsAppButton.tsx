@@ -7,6 +7,7 @@ import { createClient } from '@/crm/lib/supabase/client'
 import { InvoicePDF } from './InvoicePDF'
 import { Student, Payment } from '@/crm/types/app.types'
 import { toast } from 'sonner'
+import { fetchDirectorSeal } from '@/crm/lib/seal'
 
 interface SendInvoiceWhatsAppButtonProps {
     student: Student
@@ -44,19 +45,20 @@ export function SendInvoiceWhatsAppButton({ student }: SendInvoiceWhatsAppButton
 
         setLoading(true)
         try {
-            const [paymentsRes, logoBase64] = await Promise.all([
+            const [paymentsRes, logoBase64, sealBase64] = await Promise.all([
                 supabase.from('payments').select('*').eq('student_id', student.id).order('payment_date', { ascending: true }),
                 fetch('/brand-logo.png').then(r => r.blob()).then(blob => new Promise<string>((resolve) => {
                     const reader = new FileReader()
                     reader.onloadend = () => resolve(reader.result as string)
                     reader.readAsDataURL(blob)
                 })).catch(() => ''),
+                fetchDirectorSeal(),
             ])
             if (paymentsRes.error) throw paymentsRes.error
             const payments = (paymentsRes.data ?? []) as Payment[]
 
             const blob = await pdf(
-                <InvoicePDF student={student} payments={payments} logoBase64={logoBase64} />
+                <InvoicePDF student={student} payments={payments} logoBase64={logoBase64} sealBase64={sealBase64} />
             ).toBlob()
 
             const course = student.course?.name

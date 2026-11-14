@@ -11,6 +11,7 @@ import { Button } from '@/crm/components/ui/button'
 import { Badge } from '@/crm/components/ui/badge'
 import { Input } from '@/crm/components/ui/input'
 import { SalarySlipPDF } from './SalarySlipPDF'
+import { fetchDirectorSeal } from '@/crm/lib/seal'
 
 interface PayrollRow {
   id: string
@@ -141,6 +142,7 @@ export default function PayrollTable({
         reader.readAsDataURL(blob)
       }))
       .catch(() => '')
+    const sealBase64 = await fetchDirectorSeal()
     return pdf(
       <SalarySlipPDF
         employeeName={row.employee_name}
@@ -162,6 +164,7 @@ export default function PayrollTable({
         net={row.net}
         paymentDate={row.payment_date}
         logoBase64={logoBase64}
+        sealBase64={sealBase64}
       />
     ).toBlob()
   }

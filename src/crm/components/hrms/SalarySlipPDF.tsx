@@ -161,12 +161,14 @@ export interface SalarySlipProps {
   net: number
   paymentDate: string | null
   logoBase64?: string
+  /** Director signature + seal (data URL); printed above "Authorised Signatory". */
+  sealBase64?: string
 }
 
 export function SalarySlipPDF({
   employeeName, employeeCode, designation, department, bankAccount,
   month, year, basic, hra, allowances, incentive, gross,
-  pf, tds, leaveDeduction, otherDeductions, net, paymentDate, logoBase64,
+  pf, tds, leaveDeduction, otherDeductions, net, paymentDate, logoBase64, sealBase64,
 }: SalarySlipProps) {
   const monthName = format(new Date(year, month - 1), 'MMMM yyyy')
   const totalDeductions = pf + tds + leaveDeduction + otherDeductions
@@ -303,6 +305,7 @@ export function SalarySlipPDF({
               <Text style={styles.footerLeft}>For queries: +91 73678 78422 | info@careeroptics.in</Text>
             </View>
             <View style={{ alignItems: 'flex-end' }}>
+              {sealBase64 ? <Image src={sealBase64} style={{ width: 80, height: 76, marginBottom: 2 }} /> : null}
               <View style={styles.signatureLine} />
               <Text style={styles.signatureLabel}>Authorised Signatory</Text>
             </View>

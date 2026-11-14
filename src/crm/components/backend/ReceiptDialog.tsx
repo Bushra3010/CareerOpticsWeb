@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { InvoicePDF, amountInWords } from './InvoicePDF'
 import { PAYMENT_MODE_LABELS, type PaymentMode, type Student } from '@/crm/types/app.types'
 import { toast } from 'sonner'
+import { fetchDirectorSeal } from '@/crm/lib/seal'
 
 interface ReceiptDialogProps {
     student: Student | null
@@ -46,11 +47,13 @@ export function ReceiptDialog({ student, onClose }: ReceiptDialogProps) {
                 reader.onloadend = () => resolve(reader.result as string)
                 reader.readAsDataURL(blob)
             })).catch(() => '')
+            const sealBase64 = await fetchDirectorSeal()
             const blob = await pdf(
                 <InvoicePDF
                     student={student}
                     payments={[]}
                     logoBase64={logoBase64}
+                    sealBase64={sealBase64}
                     receipt={{ amount: value, date, mode: PAYMENT_MODE_LABELS[mode], description: description.trim(), reference: reference.trim() }}
                 />
             ).toBlob()
