@@ -52,7 +52,7 @@ export const siteConfig = {
   social: {
     facebook: "https://www.facebook.com/share/1E2nDvxmPc/",
     instagram: "https://www.instagram.com/careeropticseducationservice/",
-    youtube: "https://www.youtube.com/@opticscareer",
+    youtube: "https://youtube.com/@opticscareer?si=_8V7tadIJSfTtBLZ",
   },
 } as const;
 
