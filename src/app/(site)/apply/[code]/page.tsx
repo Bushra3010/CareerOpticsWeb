@@ -11,6 +11,7 @@ import { findProgramme } from "@/config/admission-tracks";
 import { TEACHING_PROGRAMMES } from "@/config/teaching-programmes";
 import {
   getAdmissionLink,
+  getCollegeNames,
   getUpiPaymentSettings,
   upiPayUri,
 } from "@/lib/queries/admission-links";
@@ -41,6 +42,8 @@ export default async function AdmissionLinkPage({
   if (!link || !found) notFound();
   const { programme, track } = found;
   const teaching = TEACHING_PROGRAMMES.find((p) => p.code === programme.code);
+  const needsColleges = track.sections.some((s) => s.fields.some((f) => f.optionsFrom === "colleges"));
+  const colleges = needsColleges ? await getCollegeNames() : [];
 
   // Payment step: only when the link carries a fee and the office has set a
   // UPI ID or uploaded a QR. The QR is generated here, on the server, with the
@@ -107,7 +110,7 @@ export default async function AdmissionLinkPage({
               submitLabel={`Submit ${programme.code} form`}
             />
           ) : (
-            <TrackApplyForm programmeCode={programme.code} linkCode={link.code} payment={payment} />
+            <TrackApplyForm programmeCode={programme.code} linkCode={link.code} payment={payment} colleges={colleges} />
           )}
         </div>
       </div>

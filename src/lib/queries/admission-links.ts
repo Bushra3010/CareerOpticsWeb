@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createPublicClient } from "@/lib/supabase/public";
 
 export type AdmissionLink = {
   code: string;
@@ -61,6 +62,17 @@ export async function getUpiPaymentSettings(): Promise<UpiPaymentSettings> {
     qrImageUrl: data?.qr_image_url || null,
     instructions: data?.instructions?.trim() || null,
   };
+}
+
+/** Published college names for the Distance form's university dropdown. */
+export async function getCollegeNames(): Promise<string[]> {
+  const { data } = await createPublicClient()
+    .from("colleges")
+    .select("name")
+    .eq("status", "published")
+    .order("name")
+    .limit(500);
+  return (data ?? []).map((c) => c.name);
 }
 
 export { upiPayUri } from "@/config/upi";

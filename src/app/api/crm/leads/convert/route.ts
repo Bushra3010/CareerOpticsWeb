@@ -45,6 +45,18 @@ export async function POST(request: NextRequest) {
 
     if (updateErr) return NextResponse.json({ error: updateErr.message }, { status: 400 })
 
+    // An admission form already made this student (0035), possibly approved
+    // and with its form fee paid: keep that status and never count the same
+    // money twice.
+    const { data: existing } = await adminClient
+      .from('students')
+      .select('status, amount_paid')
+      .eq('lead_id', lead_id)
+      .maybeSingle()
+    const alreadyPaid = Number(existing?.amount_paid ?? 0)
+    const paidNow = Math.max(Number(amount_paid ?? 0), alreadyPaid)
+    const newPayment = paidNow - alreadyPaid
+
     // Create or update student with status='pending' (bypasses RLS via service role).
     // Both lead conversions and directly-added admissions wait in the
     // New Students tab until approved there.
@@ -59,21 +71,21 @@ export async function POST(request: NextRequest) {
         sub_course_id: lead.sub_course_id,
         assigned_counsellor: lead.assigned_to,
         total_fee: total_fee ?? null,
-        amount_paid: amount_paid ?? 0,
+        amount_paid: paidNow,
         enrollment_date: new Date().toISOString().split('T')[0],
         mode: mode || null,
         department_id: department_id || null,
         sub_section_id: sub_section_id || null,
-        status: 'pending',
+        status: existing && existing.status !== 'pending' ? existing.status : 'pending',
       }, { onConflict: 'lead_id' })
 
     if (studentErr) return NextResponse.json({ error: studentErr.message }, { status: 400 })
 
     // Record initial payment if any
-    if (amount_paid && amount_paid > 0) {
+    if (newPayment > 0) {
       await adminClient.from('payments').insert({
         lead_id,
-        amount: amount_paid,
+        amount: newPayment,
         payment_mode: 'cash',
         payment_date: new Date().toISOString().split('T')[0],
         notes: 'Initial payment during conversion',

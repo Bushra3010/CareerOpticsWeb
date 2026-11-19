@@ -6,7 +6,7 @@ import { CheckCircle2, Download, FileText, ImageIcon, IndianRupee, Loader2, Uplo
 import { toast } from 'sonner'
 
 import { documentSlug } from '@/config/admission-form'
-import type { AdmissionTrack, TrackField } from '@/config/admission-tracks'
+import { fieldOptions, type AdmissionTrack, type TrackField } from '@/config/admission-tracks'
 import { upiPayUri } from '@/config/upi'
 import { Button } from '@/crm/components/ui/button'
 import { Input } from '@/crm/components/ui/input'
@@ -125,6 +125,7 @@ export function AdmissionPunchForm({ track, onSaved }: { track: AdmissionTrack; 
   const [payShot, setPayShot] = useState<string>()
   const [upi, setUpi] = useState<Upi | null>(null)
   const [qr, setQr] = useState<string | null>(null)
+  const [colleges, setColleges] = useState<string[]>([])
 
   const prog = programmes.find((p) => p.code === programme) ?? programmes[0]
 
@@ -148,6 +149,17 @@ export function AdmissionPunchForm({ track, onSaved }: { track: AdmissionTrack; 
       .eq('id', 1)
       .maybeSingle()
       .then(({ data }: { data: Upi | null }) => setUpi(data))
+    // Website catalogue (public schema) for the Distance university dropdown.
+    if (track.sections.some((s) => s.fields.some((f) => f.optionsFrom === 'colleges'))) {
+      ;(supabase as any)
+        .schema('public')
+        .from('colleges')
+        .select('name')
+        .eq('status', 'published')
+        .order('name')
+        .limit(500)
+        .then(({ data }: { data: { name: string }[] | null }) => setColleges((data ?? []).map((c) => c.name)))
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const amount = Number(fee) > 0 ? Math.round(Number(fee) * 100) / 100 : 0
@@ -321,7 +333,7 @@ export function AdmissionPunchForm({ track, onSaved }: { track: AdmissionTrack; 
                 {f.type === 'select' ? (
                   <select className={SELECT} value={answers[f.key] ?? ''} onChange={(e) => setAnswers({ ...answers, [f.key]: e.target.value })}>
                     <option value="">Select</option>
-                    {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                    {fieldOptions(f, { colleges }).map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 ) : (
                   <Input

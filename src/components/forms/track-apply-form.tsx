@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { documentSlug } from "@/config/admission-form";
-import { findProgramme, type TrackField } from "@/config/admission-tracks";
+import { fieldOptions, findProgramme, type TrackField } from "@/config/admission-tracks";
 import { siteConfig, whatsappHref } from "@/config/site";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +29,13 @@ export function TrackApplyForm({
   programmeCode,
   linkCode,
   payment,
+  colleges = [],
 }: {
   programmeCode: string;
   linkCode: string;
   payment?: PaymentStep;
+  /** Website college names, for fields with `optionsFrom: "colleges"`. */
+  colleges?: string[];
 }) {
   const found = findProgramme(programmeCode);
   const [basic, setBasic] = React.useState({ name: "", phone: "", email: "" });
@@ -174,7 +177,7 @@ export function TrackApplyForm({
               <SelectField
                 key={f.key}
                 label={f.label}
-                options={f.options ?? []}
+                options={fieldOptions(f, { colleges })}
                 value={answers[f.key] ?? ""}
                 onChange={(v) => setAnswers({ ...answers, [f.key]: v })}
               />

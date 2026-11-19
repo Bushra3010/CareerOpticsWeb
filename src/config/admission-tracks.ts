@@ -18,7 +18,22 @@ export type TrackField = AdmissionFieldDef & {
   hint?: string;
   /** Only shown when another answer has one of these values. */
   showIf?: { key: string; values: readonly string[] };
+  /**
+   * Dropdown filled at runtime — `"colleges"` is the website's published
+   * college list. "Other" is always appended so a college not yet in the
+   * catalogue can be typed in (see `<key>_other`).
+   */
+  optionsFrom?: "colleges";
 };
+
+/** Last option of a runtime dropdown; picking it shows the `<key>_other` text field. */
+export const OTHER_OPTION = "Other (not in list)";
+
+/** Options for a select field, with runtime lists (e.g. colleges) filled in. */
+export function fieldOptions(f: TrackField, dynamic: { colleges?: readonly string[] } = {}): readonly string[] {
+  if (f.optionsFrom) return [...(dynamic[f.optionsFrom] ?? []), OTHER_OPTION];
+  return f.options ?? [];
+}
 
 export type TrackProgramme = {
   /** Stored as `admission_links.programme`; short, unique across tracks. */
@@ -167,7 +182,12 @@ export const ADMISSION_TRACKS: AdmissionTrack[] = [
       {
         title: "Course",
         fields: [
-          { key: "university", label: "University / college" },
+          { key: "university", label: "University / college", type: "select", optionsFrom: "colleges" },
+          {
+            key: "university_other",
+            label: "University / college name",
+            showIf: { key: "university", values: [OTHER_OPTION] },
+          },
           { key: "course_name", label: "Course", hint: "e.g. BA, B.Com, MBA, MA Hindi" },
           { key: "course_mode", label: "Mode", type: "select", options: ["Distance", "Online"] },
           { key: "session", label: "Session", hint: "e.g. 2025-26, July 2025" },

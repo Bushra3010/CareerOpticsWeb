@@ -29,7 +29,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
-- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031`–`0033` are applied to the live project; `0034` must be applied with `apply-migration.py` (parent folder) before deploying the code that uses it. See the CRM section below.
+- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031`–`0035` are applied to the live project (with `apply-migration.py` in the parent folder). `0030` (CO- enrollment prefix) is NOT live: new students still get HD- numbers. See the CRM section below.
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
@@ -203,6 +203,17 @@ there can be carried across.
   B.Ed / D.El.Ed and `TrackApplyForm` for the other three (source
   `admission_form`). Every form stores `answers.track`; the bridge (0034) sets
   `crm.leads.category` from it and `state` from the address.
+  The Distance "University / college" field is a dropdown of published
+  website colleges (`optionsFrom: "colleges"`, `fieldOptions()`), with
+  "Other (not in list)" opening `university_other`.
+- **Admission → pending student (0035).** Trigger `crm.admission_lead_sync`
+  on `crm.leads`: any admission lead (`metadata.entry = 'crm_admission_form'`
+  or `answers.ref`) gets a `crm.students` row with status `pending` at once
+  (Students → New Students, admin approves). When `answers.payment_verified`
+  becomes `yes` (cash at entry, or "Mark verified") it writes a
+  `crm.payments` row, and `on_payment_inserted` updates `amount_paid`. The
+  Convert route keeps an existing student's status and only records money
+  above what is already paid.
 - **Admission form fee (0032).** `crm.admission_links.amount` — set when a
   counsellor creates a link (editable on the link row). With a fee and a UPI
   ID in `crm.payment_settings`, `/apply/[code]` shows a QR generated on the
