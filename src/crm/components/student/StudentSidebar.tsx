@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Home, User, BookOpen, FileText, CalendarDays, Trophy, Bell,
-  CreditCard, Download, Headphones, LogOut, GraduationCap,
+  CreditCard, Download, Headphones, LogOut, GraduationCap, IdCard, ShoppingBag,
 } from 'lucide-react'
 import { cn } from '@/crm/lib/utils'
 import { createClient } from '@/crm/lib/supabase/client'
@@ -19,6 +19,8 @@ export const STUDENT_NAV = [
   { label: 'Notifications',      href: '/crm/student/notifications', icon: Bell, badge: true },
   { label: 'Payments',           href: '/crm/student/accounts',      icon: CreditCard },
   { label: 'Downloads',          href: '/crm/student/downloads',     icon: Download },
+  { label: 'ID Cards & Marksheets', href: '/crm/student/documents', icon: IdCard },
+  { label: 'Order Documents',    href: '/crm/student/orders',        icon: ShoppingBag },
   { label: 'Help & Support',     href: '/crm/student/support',       icon: Headphones },
 ] as const
 

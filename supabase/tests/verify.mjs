@@ -210,6 +210,57 @@ console.log("\nCRM:");
     `${r.source} / ${r.status} / ${r.phone} / ${r.ws}`);
   await db.exec(`delete from crm.leads; delete from leads where name = 'Bridge Test'`);
 
+  // 0031: a B.Ed/D.El.Ed form sent through a counsellor's link is categorised
+  // and lands with that counsellor.
+  await db.exec(`
+    insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000c1', 'counsellor@example.com');
+    insert into crm.profiles (id, email, full_name, role, is_active)
+      values ('00000000-0000-0000-0000-0000000000c1', 'counsellor@example.com', 'Counsellor', 'counselor', true);
+    insert into crm.admission_links (code, programme, created_by)
+      values ('testlink01', 'B.Ed', '00000000-0000-0000-0000-0000000000c1');
+    insert into leads (name, phone, source, answers)
+      values ('Link Applicant', '9800011133', 'teaching_admission', '{"ref":"testlink01","programme":"UP B.Ed"}'::jsonb);`);
+  const { rows: [linked] } = await db.query(`
+    select l.category, l.assigned_to::text a, k.submissions,
+           (select count(*)::int from crm.notifications n where n.target_user_id = l.assigned_to) notes
+    from crm.leads l, crm.admission_links k
+    where l.full_name = 'Link Applicant' and k.code = 'testlink01'`);
+  check(linked?.category === "teacher_training" && linked?.a === "00000000-0000-0000-0000-0000000000c1"
+    && linked?.submissions === 1 && linked?.notes === 1,
+    "admission link → categorised, assigned, counted, notified",
+    JSON.stringify(linked));
+
+  // 0031: an order's price comes from the item list, not from the client.
+  await db.exec(`
+    insert into crm.students (id, full_name, phone, enrollment_number)
+      values ('00000000-0000-0000-0000-0000000000d1', 'Order Student', '9800011144', 'CO-TEST1');
+    update crm.document_order_items set price = 250, is_active = true where kind = 'id_card';
+    insert into crm.document_orders (student_id, item_id, quantity, amount, unit_price, delivery_name,
+                                     delivery_phone, delivery_address, payment_utr)
+      select '00000000-0000-0000-0000-0000000000d1', id, 2, 1, 1, 'X', '9800011144', 'Addr', 'UTR123456'
+      from crm.document_order_items where kind = 'id_card';
+    update crm.document_orders set status = 'dispatched', courier = 'India Post';`);
+  const { rows: [order] } = await db.query(`
+    select o.amount::int amount, o.item_name,
+           (select count(*)::int from crm.notifications where title = 'New document order') staff_notes,
+           (select count(*)::int from crm.student_notifications where student_id = o.student_id) student_notes
+    from crm.document_orders o`);
+  check(order?.amount === 500 && order?.item_name === "Physical ID Card"
+    && order?.staff_notes === 2 && order?.student_notes === 1,
+    "document order priced server-side and notifies office + student",
+    JSON.stringify(order));
+  let refused = false;
+  try {
+    await db.exec(`
+      insert into crm.document_orders (student_id, item_id, delivery_name, delivery_phone, delivery_address, payment_utr)
+      select '00000000-0000-0000-0000-0000000000d1', id, 'X', '1', 'A', 'U' from crm.document_order_items where kind = 'marksheet'`);
+  } catch { refused = true; }
+  check(refused, "an item that is switched off cannot be ordered");
+  await db.exec(`
+    delete from crm.document_orders; delete from crm.students; delete from crm.leads;
+    delete from leads where name = 'Link Applicant'; delete from crm.admission_links;
+    delete from crm.notifications; delete from crm.profiles; delete from auth.users;`);
+
   await db.exec(`insert into auth.users (email) values ('portal@example.com')`);
   const { rows: [p] } = await db.query(`
     select p.is_active from profiles p join auth.users u on u.id = p.id

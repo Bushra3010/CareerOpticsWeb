@@ -1,4 +1,5 @@
 'use client'
+import { CATEGORIES } from '@/crm/lib/categories'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -80,6 +81,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
     // College from the website catalogue; saved as the student's university_name.
     const websiteColleges = useWebsiteColleges()
     const [collegeId, setCollegeId] = useState('')
+    const [category, setCategory] = useState<string>((student as any)?.category ?? '')
     const collegeCourses = useCollegeCourses(collegeId)
     useEffect(() => {
         const saved = (student as any)?.university_name
@@ -252,6 +254,7 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
                 mode: data.mode || null,
                 enrollment_date: data.enrollment_date || null,
                 session_id: data.session_id || null,
+                category: category || null,
                 ...(collegeId ? { university_name: websiteColleges.find(c => c.id === collegeId)?.name ?? null } : {}),
             }
 
@@ -499,6 +502,24 @@ export function StudentForm({ student, onSuccess, onCancel }: StudentFormProps) 
                     <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
                         <SectionHeader icon={Tag} title="Enrollment Details" color="border-blue-200" />
                         <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2">
+                                <FieldWrapper label="Category">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {CATEGORIES.map((c) => (
+                                            <button
+                                                key={c.value}
+                                                type="button"
+                                                onClick={() => setCategory(category === c.value ? '' : c.value)}
+                                                className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
+                                                    category === c.value ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-gray-700 hover:bg-blue-50'
+                                                }`}
+                                            >
+                                                {c.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </FieldWrapper>
+                            </div>
                             <FieldWrapper label="Mode">
                                 <Select value={watch('mode') || ''} onValueChange={(v) => setValue('mode', v as any)}>
                                     <SelectTrigger className="bg-white border-blue-200">

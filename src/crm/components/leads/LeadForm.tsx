@@ -17,6 +17,7 @@ import {
   type Department, type DepartmentSubSection, type Session
 } from '@/crm/types/app.types'
 import { feeHint, useCollegeCourses, useWebsiteColleges } from '@/crm/lib/website-catalog'
+import { CATEGORIES, isCategory } from '@/crm/lib/categories'
 
 interface FormField {
   id: string
@@ -32,6 +33,8 @@ interface FormField {
 
 interface LeadFormProps {
   lead?: Lead
+  /** Preselected business category for a new lead (e.g. the active leads tab). */
+  defaultCategory?: string
   onSuccess: () => void
   onCancel: () => void
 }
@@ -98,7 +101,7 @@ function FieldWrapper({ label, required, error, children }: { label: string; req
   )
 }
 
-export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
+export function LeadForm({ lead, defaultCategory, onSuccess, onCancel }: LeadFormProps) {
   const [courses, setCourses] = useState<Course[]>([])
   const [subCourses, setSubCourses] = useState<SubCourse[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
@@ -110,6 +113,7 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
   const [loading, setLoading] = useState(false)
   // College the student is interested in — the website's own college list.
   const [collegeId, setCollegeId] = useState<string>((lead as any)?.extra_data?.college_id ?? '')
+  const [category, setCategory] = useState<string>(lead?.category ?? (isCategory(defaultCategory) ? defaultCategory : ''))
   const websiteColleges = useWebsiteColleges()
   const collegeCourses = useCollegeCourses(collegeId)
   const [duplicateLead, setDuplicateLead] = useState<{ id: string; full_name: string; phone: string } | null>(null)
@@ -253,6 +257,8 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
       const { notes, next_followup_time, session_id: _sid, ...rest } = data
       const college = websiteColleges.find(c => c.id === collegeId)
       const mergedExtra = {
+        // Keep what other screens stored (follow-up time, etc.) on edit.
+        ...((lead as any)?.extra_data ?? {}),
         ...(Object.keys(customValues).length ? customValues : {}),
         ...(college ? { college_id: college.id, college_name: college.name } : {}),
         ...(next_followup_time ? { followup_time: next_followup_time } : {}),
@@ -274,6 +280,7 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
         // amount_paid update removed as per user request — only total_fee (Discussed Amount) is managed here
         total_fee: rest.total_fee ?? null,
         extra_data: Object.keys(mergedExtra).length ? mergedExtra : null,
+        category: category || null,
       }
 
       if (lead) {
@@ -283,6 +290,10 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
         if (data.phone !== lead.phone) changes.push(`Phone: ${lead.phone} → ${data.phone}`)
         if (data.email !== (lead.email ?? '')) changes.push(`Email: ${lead.email ?? 'None'} → ${data.email || 'None'}`)
         if (data.status !== lead.status) changes.push(`Status: ${lead.status} → ${data.status}`)
+        if ((category || null) !== (lead.category ?? null)) {
+          const label = (v: string | null | undefined) => CATEGORIES.find(c => c.value === v)?.label ?? 'None'
+          changes.push(`Category: ${label(lead.category)} → ${label(category)}`)
+        }
         if (data.mode !== (lead.mode ?? '')) changes.push(`Mode: ${lead.mode ?? 'None'} → ${data.mode || 'None'}`)
         if (data.course_id !== (lead.course_id ?? '')) {
           const newCourse = courses.find(c => c.id === data.course_id)?.name || 'None'
@@ -457,6 +468,24 @@ export function LeadForm({ lead, onSuccess, onCancel }: LeadFormProps) {
       <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100">
         <SectionHeader icon={Tag} title="Lead Details" color="border-blue-200" />
         <div className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <FieldWrapper label="Category">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {CATEGORIES.map((c) => (
+                  <button
+                    key={c.value}
+                    type="button"
+                    onClick={() => setCategory(category === c.value ? '' : c.value)}
+                    className={`rounded-lg border px-2 py-2 text-xs font-semibold transition-colors ${
+                      category === c.value ? 'border-blue-600 bg-blue-600 text-white' : 'border-blue-200 bg-white text-gray-700 hover:bg-blue-50'
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </FieldWrapper>
+          </div>
           {isVisible('status') && (
             <FieldWrapper label="Status">
               <Select value={watch('status')} onValueChange={(v) => setValue('status', v as LeadFormData['status'])}>

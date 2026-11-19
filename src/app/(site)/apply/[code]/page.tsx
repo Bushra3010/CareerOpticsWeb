@@ -1,0 +1,72 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+
+import { CheckCircle2, ShieldCheck } from "lucide-react";
+
+import { DeferredLeadForm } from "@/components/forms/deferred-lead-form";
+import { TEACHING_PROGRAMMES } from "@/config/teaching-programmes";
+import { getAdmissionLink } from "@/lib/queries/admission-links";
+
+// Links can be switched off from the CRM at any time — never serve a cached copy.
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Admission Form",
+  robots: { index: false, follow: false },
+};
+
+/**
+ * `/apply/[code]` — the B.Ed / D.El.Ed admission form a counsellor shares from
+ * the CRM. It is the website's own lead form with every admission field and a
+ * slot for every document; the `ref` answer tells the CRM bridge whose lead it
+ * is, so the submission lands with that counsellor.
+ */
+export default async function AdmissionLinkPage({
+  params,
+}: {
+  params: Promise<{ code: string }>;
+}) {
+  const { code } = await params;
+  const link = await getAdmissionLink(code);
+  const programme = link
+    ? TEACHING_PROGRAMMES.find((p) => p.code === link.programme)
+    : null;
+  if (!link || !programme) notFound();
+
+  return (
+    <div className="bg-surface">
+      <div className="container-site max-w-3xl py-8 lg:py-12">
+        <div className="rounded-2xl border bg-card p-5 shadow-card sm:p-8">
+          <p className="text-sm font-semibold text-brand-blue-400">Admission form</p>
+          <h1 className="mt-1 text-h2">{programme.name} Admission</h1>
+          <p className="mt-2 text-body">{programme.description}</p>
+
+          <ul className="mt-4 grid gap-1.5 text-sm text-body sm:grid-cols-2">
+            {programme.documents.map((document) => (
+              <li key={document} className="flex items-start gap-2">
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" aria-hidden />
+                {document}
+              </li>
+            ))}
+          </ul>
+
+          <p className="mt-4 flex items-start gap-2 rounded-lg bg-brand-blue-50 p-3 text-sm text-body">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-blue" aria-hidden />
+            Your documents are stored privately and seen only by our admission team.
+          </p>
+
+          <DeferredLeadForm
+            className="mt-6"
+            source="teaching_admission"
+            fields={["email", "city", "admission", "documents"]}
+            checklist={programme}
+            level={programme.level}
+            uploadAllDocuments
+            extraAnswers={{ ref: link.code }}
+            submitLabel={`Submit ${programme.code} form`}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -68,6 +68,8 @@ export const LEAD_COLUMNS = [
 
 export interface LeadFilters {
   search?: string
+  /** Business line, crm.leads.category (migration 0031). */
+  category?: string
   status?: LeadStatus[]
   source?: LeadSource[]
   assigned_to?: string[]
@@ -136,6 +138,7 @@ export interface Session {
 
 export interface Lead {
   id: string
+  category?: string | null
   full_name: string
   phone: string
   email?: string
@@ -198,6 +201,7 @@ export interface Payment {
 
 export interface Student {
   id: string
+  category?: string | null
   lead_id?: string
   enrollment_number: string
   full_name: string

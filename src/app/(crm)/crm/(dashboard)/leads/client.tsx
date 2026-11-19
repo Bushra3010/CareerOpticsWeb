@@ -12,6 +12,7 @@ import { createClient } from '@/crm/lib/supabase/client'
 import { useLeadStore } from '@/crm/store/useLeadStore'
 import { format } from 'date-fns'
 import type { Lead, Course, Profile } from '@/crm/types/app.types'
+import { CATEGORIES, isCategory } from '@/crm/lib/categories'
 
 function StatCard({ label, value, icon: Icon, color }: { label: string; value: number; icon: React.ElementType; color: string }) {
   return (
@@ -31,6 +32,7 @@ export function LeadsClient() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ total: 0, newToday: 0, converted: 0, followupDue: 0 })
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
 
   const [courses, setCourses] = useState<Course[]>([])
@@ -43,8 +45,10 @@ export function LeadsClient() {
   useEffect(() => {
     const status = searchParams.get('status')
     const followup = searchParams.get('followup')
+    const category = searchParams.get('category')
     const today = new Date().toISOString().slice(0, 10)
     if (status) setFilters({ status: [status as any] })
+    setFilters({ category: isCategory(category) ? category : undefined })
     if (followup === 'today') setFilters({ followup_from: today, followup_to: today })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const supabase = createClient()
@@ -90,6 +94,8 @@ export function LeadsClient() {
       }
 
       // Apply other filters only if they are set
+      if (filters.category === 'none') query = query.is('category', null)
+      else if (filters.category) query = query.eq('category', filters.category)
       if (filters.status?.length) query = query.in('status', filters.status)
       if (filters.source?.length) query = query.in('source', filters.source)
       if (isAdmin && filters.assigned_to?.length) query = query.in('assigned_to', filters.assigned_to)
@@ -115,10 +121,20 @@ export function LeadsClient() {
       const today = format(new Date(), 'yyyy-MM-dd')
       
       // Fetch stats independently to ensure accuracy
-      const [{ count: totalCount }, { count: newTodayCount }] = await Promise.all([
+      let catQuery = (supabase as any).from('leads').select('category')
+      if (isTelecaller && !isAdmin) catQuery = catQuery.eq('assigned_to', currentProfile.id)
+      const [{ count: totalCount }, { count: newTodayCount }, { data: catRows }] = await Promise.all([
         supabase.from('leads').select('*', { count: 'exact', head: true }),
         supabase.from('leads').select('*', { count: 'exact', head: true }).gte('created_at', today),
+        catQuery,
       ])
+      const counts: Record<string, number> = { all: 0 }
+      for (const r of (catRows ?? []) as { category: string | null }[]) {
+        counts.all += 1
+        const key = r.category ?? 'none'
+        counts[key] = (counts[key] ?? 0) + 1
+      }
+      setCategoryCounts(counts)
       
       setStats(prev => ({ ...prev, total: totalCount ?? 0, newToday: newTodayCount ?? 0 }))
     } catch (err: unknown) {
@@ -143,6 +159,28 @@ export function LeadsClient() {
           <span className="hidden sm:inline">Add Lead</span>
           <span className="sm:hidden">Add</span>
         </Button>
+      </div>
+
+      {/* Business categories */}
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {[{ value: '', short: 'All Leads' }, ...CATEGORIES, { value: 'none', short: 'Uncategorised' }].map((c) => {
+          const active = (filters.category ?? '') === c.value
+          const count = categoryCounts[c.value || 'all'] ?? 0
+          if (c.value === 'none' && !count && !active) return null
+          return (
+            <button
+              key={c.value || 'all'}
+              type="button"
+              onClick={() => setFilters({ category: c.value || undefined })}
+              className={`shrink-0 rounded-xl border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                active ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50'
+              }`}
+            >
+              {c.short}
+              <span className={`ml-2 rounded-full px-1.5 py-0.5 text-[11px] ${active ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>{count}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* Stats */}
@@ -174,7 +212,7 @@ export function LeadsClient() {
               <TabsTrigger value="bulk" className="flex-1">Bulk Import (Excel)</TabsTrigger>
             </TabsList>
             <TabsContent value="single" className="mt-0 outline-none">
-              <LeadForm onSuccess={() => { setShowForm(false); fetchLeads() }} onCancel={() => setShowForm(false)} />
+              <LeadForm defaultCategory={filters.category} onSuccess={() => { setShowForm(false); fetchLeads() }} onCancel={() => setShowForm(false)} />
             </TabsContent>
             <TabsContent value="bulk" className="mt-0 outline-none">
               <BulkImportLeads onSuccess={() => { setShowForm(false); fetchLeads() }} onCancel={() => setShowForm(false)} />

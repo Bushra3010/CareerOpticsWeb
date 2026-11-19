@@ -112,6 +112,8 @@ export function LeadForm({
   courseId,
   level,
   checklist,
+  uploadAllDocuments = false,
+  extraAnswers,
   submitLabel = "Get Free Counselling",
   endpoint = "/api/leads",
   className,
@@ -124,6 +126,10 @@ export function LeadForm({
   colleges?: CollegeOption[];
   /** Document checklist rendered by the `"documents"` field. */
   checklist?: DocumentChecklist;
+  /** Offer an upload slot for every checklist document, not only marksheets. */
+  uploadAllDocuments?: boolean;
+  /** Fixed `answers` entries sent with the lead, e.g. an admission link's `ref`. */
+  extraAnswers?: Record<string, string>;
   /** Pre-selected college, e.g. Apply Now on a college card. */
   collegeId?: string;
   courseId?: string;
@@ -180,6 +186,9 @@ export function LeadForm({
   });
 
   const show = (field: LeadField) => fields.includes(field);
+  // Passport photo has its own slot in the admission block.
+  const uploadable = (document: string) =>
+    uploadAllDocuments ? !/photo/i.test(document) : UPLOADABLE.test(document);
   const countryCode = form.watch("country_code") ?? "+91";
 
   // Only the levels a seeded course actually uses, so the select never offers
@@ -199,7 +208,7 @@ export function LeadForm({
       // The admission fields are not columns on `leads`; they travel in the
       // existing `answers` jsonb so no migration or API change is needed.
       const payload: Record<string, unknown> = { ...values };
-      const answers: Record<string, string> = {};
+      const answers: Record<string, string> = { ...(extraAnswers ?? {}) };
       for (const key of ADMISSION_KEYS) {
         const value = payload[key];
         if (typeof value === "string" && value.trim()) {
@@ -461,10 +470,10 @@ export function LeadForm({
             ))}
           </ul>
 
-          {checklist.documents.some((document) => UPLOADABLE.test(document)) ? (
+          {checklist.documents.some(uploadable) ? (
             <div className="grid gap-2 border-t pt-4">
               <p className="text-sm font-semibold text-ink">
-                Attach your marksheets{" "}
+                {uploadAllDocuments ? "Attach your documents" : "Attach your marksheets"}{" "}
                 <span className="font-normal text-muted-foreground">
                   (optional)
                 </span>
@@ -475,7 +484,7 @@ export function LeadForm({
                 can see them.
               </p>
               {checklist.documents
-                .filter((document) => UPLOADABLE.test(document))
+                .filter(uploadable)
                 .map((document) => {
                   const key = slugifyDocument(document);
                   return (

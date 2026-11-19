@@ -29,7 +29,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
-- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project. See the CRM section below.
+- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031` must be applied with `apply-migration.py` (parent folder) before deploying the code that uses it. See the CRM section below.
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
@@ -181,6 +181,28 @@ there can be carried across.
   makes call notes, expenses, litigation and form config staff-only.
 - **Lint.** `no-explicit-any` and `no-unescaped-entities` are off for the CRM
   paths only (`eslint.config.mjs`); the website keeps the strict rules.
+- **Business categories (0031).** `crm.leads.category` / `crm.students.category`
+  ∈ credit_card · teacher_training (B.Ed/D.El.Ed) · distance · open_school
+  (NIOS/BBOSE). Labels in `src/crm/lib/categories.ts`. Students inherit the
+  lead's category on insert (trigger). Website `teaching_admission` leads are
+  categorised by the bridge.
+- **B.Ed / D.El.Ed admissions** (`/crm/admissions`): punch a full admission
+  form, create shareable form links (`crm.admission_links` → public
+  `/apply/[code]`, which is the website `LeadForm` with `extraAnswers.ref`;
+  the bridge assigns the lead to the link creator and notifies them), and list
+  applications. All three store the form in `metadata.answers` with the same
+  keys (`config/admission-form.ts`). Files stay in the private
+  `applicant-photos` / `applicant-documents` buckets; staff upload and open
+  them through `/api/crm/applicant-files` (signed URLs).
+- **ID cards / marksheets** — `crm.student_credentials`, many per student
+  (one per session); staff add them on the student page, students see them at
+  `/crm/student/documents`.
+- **Physical document orders** — `crm.document_orders`; students pay by UPI
+  and submit the UTR at `/crm/student/orders`; staff verify and dispatch at
+  `/crm/document-orders` (also where prices and the UPI ID are set). The price
+  is set by a trigger from `crm.document_order_items`, never by the client;
+  triggers notify the office on a new order and the student on every status
+  change. Items ship switched off until a price is set.
 - **Known gaps:** `xlsx@0.18.5` (lead import/export) has open advisories;
   bank/UPI details on fee pages are placeholders; Admin → Prospectus shows
   HELLODOCTOR demo rows; `CRON_SECRET` and `SMTP_*` are unset.

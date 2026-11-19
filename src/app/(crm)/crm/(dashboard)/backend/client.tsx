@@ -1,4 +1,5 @@
 'use client'
+import { CATEGORIES } from '@/crm/lib/categories'
 import { useState, useEffect, useCallback, useTransition, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { format } from 'date-fns'
@@ -86,6 +87,7 @@ export function BackendListClient() {
   const [sessionFilter, setSessionFilter] = useState('')
   const [counsellorFilter, setCounsellorFilter] = useState('')
   const [modeFilter, setModeFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState(deptParam || '')
   const [boardFilter, setBoardFilter] = useState('')
   const [sortBy, setSortBy] = useState<'' | 'dues_desc' | 'dues_asc' | 'paid_desc' | 'paid_asc'>('')
@@ -132,6 +134,7 @@ export function BackendListClient() {
         setSessionFilter(saved.session ?? '')
         setCounsellorFilter(saved.counsellor ?? '')
         setModeFilter(saved.mode ?? '')
+        setCategoryFilter(saved.category ?? '')
         if (!deptParam) setDepartmentFilter(saved.department ?? '')
         setBoardFilter(saved.board ?? '')
         setSortBy(saved.sortBy ?? '')
@@ -147,11 +150,11 @@ export function BackendListClient() {
     try {
       sessionStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify({
         search, status: statusFilter, payment: paymentFilter, course: courseFilter,
-        session: sessionFilter, counsellor: counsellorFilter, mode: modeFilter,
+        session: sessionFilter, counsellor: counsellorFilter, mode: modeFilter, category: categoryFilter,
         department: departmentFilter, board: boardFilter, sortBy,
       }))
     } catch { /* storage unavailable */ }
-  }, [filtersRestored, search, statusFilter, paymentFilter, courseFilter, sessionFilter, counsellorFilter, modeFilter, departmentFilter, boardFilter, sortBy])
+  }, [filtersRestored, search, statusFilter, paymentFilter, courseFilter, sessionFilter, counsellorFilter, modeFilter, categoryFilter, departmentFilter, boardFilter, sortBy])
 
   function scrollTabs(dir: 'left' | 'right') {
     if (tabScrollRef.current) {
@@ -233,6 +236,7 @@ export function BackendListClient() {
       if (sessionFilter) query = query.eq('session_id', sessionFilter)
       if (counsellorFilter) query = query.eq('assigned_counsellor', counsellorFilter)
       if (modeFilter) query = query.eq('mode', modeFilter)
+      if (categoryFilter) query = query.eq('category', categoryFilter)
       if (departmentFilter) query = query.eq('department_id', departmentFilter)
       if (boardFilter) query = query.eq('sub_section_id', boardFilter)
       if (paymentFilter === 'paid') query = query.gt('amount_paid', 0).gte('amount_paid', 'total_fee')
@@ -250,7 +254,7 @@ export function BackendListClient() {
     } finally {
       setLoading(false)
     }
-  }, [search, statusFilter, paymentFilter, courseFilter, sessionFilter, counsellorFilter, modeFilter, departmentFilter, boardFilter])
+  }, [search, statusFilter, paymentFilter, courseFilter, sessionFilter, counsellorFilter, modeFilter, categoryFilter, departmentFilter, boardFilter])
 
   // Payment-wise ordering (paid amount or pending dues), else keep server order
   const displayStudents = useMemo(() => {
@@ -866,6 +870,13 @@ export function BackendListClient() {
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="dropped">Dropped</SelectItem>
             <SelectItem value="on_hold">On Hold</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v ?? '')}>
+          <SelectTrigger className="w-44 h-9"><SelectValue placeholder="Category">{CATEGORIES.find(c => c.value === categoryFilter)?.short ?? 'All Categories'}</SelectValue></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">All Categories</SelectItem>
+            {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={modeFilter} onValueChange={(v) => setModeFilter(v ?? '')}>

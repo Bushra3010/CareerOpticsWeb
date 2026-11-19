@@ -1,4 +1,5 @@
 'use client'
+import { categoryMeta } from '@/crm/lib/categories'
 import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
@@ -403,7 +404,7 @@ export function LeadTable({ leads, isLoading, onRefresh, onLeadUpdate, courses =
 
             {/* Clear filters */}
             {activeFilters ? (
-              <button onClick={() => { clearFilters(); setPage(1) }} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 px-2 py-1.5 whitespace-nowrap">
+              <button onClick={() => { const category = filters.category; clearFilters(); setFilters({ category }); setPage(1) }} className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 px-2 py-1.5 whitespace-nowrap">
                 <X className="w-3 h-3" /> Clear
               </button>
             ) : null}
@@ -467,6 +468,9 @@ export function LeadTable({ leads, isLoading, onRefresh, onLeadUpdate, courses =
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => router.push(`/crm/leads/${lead.id}`)}>
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-gray-900 leading-tight truncate">{lead.full_name}</p>
+                    {categoryMeta(lead.category) && (
+                      <span className={`mt-0.5 inline-block rounded border px-1.5 py-px text-[10px] font-semibold ${categoryMeta(lead.category)!.color}`}>{categoryMeta(lead.category)!.short}</span>
+                    )}
                     <span className="text-[11px] text-gray-400 whitespace-nowrap flex-shrink-0">
                       {format(new Date(lead.created_at), 'dd MMM')}
                     </span>
@@ -595,6 +599,9 @@ export function LeadTable({ leads, isLoading, onRefresh, onLeadUpdate, courses =
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900">{lead.full_name}</p>
+                        {categoryMeta(lead.category) && (
+                      <span className={`mt-0.5 inline-block rounded border px-1.5 py-px text-[10px] font-semibold ${categoryMeta(lead.category)!.color}`}>{categoryMeta(lead.category)!.short}</span>
+                    )}
                         {lead.city && <p className="text-xs text-gray-400">{lead.city}</p>}
                       </div>
                     </div>

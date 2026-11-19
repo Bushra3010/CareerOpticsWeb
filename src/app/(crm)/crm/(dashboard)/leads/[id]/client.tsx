@@ -13,6 +13,8 @@ import { LeadTransferModal } from '@/crm/components/leads/LeadTransferModal'
 import { ConvertLeadModal } from '@/crm/components/leads/ConvertLeadModal'
 import { LeadForm } from '@/crm/components/leads/LeadForm'
 import { ConfirmDialog } from '@/crm/components/shared/ConfirmDialog'
+import { AdmissionDetails } from '@/crm/components/admissions/AdmissionDetails'
+import { CATEGORIES } from '@/crm/lib/categories'
 import { createClient } from '@/crm/lib/supabase/client'
 import { toast } from 'sonner'
 import {
@@ -36,6 +38,18 @@ export function LeadDetailClient({ lead: initialLead, activities: initialActivit
     ;(supabase2 as any).from('associates').select('id, name, associate_code').eq('status', 'approved').order('name')
       .then(({ data }: any) => setAssociates(data ?? []))
   }, [supabase2])
+
+  async function changeCategory(value: string) {
+    const next = value || null
+    const prev = lead.category ?? null
+    if (next === prev) return
+    const { error } = await (supabase2 as any).from('leads').update({ category: next }).eq('id', lead.id)
+    if (error) { toast.error(error.message); return }
+    const label = (v: string | null) => CATEGORIES.find(c => c.value === v)?.label ?? 'None'
+    await (supabase2 as any).from('lead_activities').insert({ lead_id: lead.id, activity_type: 'updated', note: `Category: ${label(prev)} → ${label(next)}` })
+    setLead(p => ({ ...p, category: next }))
+    toast.success('Category updated')
+  }
 
   async function assignToAssociate(associateId: string) {
     setAssigningAssoc(true)
@@ -170,6 +184,15 @@ export function LeadDetailClient({ lead: initialLead, activities: initialActivit
                       View Student <ExternalLink className="w-3 h-3" />
                     </Button>
                   )}
+                  <Select value={lead.category ?? ''} onValueChange={(v) => changeCategory(v ?? '')}>
+                    <SelectTrigger className="h-8 w-full sm:w-44 text-xs">
+                      <SelectValue placeholder="Category">{CATEGORIES.find(c => c.value === lead.category)?.label ?? 'Set category'}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">No category</SelectItem>
+                      {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <Select value={lead.status} onValueChange={(v) => handleStatusChange(v as LeadStatus)}>
                     <SelectTrigger className="h-8 w-full sm:w-36 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -280,15 +303,17 @@ export function LeadDetailClient({ lead: initialLead, activities: initialActivit
             </CardContent>
           </Card>
 
+          <AdmissionDetails answers={(lead.metadata as any)?.answers} />
+
           {/* Social Media Lead Data */}
-          {lead.metadata && Object.keys(lead.metadata).length > 0 && (
+          {lead.metadata && Object.keys(lead.metadata).filter(k => k !== 'answers').length > 0 && (
             <Card className="bg-blue-50/20 border-blue-100 shadow-none">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-blue-800">Extra Form Data (Meta)</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {Object.entries(lead.metadata).map(([key, value]) => {
+                  {Object.entries(lead.metadata).filter(([key]) => key !== 'answers').map(([key, value]) => {
                     const str = String(value ?? '');
                     const isPhoto = key === 'photo_url' && /^https?:\/\//.test(str);
                     return (

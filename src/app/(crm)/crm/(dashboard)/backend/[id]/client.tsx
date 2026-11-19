@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/crm/components/ui/ta
 import { Card, CardContent, CardHeader, CardTitle } from '@/crm/components/ui/card'
 import { StudentRecord } from '@/crm/components/backend/StudentRecord'
 import { FeeTracker } from '@/crm/components/backend/FeeTracker'
+import { StudentCredentials } from '@/crm/components/backend/StudentCredentials'
+import { categoryMeta } from '@/crm/lib/categories'
 import { createClient } from '@/crm/lib/supabase/client'
 import type { Student, Payment } from '@/crm/types/app.types'
 
@@ -36,13 +38,21 @@ export function StudentDetailClient({ student: initialStudent, payments: initial
         <Button variant="ghost" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4 mr-1" /> Back
         </Button>
-        <h1 className="text-xl font-bold flex-1">{student.full_name}</h1>
+        <h1 className="text-xl font-bold flex-1">
+          {student.full_name}
+          {categoryMeta(student.category) && (
+            <span className={`ml-2 align-middle rounded border px-2 py-0.5 text-xs font-semibold ${categoryMeta(student.category)!.color}`}>
+              {categoryMeta(student.category)!.label}
+            </span>
+          )}
+        </h1>
       </div>
 
       <Tabs defaultValue="profile">
         <TabsList className="mb-4">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="fees">Fee Tracker</TabsTrigger>
+          <TabsTrigger value="credentials">ID Cards & Marksheets</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -50,6 +60,15 @@ export function StudentDetailClient({ student: initialStudent, payments: initial
             <CardHeader><CardTitle>Student Profile</CardTitle></CardHeader>
             <CardContent>
               <StudentRecord student={student} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="credentials">
+          <Card>
+            <CardHeader><CardTitle>ID Cards & Marksheets</CardTitle></CardHeader>
+            <CardContent>
+              <StudentCredentials studentId={student.id} />
             </CardContent>
           </Card>
         </TabsContent>
