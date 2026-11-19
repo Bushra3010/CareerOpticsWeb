@@ -4,21 +4,60 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type AdmissionLink = { code: string; programme: string; label: string | null };
+export type AdmissionLink = {
+  code: string;
+  programme: string;
+  label: string | null;
+  /** Fee for this link in rupees; null when the form takes no payment. */
+  amount: number | null;
+};
+
+export type UpiPaymentSettings = {
+  upiId: string | null;
+  payeeName: string | null;
+  qrImageUrl: string | null;
+  instructions: string | null;
+};
+
+function crmAdmin() {
+  return (createAdminClient() as unknown as SupabaseClient).schema("crm");
+}
 
 /**
- * A counsellor's B.Ed / D.El.Ed form link (`crm.admission_links`, 0031).
+ * A counsellor's B.Ed / D.El.Ed form link (`crm.admission_links`, 0031/0032).
  * The table has no anon policy, so it is read with the service role and only
- * the three fields the public page needs leave this function.
+ * the fields the public page needs leave this function.
  */
 export async function getAdmissionLink(code: string): Promise<AdmissionLink | null> {
   if (!/^[a-z0-9]{6,32}$/i.test(code)) return null;
-  const crm = (createAdminClient() as unknown as SupabaseClient).schema("crm");
-  const { data } = await crm
+  const { data } = await crmAdmin()
     .from("admission_links")
-    .select("code, programme, label, is_active")
+    .select("code, programme, label, is_active, amount")
     .eq("code", code)
     .maybeSingle();
   if (!data || !data.is_active) return null;
-  return { code: data.code, programme: data.programme, label: data.label };
+  const amount = Number(data.amount);
+  return {
+    code: data.code,
+    programme: data.programme,
+    label: data.label,
+    amount: amount > 0 ? amount : null,
+  };
 }
+
+/** The office's UPI details (`crm.payment_settings`), shared with document orders. */
+export async function getUpiPaymentSettings(): Promise<UpiPaymentSettings> {
+  const { data } = await crmAdmin()
+    .from("payment_settings")
+    .select("upi_id, payee_name, qr_image_url, instructions")
+    .eq("id", 1)
+    .maybeSingle();
+  return {
+    upiId: data?.upi_id?.trim() || null,
+    payeeName: data?.payee_name?.trim() || null,
+    qrImageUrl: data?.qr_image_url || null,
+    instructions: data?.instructions?.trim() || null,
+  };
+}
+
+export { upiPayUri } from "@/config/upi";

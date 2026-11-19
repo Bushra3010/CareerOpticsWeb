@@ -8,6 +8,11 @@ import { CheckCircle2, Loader2, MessageCircle, Phone } from "lucide-react";
 
 import { DocumentUpload } from "@/components/forms/document-upload";
 import { PhotoUpload } from "@/components/forms/photo-upload";
+import {
+  type PaymentStep,
+  UpiPaymentStep,
+  UTR_PATTERN,
+} from "@/components/forms/upi-payment-step";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -114,6 +119,7 @@ export function LeadForm({
   checklist,
   uploadAllDocuments = false,
   extraAnswers,
+  payment,
   submitLabel = "Get Free Counselling",
   endpoint = "/api/leads",
   className,
@@ -130,6 +136,11 @@ export function LeadForm({
   uploadAllDocuments?: boolean;
   /** Fixed `answers` entries sent with the lead, e.g. an admission link's `ref`. */
   extraAnswers?: Record<string, string>;
+  /**
+   * UPI fee step (admission links). When set, the UTR and a payment
+   * screenshot are required before the form will submit.
+   */
+  payment?: PaymentStep;
   /** Pre-selected college, e.g. Apply Now on a college card. */
   collegeId?: string;
   courseId?: string;
@@ -148,6 +159,12 @@ export function LeadForm({
     result: LeadResponse;
   } | null>(null);
   const [formError, setFormError] = React.useState<string | null>(null);
+  const [utr, setUtr] = React.useState("");
+  const [screenshot, setScreenshot] = React.useState("");
+  const [paymentErrors, setPaymentErrors] = React.useState<{
+    utr?: string;
+    screenshot?: string;
+  }>({});
 
   const form = useForm<LeadFormValues>({
     resolver: zodResolver(leadFormSchema),
@@ -204,6 +221,20 @@ export function LeadForm({
   const onSubmit = form.handleSubmit(async (values) => {
     setFormError(null);
 
+    if (payment) {
+      const errors = {
+        utr: UTR_PATTERN.test(utr.trim())
+          ? undefined
+          : "Enter the UTR / transaction ID shown in your UPI app after paying.",
+        screenshot: screenshot ? undefined : "Attach a screenshot of the payment.",
+      };
+      setPaymentErrors(errors);
+      if (errors.utr || errors.screenshot) {
+        setFormError("Please complete the payment details.");
+        return;
+      }
+    }
+
     try {
       // The admission fields are not columns on `leads`; they travel in the
       // existing `answers` jsonb so no migration or API change is needed.
@@ -250,6 +281,12 @@ export function LeadForm({
         }
       }
 
+      // The amount itself is not sent: /api/leads reads it from the link.
+      if (payment) {
+        answers.payment_utr = utr.trim().toUpperCase();
+        answers.file_payment_screenshot = screenshot;
+      }
+
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -292,6 +329,12 @@ export function LeadForm({
           A counsellor will call you within 24 hours on working days. Prefer to
           talk now? Message us on WhatsApp.
         </p>
+        {payment ? (
+          <p className="mt-2 text-body">
+            We have your payment details (UTR {utr.trim().toUpperCase()}). Our office
+            will verify the payment and confirm your admission.
+          </p>
+        ) : null}
         {successExtra ? (
           <div className="mt-4">{successExtra(submitted.result)}</div>
         ) : null}
@@ -758,6 +801,24 @@ export function LeadForm({
         </Field>
       ) : null}
 
+      {payment ? (
+        <UpiPaymentStep
+          payment={payment}
+          utr={utr}
+          onUtrChange={(value) => {
+            setUtr(value);
+            setPaymentErrors((e) => ({ ...e, utr: undefined }));
+          }}
+          screenshot={screenshot}
+          onScreenshotChange={(path) => {
+            setScreenshot(path);
+            setPaymentErrors((e) => ({ ...e, screenshot: undefined }));
+          }}
+          utrError={paymentErrors.utr}
+          screenshotError={paymentErrors.screenshot}
+        />
+      ) : null}
+
       {formError ? (
         <p role="alert" className="text-sm font-medium text-destructive">
           {formError}
@@ -775,9 +836,11 @@ export function LeadForm({
         )}
       </Button>
 
-      <p className="text-sm text-muted-foreground">
-        Free for students. We never charge admission fees on a college&apos;s behalf.
-      </p>
+      {payment ? null : (
+        <p className="text-sm text-muted-foreground">
+          Free for students. We never charge admission fees on a college&apos;s behalf.
+        </p>
+      )}
     </form>
   );
 }

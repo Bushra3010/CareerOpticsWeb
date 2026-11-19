@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { CheckCircle2, ExternalLink, Loader2, Save, Settings2, ShoppingBag, Truck, XCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { FileUpload } from '@/crm/components/shared/FileUpload'
+import { UpiSettings } from '@/crm/components/shared/UpiSettings'
 import { Button } from '@/crm/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/crm/components/ui/dialog'
 import { Input } from '@/crm/components/ui/input'
@@ -37,7 +37,6 @@ type Order = {
 }
 
 type Item = { id: string; name: string; kind: string; description: string | null; price: number; is_active: boolean; sort_order: number }
-type Settings = { upi_id: string | null; payee_name: string | null; qr_image_url: string | null; instructions: string | null }
 
 const FILTERS = [
   ['payment_submitted', 'To verify'],
@@ -242,17 +241,12 @@ function Orders() {
 function PricesAndPayment() {
   const supabase = createClient()
   const [items, setItems] = useState<Item[]>([])
-  const [settings, setSettings] = useState<Settings>({ upi_id: '', payee_name: '', qr_image_url: '', instructions: '' })
   const [saving, setSaving] = useState(false)
   const [newItem, setNewItem] = useState({ name: '', kind: 'other', price: '' })
 
   const load = useCallback(async () => {
-    const [{ data: i }, { data: s }] = await Promise.all([
-      (supabase as any).from('document_order_items').select('*').order('sort_order'),
-      (supabase as any).from('payment_settings').select('*').eq('id', 1).maybeSingle(),
-    ])
+    const { data: i } = await (supabase as any).from('document_order_items').select('*').order('sort_order')
     setItems(i ?? [])
-    if (s) setSettings(s)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -263,14 +257,6 @@ function PricesAndPayment() {
     if (items.some((i) => i.is_active && !(Number(i.price) > 0))) return toast.error('Set a price above ₹0 for every item that is on')
     setSaving(true)
     const results = await Promise.all([
-      (supabase as any).from('payment_settings').upsert({
-        id: 1,
-        upi_id: settings.upi_id?.trim() || null,
-        payee_name: settings.payee_name?.trim() || null,
-        qr_image_url: settings.qr_image_url || null,
-        instructions: settings.instructions?.trim() || null,
-        updated_at: new Date().toISOString(),
-      }),
       ...items.map((i) =>
         (supabase as any).from('document_order_items').update({ name: i.name, price: Number(i.price) || 0, is_active: i.is_active, description: i.description }).eq('id', i.id),
       ),
@@ -297,35 +283,7 @@ function PricesAndPayment() {
 
   return (
     <div className="max-w-3xl space-y-5">
-      <section className="rounded-xl border border-gray-200 bg-white p-4">
-        <p className="mb-3 text-sm font-bold text-gray-800">Where students pay (UPI)</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label className="text-xs">UPI ID *</Label>
-            <Input value={settings.upi_id ?? ''} onChange={(e) => setSettings({ ...settings, upi_id: e.target.value })} placeholder="e.g. careeroptics@sbi" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Account name</Label>
-            <Input value={settings.payee_name ?? ''} onChange={(e) => setSettings({ ...settings, payee_name: e.target.value })} />
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <Label className="text-xs">Note for students (optional)</Label>
-            <Textarea rows={2} value={settings.instructions ?? ''} onChange={(e) => setSettings({ ...settings, instructions: e.target.value })} />
-          </div>
-          <div className="space-y-1 sm:col-span-2">
-            <Label className="text-xs">UPI QR code image (optional)</Label>
-            {settings.qr_image_url ? (
-              <div className="flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={settings.qr_image_url} alt="UPI QR" className="h-24 w-24 rounded border object-contain" />
-                <Button size="sm" variant="outline" onClick={() => setSettings({ ...settings, qr_image_url: null })}>Remove</Button>
-              </div>
-            ) : (
-              <FileUpload bucket="student-documents" accept="image/*" onUploadComplete={(url) => setSettings({ ...settings, qr_image_url: url })} />
-            )}
-          </div>
-        </div>
-      </section>
+      <UpiSettings />
 
       <section className="rounded-xl border border-gray-200 bg-white p-4">
         <p className="mb-1 text-sm font-bold text-gray-800">What students can order</p>
@@ -364,7 +322,7 @@ function PricesAndPayment() {
       <div className="flex justify-end">
         <Button onClick={saveAll} disabled={saving}>
           {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Save className="mr-1 h-4 w-4" />}
-          Save settings
+          Save prices
         </Button>
       </div>
     </div>

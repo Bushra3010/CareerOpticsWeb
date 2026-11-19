@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, FileText, ImageIcon, Loader2, Upload, X } from 'lucide-react'
+import QRCode from 'qrcode'
+import { CheckCircle2, Download, FileText, ImageIcon, IndianRupee, Loader2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { ADMISSION_FIELDS, PROGRAMMES, PROGRAMME_CRM_COURSE, documentSlug } from '@/config/admission-form'
+import { upiPayUri } from '@/config/upi'
 import { Button } from '@/crm/components/ui/button'
 import { Input } from '@/crm/components/ui/input'
 import { Label } from '@/crm/components/ui/label'
@@ -24,6 +26,8 @@ const SOURCES = [
 ] as const
 
 type Staff = { id: string; full_name: string }
+type Upi = { upi_id: string | null; payee_name: string | null; qr_image_url: string | null }
+type PaymentMode = 'upi' | 'cash' | 'later'
 
 async function uploadFile(file: File, kind: 'photo' | 'document'): Promise<string> {
   const body = new FormData()
@@ -110,6 +114,12 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
   const [staff, setStaff] = useState<Staff[]>([])
   const [me, setMe] = useState<string>('')
   const [saving, setSaving] = useState(false)
+  const [fee, setFee] = useState('')
+  const [payMode, setPayMode] = useState<PaymentMode>('upi')
+  const [utr, setUtr] = useState('')
+  const [payShot, setPayShot] = useState<string>()
+  const [upi, setUpi] = useState<Upi | null>(null)
+  const [qr, setQr] = useState<string | null>(null)
 
   const prog = PROGRAMMES.find((p) => p.code === programme) ?? PROGRAMMES[0]
 
@@ -127,7 +137,26 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
       .not('role', 'in', '(student,associate)')
       .order('full_name')
       .then(({ data }: { data: Staff[] | null }) => setStaff(data ?? []))
+    ;(supabase as any)
+      .from('payment_settings')
+      .select('upi_id, payee_name, qr_image_url')
+      .eq('id', 1)
+      .maybeSingle()
+      .then(({ data }: { data: Upi | null }) => setUpi(data))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const amount = Number(fee) > 0 ? Math.round(Number(fee) * 100) / 100 : 0
+  const upiUri = amount && upi?.upi_id ? upiPayUri(upi.upi_id, upi.payee_name, amount, `${prog.code} admission`) : null
+
+  // QR with the amount encoded — show it to a walk-in student, or download it and send it on WhatsApp.
+  useEffect(() => {
+    if (!upiUri || payMode !== 'upi') return setQr(null)
+    let live = true
+    QRCode.toDataURL(upiUri, { margin: 1, width: 480 }).then((url) => live && setQr(url))
+    return () => {
+      live = false
+    }
+  }, [upiUri, payMode])
 
   function reset() {
     setBasic({ full_name: '', phone: '', email: '', city: '' })
@@ -136,6 +165,9 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
     setFiles({})
     setVerification('')
     setNotes('')
+    setFee('')
+    setUtr('')
+    setPayShot(undefined)
   }
 
   async function submit(e: React.FormEvent) {
@@ -143,6 +175,9 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
     const phone = basic.phone.replace(/\D/g, '')
     if (basic.full_name.trim().length < 2) return toast.error('Enter the student’s full name')
     if (!/^[6-9]\d{9}$/.test(phone)) return toast.error('Enter a valid 10-digit mobile number')
+    if (amount && payMode === 'upi' && !/^[A-Za-z0-9]{6,30}$/.test(utr.trim())) {
+      return toast.error('Enter the UTR / transaction ID of the UPI payment, or choose "Pay later"')
+    }
 
     setSaving(true)
     try {
@@ -160,6 +195,19 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
       const ready = prog.documents.filter((d) => files[documentSlug(d)])
       if (ready.length) payloadAnswers.documents_ready = ready.join(', ')
       if (verification) payloadAnswers.verification_doc = verification
+      if (amount) {
+        payloadAnswers.payment_amount = String(amount)
+        payloadAnswers.payment_mode = payMode
+        if (payMode === 'upi') {
+          payloadAnswers.payment_utr = utr.trim().toUpperCase()
+          if (payShot) payloadAnswers.file_payment_screenshot = payShot
+        }
+        // Cash taken at the desk by the person filling the form counts as verified.
+        if (payMode === 'cash') {
+          payloadAnswers.payment_verified = 'yes'
+          payloadAnswers.payment_verified_at = new Date().toISOString()
+        }
+      }
 
       const assignee = assignedTo || me
       const { data: lead, error } = await (supabase as any)
@@ -300,6 +348,86 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
               {prog.verification.options.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+        <h3 className="mb-3 flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-emerald-700">
+          <IndianRupee className="h-3.5 w-3.5" /> Form fee
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="space-y-1">
+            <Label className="text-xs">Amount (₹)</Label>
+            <Input
+              type="number"
+              min={0}
+              value={fee}
+              onChange={(e) => setFee(e.target.value)}
+              placeholder="Leave empty if no fee"
+              className="bg-white"
+            />
+          </div>
+          {amount > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs">Paid by</Label>
+              <select className={SELECT} value={payMode} onChange={(e) => setPayMode(e.target.value as PaymentMode)}>
+                <option value="upi">UPI</option>
+                <option value="cash">Cash (received at office)</option>
+                <option value="later">Pay later</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {amount > 0 && payMode === 'upi' && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-[168px_1fr]">
+            <div className="flex flex-col items-center gap-2">
+              {qr ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qr} alt={`UPI QR for ₹${amount}`} className="h-40 w-40 rounded-lg border bg-white p-1.5" />
+              ) : upi?.qr_image_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={upi.qr_image_url} alt="Office UPI QR" className="h-40 w-40 rounded-lg border bg-white object-contain p-1.5" />
+              ) : (
+                <div className="flex h-40 w-40 items-center justify-center rounded-lg border border-dashed bg-white p-3 text-center text-xs text-gray-500">
+                  Set the UPI ID in the “UPI &amp; QR” tab to get a QR here
+                </div>
+              )}
+              {qr && (
+                <a
+                  href={qr}
+                  download={`upi-${prog.code}-${amount}.png`}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:underline"
+                >
+                  <Download className="h-3.5 w-3.5" /> Download QR to send
+                </a>
+              )}
+            </div>
+            <div className="space-y-3">
+              <p className="text-xs text-gray-600">
+                {qr
+                  ? `Student scans this QR — ₹${amount.toLocaleString('en-IN')} is filled in automatically.`
+                  : upi?.qr_image_url
+                    ? `Student scans the office QR and enters ₹${amount.toLocaleString('en-IN')}.`
+                    : `Collect ₹${amount.toLocaleString('en-IN')} by UPI and enter the UTR below.`}
+                {upi?.upi_id ? ` UPI ID: ${upi.upi_id}` : ''}
+              </p>
+              <div className="space-y-1">
+                <Label className="text-xs">UTR / transaction ID *</Label>
+                <Input
+                  value={utr}
+                  maxLength={30}
+                  onChange={(e) => setUtr(e.target.value.replace(/\s+/g, ''))}
+                  placeholder="12-digit number from the UPI app"
+                  className="bg-white font-mono"
+                />
+              </div>
+              <UploadSlot label="Payment screenshot" kind="document" path={payShot} onChange={setPayShot} />
+            </div>
+          </div>
+        )}
+        {amount > 0 && payMode === 'later' && (
+          <p className="mt-2 text-xs text-gray-500">The fee is recorded on the lead as unpaid; press “Mark paid” on the lead once the student pays.</p>
         )}
       </section>
 

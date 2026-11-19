@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { tagCrmLeadCollege } from "@/lib/crm-sync";
 import { notifyCounsellors } from "@/lib/leads/notify";
 import { limitLeads } from "@/lib/rate-limit";
+import { getAdmissionLink } from "@/lib/queries/admission-links";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { leadSchema } from "@/lib/validations/lead";
 import type { Database } from "@/types/database.types";
@@ -100,6 +101,16 @@ export async function POST(request: NextRequest) {
     .limit(1)
     .maybeSingle();
 
+  // Admission-link fee: the amount comes from the link row, never the browser.
+  const answers = lead.answers ? { ...lead.answers } : undefined;
+  if (answers) {
+    delete answers.payment_amount;
+    if (answers.ref && answers.payment_utr) {
+      const amount = await admissionLinkAmount(answers.ref);
+      if (amount) answers.payment_amount = String(amount);
+    }
+  }
+
   const insert: LeadInsert = {
     name: lead.name,
     phone: lead.phone,
@@ -120,8 +131,8 @@ export async function POST(request: NextRequest) {
     // pointer. Both can apply to the same row, so they are merged rather than
     // one overwriting the other.
     answers:
-      lead.answers || earlier
-        ? { ...(lead.answers ?? {}), ...(earlier ? { duplicate_of: earlier.id } : {}) }
+      answers || earlier
+        ? { ...(answers ?? {}), ...(earlier ? { duplicate_of: earlier.id } : {}) }
         : null,
     ip: asInet(ip),
     user_agent: request.headers.get("user-agent")?.slice(0, 500) ?? null,
@@ -148,4 +159,12 @@ export async function POST(request: NextRequest) {
   const notified = await notifyCounsellors(lead, data.id);
 
   return NextResponse.json({ ok: true, id: data.id, notified });
+}
+
+async function admissionLinkAmount(code: string): Promise<number | null> {
+  try {
+    return (await getAdmissionLink(code))?.amount ?? null;
+  } catch {
+    return null;
+  }
 }

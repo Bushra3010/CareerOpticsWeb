@@ -303,7 +303,7 @@ export function LeadDetailClient({ lead: initialLead, activities: initialActivit
             </CardContent>
           </Card>
 
-          <AdmissionDetails answers={(lead.metadata as any)?.answers} />
+          <AdmissionDetails answers={(lead.metadata as any)?.answers} leadId={lead.id} metadata={lead.metadata as any} />
 
           {/* Social Media Lead Data */}
           {lead.metadata && Object.keys(lead.metadata).filter(k => k !== 'answers').length > 0 && (

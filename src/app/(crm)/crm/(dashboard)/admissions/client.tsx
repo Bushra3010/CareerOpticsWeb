@@ -4,10 +4,11 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
-import { FileText, GraduationCap, Link2, Loader2, PenSquare } from 'lucide-react'
+import { FileText, GraduationCap, IndianRupee, Link2, Loader2, PenSquare } from 'lucide-react'
 
 import { AdmissionLinks } from '@/crm/components/admissions/AdmissionLinks'
 import { AdmissionPunchForm } from '@/crm/components/admissions/AdmissionPunchForm'
+import { UpiSettings } from '@/crm/components/shared/UpiSettings'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/crm/components/ui/tabs'
 import { createClient } from '@/crm/lib/supabase/client'
 import { LEAD_STATUS_COLORS, LEAD_STATUS_LABELS } from '@/crm/types/app.types'
@@ -98,6 +99,12 @@ function Applications() {
                     {r.assigned_user?.full_name ? ` · ${r.assigned_user.full_name}` : ''}
                   </p>
                 </div>
+                {(a.payment_utr || a.payment_amount) && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${a.payment_verified === 'yes' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-800'}`}>
+                    {a.payment_amount ? `₹${Number(a.payment_amount).toLocaleString('en-IN')}` : 'Fee'}
+                    {a.payment_verified === 'yes' ? ' · verified' : a.payment_utr ? ' · to verify' : ' · unpaid'}
+                  </span>
+                )}
                 <div className="hidden shrink-0 items-center gap-1 text-xs text-gray-500 sm:flex">
                   <FileText className="h-3.5 w-3.5" /> {docs}
                 </div>
@@ -129,6 +136,7 @@ export function AdmissionsClient() {
           <TabsTrigger value="new"><PenSquare className="mr-1 h-4 w-4" /> New Admission</TabsTrigger>
           <TabsTrigger value="links"><Link2 className="mr-1 h-4 w-4" /> Form Links</TabsTrigger>
           <TabsTrigger value="list"><FileText className="mr-1 h-4 w-4" /> Applications</TabsTrigger>
+          <TabsTrigger value="upi"><IndianRupee className="mr-1 h-4 w-4" /> UPI &amp; QR</TabsTrigger>
         </TabsList>
         <TabsContent value="new">
           <div className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
@@ -140,6 +148,9 @@ export function AdmissionsClient() {
         </TabsContent>
         <TabsContent value="list">
           <Applications />
+        </TabsContent>
+        <TabsContent value="upi">
+          <div className="max-w-3xl"><UpiSettings /></div>
         </TabsContent>
       </Tabs>
     </div>

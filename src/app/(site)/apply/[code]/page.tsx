@@ -2,10 +2,16 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { CheckCircle2, ShieldCheck } from "lucide-react";
+import QRCode from "qrcode";
 
 import { DeferredLeadForm } from "@/components/forms/deferred-lead-form";
+import type { PaymentStep } from "@/components/forms/upi-payment-step";
 import { TEACHING_PROGRAMMES } from "@/config/teaching-programmes";
-import { getAdmissionLink } from "@/lib/queries/admission-links";
+import {
+  getAdmissionLink,
+  getUpiPaymentSettings,
+  upiPayUri,
+} from "@/lib/queries/admission-links";
 
 // Links can be switched off from the CRM at any time — never serve a cached copy.
 export const dynamic = "force-dynamic";
@@ -33,6 +39,31 @@ export default async function AdmissionLinkPage({
     : null;
   if (!link || !programme) notFound();
 
+  // Payment step: only when the link carries a fee and the office has set a
+  // UPI ID or uploaded a QR. The QR is generated here, on the server, with the
+  // amount filled in — scanning it opens the UPI app ready to pay that sum.
+  let payment: PaymentStep | undefined;
+  if (link.amount) {
+    const upi = await getUpiPaymentSettings();
+    const upiUri = upi.upiId
+      ? upiPayUri(upi.upiId, upi.payeeName, link.amount, `${programme.code} admission ${link.code}`)
+      : null;
+    const qrSrc = upiUri
+      ? await QRCode.toDataURL(upiUri, { margin: 1, width: 480, errorCorrectionLevel: "M" })
+      : upi.qrImageUrl;
+    if (upiUri || qrSrc) {
+      payment = {
+        amount: link.amount,
+        upiId: upi.upiId,
+        payeeName: upi.payeeName,
+        upiUri,
+        qrSrc,
+        qrHasAmount: Boolean(upiUri),
+        instructions: upi.instructions,
+      };
+    }
+  }
+
   return (
     <div className="bg-surface">
       <div className="container-site max-w-3xl py-8 lg:py-12">
@@ -40,6 +71,11 @@ export default async function AdmissionLinkPage({
           <p className="text-sm font-semibold text-brand-blue-400">Admission form</p>
           <h1 className="mt-1 text-h2">{programme.name} Admission</h1>
           <p className="mt-2 text-body">{programme.description}</p>
+          {link.amount ? (
+            <p className="mt-3 inline-flex rounded-lg bg-brand-blue-50 px-3 py-1.5 text-sm font-semibold text-brand-blue tabular-nums">
+              Form fee: ₹{link.amount.toLocaleString("en-IN")}
+            </p>
+          ) : null}
 
           <ul className="mt-4 grid gap-1.5 text-sm text-body sm:grid-cols-2">
             {programme.documents.map((document) => (
@@ -63,6 +99,7 @@ export default async function AdmissionLinkPage({
             level={programme.level}
             uploadAllDocuments
             extraAnswers={{ ref: link.code }}
+            payment={payment}
             submitLabel={`Submit ${programme.code} form`}
           />
         </div>
