@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
 import QRCode from "qrcode";
 
-import { DeferredLeadForm } from "@/components/forms/deferred-lead-form";
 import { TrackApplyForm } from "@/components/forms/track-apply-form";
 import type { PaymentStep } from "@/components/forms/upi-payment-step";
 import { findProgramme } from "@/config/admission-tracks";
@@ -26,8 +25,8 @@ export const metadata: Metadata = {
 
 /**
  * `/apply/[code]` — the admission form a counsellor shares from the CRM, for
- * any track. B.Ed / D.El.Ed uses the website's own lead form; Student Credit
- * Card, Distance and NIOS / BBOSE use `TrackApplyForm`. The `ref` answer tells
+ * any track. Every track uses the stepped `TrackApplyForm` (basic info →
+ * payment → documents → review → submit). The `ref` answer tells
  * the CRM bridge whose lead it is, so the submission lands with that
  * counsellor, and `track` files it under the right category.
  */
@@ -97,21 +96,13 @@ export default async function AdmissionLinkPage({
             Your documents are stored privately and seen only by our admission team.
           </p>
 
-          {teaching ? (
-            <DeferredLeadForm
-              className="mt-6"
-              source="teaching_admission"
-              fields={["email", "city", "admission", "documents"]}
-              checklist={teaching}
-              level={teaching.level}
-              uploadAllDocuments
-              extraAnswers={{ ref: link.code, track: track.category }}
-              payment={payment}
-              submitLabel={`Submit ${programme.code} form`}
-            />
-          ) : (
-            <TrackApplyForm programmeCode={programme.code} linkCode={link.code} payment={payment} colleges={colleges} />
-          )}
+          <TrackApplyForm
+            programmeCode={programme.code}
+            linkCode={link.code}
+            payment={payment}
+            colleges={colleges}
+            level={teaching?.level}
+          />
         </div>
       </div>
     </div>
