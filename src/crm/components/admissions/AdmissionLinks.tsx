@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Copy, Link2, Loader2, MessageCircle, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { PROGRAMMES } from '@/config/admission-form'
+import type { AdmissionTrack } from '@/config/admission-tracks'
 import { Button } from '@/crm/components/ui/button'
 import { Input } from '@/crm/components/ui/input'
 import { createClient } from '@/crm/lib/supabase/client'
@@ -32,8 +32,9 @@ export function admissionLinkUrl(code: string) {
  * admission form on the website and the submission lands in the CRM as the
  * link creator's lead (category B.Ed / D.El.Ed), with a notification.
  */
-export function AdmissionLinks() {
+export function AdmissionLinks({ track }: { track: AdmissionTrack }) {
   const supabase = createClient()
+  const PROGRAMMES = track.programmes
   const [links, setLinks] = useState<LinkRow[]>([])
   const [loading, setLoading] = useState(true)
   const [programme, setProgramme] = useState<string>(PROGRAMMES[0].code)
@@ -46,6 +47,7 @@ export function AdmissionLinks() {
     const { data, error } = await (supabase as any)
       .from('admission_links')
       .select('*, creator:profiles!admission_links_created_by_fkey(full_name)')
+      .eq('track', track.category)
       .order('created_at', { ascending: false })
     if (error) toast.error(error.message)
     setLinks(data ?? [])
@@ -61,7 +63,7 @@ export function AdmissionLinks() {
     const { data: { user } } = await supabase.auth.getUser()
     const { error } = await (supabase as any)
       .from('admission_links')
-      .insert({ programme, label: label.trim() || null, amount: Number(amount) > 0 ? Number(amount) : null, created_by: user?.id })
+      .insert({ programme, track: track.category, label: label.trim() || null, amount: Number(amount) > 0 ? Number(amount) : null, created_by: user?.id })
     setCreating(false)
     if (error) return toast.error(error.message)
     setLabel('')
@@ -97,15 +99,17 @@ export function AdmissionLinks() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
-        <p className="mb-3 text-sm font-semibold text-gray-800">Create a form link for a student</p>
+        <p className="mb-3 text-sm font-semibold text-gray-800">Create a {track.label} form link for a student</p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <select
-            value={programme}
-            onChange={(e) => setProgramme(e.target.value)}
-            className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm sm:w-44"
-          >
-            {PROGRAMMES.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
-          </select>
+          {PROGRAMMES.length > 1 && (
+            <select
+              value={programme}
+              onChange={(e) => setProgramme(e.target.value)}
+              className="h-9 rounded-md border border-gray-200 bg-white px-3 text-sm sm:w-44"
+            >
+              {PROGRAMMES.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+            </select>
+          )}
           <Input
             value={label}
             onChange={(e) => setLabel(e.target.value)}

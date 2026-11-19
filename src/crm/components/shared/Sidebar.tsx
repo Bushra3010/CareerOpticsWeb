@@ -34,7 +34,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Notifications',   href: '/crm/associate/notifications', icon: Bell,       roles: ['associate'] },
   { label: 'Profile',         href: '/crm/associate/profile',    icon: User,          roles: ['associate'] },
   { label: 'Leads', href: '/crm/leads', icon: Users, roles: ['admin', 'lead', 'backend', 'counselor'] },
-  { label: 'B.Ed / D.El.Ed', href: '/crm/admissions', icon: FileSignature, roles: ['admin', 'lead', 'backend', 'counselor'] },
+  { label: 'Admissions',     href: '/crm/admissions', icon: FileSignature, roles: ['admin', 'lead', 'backend', 'counselor'] },
   { label: 'Students', href: '/crm/backend', icon: GraduationCap, roles: ['admin', 'backend'] },
   { label: 'Document Orders', href: '/crm/document-orders', icon: ShoppingBag, roles: ['admin', 'backend'] },
   { label: 'Centre Fee', href: '/crm/centre-fee', icon: Building2, roles: ['admin', 'backend'] },

@@ -5,7 +5,8 @@ import QRCode from 'qrcode'
 import { CheckCircle2, Download, FileText, ImageIcon, IndianRupee, Loader2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ADMISSION_FIELDS, PROGRAMMES, PROGRAMME_CRM_COURSE, documentSlug } from '@/config/admission-form'
+import { documentSlug } from '@/config/admission-form'
+import type { AdmissionTrack, TrackField } from '@/config/admission-tracks'
 import { upiPayUri } from '@/config/upi'
 import { Button } from '@/crm/components/ui/button'
 import { Input } from '@/crm/components/ui/input'
@@ -96,13 +97,17 @@ function UploadSlot({
 }
 
 /**
- * Punch a complete B.Ed / D.El.Ed admission straight into the CRM — the same
- * fields and document slots as the website's application form, stored in the
- * same `metadata.answers` shape so the lead page shows them identically.
+ * Punch a complete admission for one track (Credit Card, B.Ed / D.El.Ed,
+ * Distance, NIOS / BBOSE) straight into the CRM. Fields and document slots
+ * come from `config/admission-tracks.ts`; everything is stored in the same
+ * `metadata.answers` shape as the public form links, so the lead page shows
+ * them identically. Mount with `key={track.category}` so switching track
+ * starts a clean form.
  */
-export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => void }) {
+export function AdmissionPunchForm({ track, onSaved }: { track: AdmissionTrack; onSaved?: (leadId: string) => void }) {
   const supabase = createClient()
-  const [programme, setProgramme] = useState<string>(PROGRAMMES[0].code)
+  const programmes = track.programmes
+  const [programme, setProgramme] = useState<string>(programmes[0].code)
   const [basic, setBasic] = useState({ full_name: '', phone: '', email: '', city: '' })
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [photo, setPhoto] = useState<string>()
@@ -121,7 +126,7 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
   const [upi, setUpi] = useState<Upi | null>(null)
   const [qr, setQr] = useState<string | null>(null)
 
-  const prog = PROGRAMMES.find((p) => p.code === programme) ?? PROGRAMMES[0]
+  const prog = programmes.find((p) => p.code === programme) ?? programmes[0]
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -158,6 +163,11 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
     }
   }, [upiUri, payMode])
 
+  /** Hides fields that only apply to another answer, e.g. Stream for 12th. */
+  function visible(f: TrackField) {
+    return !f.showIf || f.showIf.values.includes(answers[f.showIf.key] ?? '')
+  }
+
   function reset() {
     setBasic({ full_name: '', phone: '', email: '', city: '' })
     setAnswers({})
@@ -181,15 +191,17 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
 
     setSaving(true)
     try {
-      const { data: course } = await (supabase as any)
-        .from('courses')
-        .select('id')
-        .eq('name', PROGRAMME_CRM_COURSE[prog.code] ?? '')
-        .maybeSingle()
+      const crmCourse = track.crmCourse?.[prog.code]
+      const { data: course } = crmCourse
+        ? await (supabase as any).from('courses').select('id').eq('name', crmCourse).maybeSingle()
+        : { data: null }
 
       const docSlugs = new Set(prog.documents.map(documentSlug))
-      const payloadAnswers: Record<string, string> = { programme: prog.name }
-      for (const [k, v] of Object.entries(answers)) if (v.trim()) payloadAnswers[k] = v.trim()
+      const payloadAnswers: Record<string, string> = { programme: prog.name, track: track.category }
+      for (const f of track.sections.flatMap((x) => x.fields)) {
+        const v = answers[f.key]?.trim()
+        if (v && visible(f)) payloadAnswers[f.key] = v.slice(0, 200)
+      }
       if (photo) payloadAnswers.photo_path = photo
       for (const [slug, path] of Object.entries(files)) if (docSlugs.has(slug)) payloadAnswers[`file_${slug}`] = path
       const ready = prog.documents.filter((d) => files[documentSlug(d)])
@@ -221,7 +233,7 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
           course_id: course?.id ?? null,
           source,
           status: ready.length ? 'document_received' : 'new',
-          category: 'teacher_training',
+          category: track.category,
           assigned_to: assignee || null,
           assigned_at: assignee ? new Date().toISOString() : null,
           created_by: me || null,
@@ -248,8 +260,9 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
 
   return (
     <form onSubmit={submit} className="space-y-5">
+      {programmes.length > 1 ? (
       <div className="grid grid-cols-2 gap-2">
-        {PROGRAMMES.map((p) => (
+        {programmes.map((p) => (
           <button
             key={p.code}
             type="button"
@@ -263,9 +276,15 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
           </button>
         ))}
       </div>
+      ) : (
+        <div className="rounded-xl border border-violet-200 bg-violet-50/50 px-4 py-3">
+          <p className="text-sm font-bold text-violet-900">{prog.name}</p>
+          <p className="text-xs text-gray-600">{prog.description}</p>
+        </div>
+      )}
 
       <section className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
-        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-700">Student details</h3>
+        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-700">Basic details</h3>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">Full name *</Label>
@@ -289,30 +308,39 @@ export function AdmissionPunchForm({ onSaved }: { onSaved?: (leadId: string) => 
             <Label className="text-xs">City</Label>
             <Input value={basic.city} onChange={(e) => setBasic({ ...basic, city: e.target.value })} className="bg-white" />
           </div>
-          {ADMISSION_FIELDS.map((f) => (
-            <div key={f.key} className="space-y-1">
-              <Label className="text-xs">{f.label}</Label>
-              {f.type === 'select' ? (
-                <select className={SELECT} value={answers[f.key] ?? ''} onChange={(e) => setAnswers({ ...answers, [f.key]: e.target.value })}>
-                  <option value="">Select</option>
-                  {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
-              ) : (
-                <Input
-                  type={f.type === 'date' ? 'date' : 'text'}
-                  inputMode={f.type === 'tel' ? 'numeric' : undefined}
-                  maxLength={f.type === 'tel' ? 10 : 80}
-                  value={answers[f.key] ?? ''}
-                  onChange={(e) =>
-                    setAnswers({ ...answers, [f.key]: f.type === 'tel' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value })
-                  }
-                  className="bg-white"
-                />
-              )}
-            </div>
-          ))}
         </div>
       </section>
+
+      {track.sections.map((section) => (
+        <section key={section.title} className="rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-blue-700">{section.title}</h3>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {section.fields.filter(visible).map((f) => (
+              <div key={f.key} className="space-y-1">
+                <Label className="text-xs">{f.label}</Label>
+                {f.type === 'select' ? (
+                  <select className={SELECT} value={answers[f.key] ?? ''} onChange={(e) => setAnswers({ ...answers, [f.key]: e.target.value })}>
+                    <option value="">Select</option>
+                    {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <Input
+                    type={f.type === 'date' ? 'date' : 'text'}
+                    inputMode={f.type === 'tel' ? 'numeric' : undefined}
+                    maxLength={f.type === 'tel' ? 10 : 120}
+                    value={answers[f.key] ?? ''}
+                    onChange={(e) =>
+                      setAnswers({ ...answers, [f.key]: f.type === 'tel' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value })
+                    }
+                    className="bg-white"
+                  />
+                )}
+                {f.hint && <p className="text-[11px] text-gray-400">{f.hint}</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section className="rounded-xl border border-violet-100 bg-violet-50/40 p-4">
         <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-violet-700">Photo &amp; documents</h3>

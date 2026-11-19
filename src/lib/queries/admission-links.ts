@@ -8,6 +8,8 @@ export type AdmissionLink = {
   code: string;
   programme: string;
   label: string | null;
+  /** CRM category: credit_card · teacher_training · distance · open_school. */
+  track: string;
   /** Fee for this link in rupees; null when the form takes no payment. */
   amount: number | null;
 };
@@ -32,7 +34,7 @@ export async function getAdmissionLink(code: string): Promise<AdmissionLink | nu
   if (!/^[a-z0-9]{6,32}$/i.test(code)) return null;
   const { data } = await crmAdmin()
     .from("admission_links")
-    .select("code, programme, label, is_active, amount")
+    .select("code, programme, label, is_active, amount, track")
     .eq("code", code)
     .maybeSingle();
   if (!data || !data.is_active) return null;
@@ -41,6 +43,7 @@ export async function getAdmissionLink(code: string): Promise<AdmissionLink | nu
     code: data.code,
     programme: data.programme,
     label: data.label,
+    track: data.track ?? "teacher_training",
     amount: amount > 0 ? amount : null,
   };
 }

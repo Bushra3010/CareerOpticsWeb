@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
 import { FileText, GraduationCap, IndianRupee, Link2, Loader2, PenSquare } from 'lucide-react'
 
+import { ADMISSION_TRACKS, getTrack, type AdmissionTrack, type TrackCategory } from '@/config/admission-tracks'
 import { AdmissionLinks } from '@/crm/components/admissions/AdmissionLinks'
 import { AdmissionPunchForm } from '@/crm/components/admissions/AdmissionPunchForm'
 import { UpiSettings } from '@/crm/components/shared/UpiSettings'
@@ -31,7 +32,7 @@ function originLabel(r: Row) {
   return r.source.replace(/_/g, ' ')
 }
 
-function Applications() {
+function Applications({ track }: { track: AdmissionTrack }) {
   const supabase = createClient()
   const router = useRouter()
   const [rows, setRows] = useState<Row[]>([])
@@ -43,14 +44,14 @@ function Applications() {
     let q = (supabase as any)
       .from('leads')
       .select('id, full_name, phone, status, source, created_at, metadata, assigned_user:profiles!leads_assigned_to_fkey(full_name)')
-      .eq('category', 'teacher_training')
+      .eq('category', track.category)
       .order('created_at', { ascending: false })
       .limit(200)
     if (programme) q = q.eq('metadata->answers->>programme', programme)
     const { data } = await q
     setRows(data ?? [])
     setLoading(false)
-  }, [programme]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [programme, track.category]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     load()
@@ -59,7 +60,7 @@ function Applications() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {['', 'UP B.Ed', 'UP D.El.Ed'].map((p) => (
+        {(track.programmes.length > 1 ? ['', ...track.programmes.map((x) => x.name)] : []).map((p) => (
           <button
             key={p || 'all'}
             onClick={() => setProgramme(p)}
@@ -70,14 +71,14 @@ function Applications() {
             {p || 'All'}
           </button>
         ))}
-        <Link href="/crm/leads?category=teacher_training" className="ml-auto text-xs font-semibold text-blue-600 hover:underline">
+        <Link href={`/crm/leads?category=${track.category}`} className="ml-auto text-xs font-semibold text-blue-600 hover:underline">
           Open in Leads →
         </Link>
       </div>
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
       ) : rows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No B.Ed / D.El.Ed applications yet.</p>
+        <p className="py-8 text-center text-sm text-gray-500">No {track.label} applications yet.</p>
       ) : (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
           {rows.map((r) => {
@@ -121,16 +122,55 @@ function Applications() {
   )
 }
 
-export function AdmissionsClient() {
+const TRACK_STYLE: Record<TrackCategory, string> = {
+  credit_card: 'border-emerald-200 bg-emerald-50 text-emerald-900',
+  teacher_training: 'border-violet-200 bg-violet-50 text-violet-900',
+  distance: 'border-sky-200 bg-sky-50 text-sky-900',
+  open_school: 'border-amber-200 bg-amber-50 text-amber-900',
+}
+
+export function AdmissionsClient({ initialTrack }: { initialTrack?: string }) {
   const [tab, setTab] = useState('new')
+  const [category, setCategory] = useState<TrackCategory>(getTrack(initialTrack).category)
+  const track = getTrack(category)
+
+  function pick(next: TrackCategory) {
+    setCategory(next)
+    setTab('new')
+    const url = new URL(window.location.href)
+    url.searchParams.set('track', next)
+    window.history.replaceState(null, '', url)
+  }
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">B.Ed / D.El.Ed Admissions</h1>
+        <h1 className="text-xl font-bold text-gray-900">Admissions</h1>
         <p className="mt-0.5 text-xs text-gray-400">
-          Fill an admission form, send students a form link, and see every application in one place
+          Pick a track, then fill the admission form, send the student a form link, or see its applications
         </p>
       </div>
+
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {ADMISSION_TRACKS.map((t) => {
+          const active = t.category === category
+          return (
+            <button
+              key={t.category}
+              type="button"
+              onClick={() => pick(t.category)}
+              aria-pressed={active}
+              className={`rounded-xl border p-3 text-left transition-shadow ${TRACK_STYLE[t.category]} ${
+                active ? 'shadow-md ring-2 ring-offset-1 ring-current' : 'opacity-80 hover:opacity-100'
+              }`}
+            >
+              <p className="text-sm font-bold">{t.label}</p>
+              <p className="mt-0.5 text-[11px] leading-snug opacity-80">{t.blurb}</p>
+            </button>
+          )
+        })}
+      </div>
+
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
         <TabsList className="mb-4">
           <TabsTrigger value="new"><PenSquare className="mr-1 h-4 w-4" /> New Admission</TabsTrigger>
@@ -140,14 +180,14 @@ export function AdmissionsClient() {
         </TabsList>
         <TabsContent value="new">
           <div className="max-w-3xl rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-            <AdmissionPunchForm onSaved={() => setTab('list')} />
+            <AdmissionPunchForm key={track.category} track={track} onSaved={() => setTab('list')} />
           </div>
         </TabsContent>
         <TabsContent value="links">
-          <div className="max-w-3xl"><AdmissionLinks /></div>
+          <div className="max-w-3xl"><AdmissionLinks key={track.category} track={track} /></div>
         </TabsContent>
         <TabsContent value="list">
-          <Applications />
+          <Applications key={track.category} track={track} />
         </TabsContent>
         <TabsContent value="upi">
           <div className="max-w-3xl"><UpiSettings /></div>

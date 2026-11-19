@@ -29,7 +29,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
-- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031` and `0032` are applied to the live project; `0033` must be applied with `apply-migration.py` (parent folder) before deploying the code that uses it. See the CRM section below.
+- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031`–`0033` are applied to the live project; `0034` must be applied with `apply-migration.py` (parent folder) before deploying the code that uses it. See the CRM section below.
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
@@ -194,6 +194,15 @@ there can be carried across.
   keys (`config/admission-form.ts`). Files stay in the private
   `applicant-photos` / `applicant-documents` buckets; staff upload and open
   them through `/api/crm/applicant-files` (signed URLs).
+- **Four admission tracks (0034).** `/crm/admissions` opens on four cards —
+  Student Credit Card (BSCC), B.Ed / D.El.Ed, Distance Education, NIOS / BBOSE
+  — and New Admission, Form Links and Applications all work per track.
+  Fields, sections and document lists live in `config/admission-tracks.ts`
+  (one config for the CRM form and the public link form). Links carry
+  `admission_links.track`; `/apply/[code]` renders the website `LeadForm` for
+  B.Ed / D.El.Ed and `TrackApplyForm` for the other three (source
+  `admission_form`). Every form stores `answers.track`; the bridge (0034) sets
+  `crm.leads.category` from it and `state` from the address.
 - **Admission form fee (0032).** `crm.admission_links.amount` — set when a
   counsellor creates a link (editable on the link row). With a fee and a UPI
   ID in `crm.payment_settings`, `/apply/[code]` shows a QR generated on the

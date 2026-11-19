@@ -1,7 +1,8 @@
 import { AdmissionsClient } from './client'
 
-export const metadata = { title: 'B.Ed / D.El.Ed Admissions' }
+export const metadata = { title: 'Admissions' }
 
-export default function AdmissionsPage() {
-  return <AdmissionsClient />
+export default async function AdmissionsPage({ searchParams }: { searchParams: Promise<{ track?: string }> }) {
+  const { track } = await searchParams
+  return <AdmissionsClient initialTrack={track} />
 }

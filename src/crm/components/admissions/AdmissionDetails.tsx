@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { BadgeCheck, FileText, GraduationCap, ImageIcon, IndianRupee, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
-import { ANSWER_LABELS, fileLabel } from '@/config/admission-form'
+import { ALL_ANSWER_LABELS as ANSWER_LABELS, documentLabel as fileLabel } from '@/config/admission-tracks'
 import { Button } from '@/crm/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/crm/components/ui/card'
 import { createClient } from '@/crm/lib/supabase/client'
@@ -39,7 +39,7 @@ export function AdmissionDetails({
 
   const photo = answers.photo_path as string | undefined
   const files = entries.filter(([k]) => k.startsWith('file_') && !PAYMENT_KEYS.has(k))
-  const fields = entries.filter(([k]) => !k.startsWith('file_') && k !== 'photo_path' && k !== 'ref' && !PAYMENT_KEYS.has(k))
+  const fields = entries.filter(([k]) => !k.startsWith('file_') && k !== 'photo_path' && k !== 'ref' && k !== 'track' && !PAYMENT_KEYS.has(k))
   const programme = answers.programme as string | undefined
 
   return (

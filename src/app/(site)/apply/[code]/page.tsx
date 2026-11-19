@@ -5,7 +5,9 @@ import { CheckCircle2, ShieldCheck } from "lucide-react";
 import QRCode from "qrcode";
 
 import { DeferredLeadForm } from "@/components/forms/deferred-lead-form";
+import { TrackApplyForm } from "@/components/forms/track-apply-form";
 import type { PaymentStep } from "@/components/forms/upi-payment-step";
+import { findProgramme } from "@/config/admission-tracks";
 import { TEACHING_PROGRAMMES } from "@/config/teaching-programmes";
 import {
   getAdmissionLink,
@@ -22,10 +24,11 @@ export const metadata: Metadata = {
 };
 
 /**
- * `/apply/[code]` — the B.Ed / D.El.Ed admission form a counsellor shares from
- * the CRM. It is the website's own lead form with every admission field and a
- * slot for every document; the `ref` answer tells the CRM bridge whose lead it
- * is, so the submission lands with that counsellor.
+ * `/apply/[code]` — the admission form a counsellor shares from the CRM, for
+ * any track. B.Ed / D.El.Ed uses the website's own lead form; Student Credit
+ * Card, Distance and NIOS / BBOSE use `TrackApplyForm`. The `ref` answer tells
+ * the CRM bridge whose lead it is, so the submission lands with that
+ * counsellor, and `track` files it under the right category.
  */
 export default async function AdmissionLinkPage({
   params,
@@ -34,10 +37,10 @@ export default async function AdmissionLinkPage({
 }) {
   const { code } = await params;
   const link = await getAdmissionLink(code);
-  const programme = link
-    ? TEACHING_PROGRAMMES.find((p) => p.code === link.programme)
-    : null;
-  if (!link || !programme) notFound();
+  const found = link ? findProgramme(link.programme) : null;
+  if (!link || !found) notFound();
+  const { programme, track } = found;
+  const teaching = TEACHING_PROGRAMMES.find((p) => p.code === programme.code);
 
   // Payment step: only when the link carries a fee and the office has set a
   // UPI ID or uploaded a QR. The QR is generated here, on the server, with the
@@ -91,17 +94,21 @@ export default async function AdmissionLinkPage({
             Your documents are stored privately and seen only by our admission team.
           </p>
 
-          <DeferredLeadForm
-            className="mt-6"
-            source="teaching_admission"
-            fields={["email", "city", "admission", "documents"]}
-            checklist={programme}
-            level={programme.level}
-            uploadAllDocuments
-            extraAnswers={{ ref: link.code }}
-            payment={payment}
-            submitLabel={`Submit ${programme.code} form`}
-          />
+          {teaching ? (
+            <DeferredLeadForm
+              className="mt-6"
+              source="teaching_admission"
+              fields={["email", "city", "admission", "documents"]}
+              checklist={teaching}
+              level={teaching.level}
+              uploadAllDocuments
+              extraAnswers={{ ref: link.code, track: track.category }}
+              payment={payment}
+              submitLabel={`Submit ${programme.code} form`}
+            />
+          ) : (
+            <TrackApplyForm programmeCode={programme.code} linkCode={link.code} payment={payment} />
+          )}
         </div>
       </div>
     </div>

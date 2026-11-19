@@ -18,6 +18,8 @@ export const LEAD_SOURCES = [
   "apply_now",
   /** The home page's D.El.Ed / B.Ed application (§5.3 Apply). */
   "teaching_admission",
+  /** A counsellor's form link for Credit Card / Distance / NIOS-BBOSE (`/apply/[code]`). */
+  "admission_form",
 ] as const;
 
 export type LeadSource = (typeof LEAD_SOURCES)[number];
