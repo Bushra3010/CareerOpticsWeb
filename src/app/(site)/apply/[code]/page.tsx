@@ -44,8 +44,7 @@ export default async function AdmissionLinkPage({
   const needsColleges = track.sections.some((s) => s.fields.some((f) => f.optionsFrom === "colleges"));
   const colleges = needsColleges ? await getCollegeNames() : [];
 
-  // Payment step: only when the link carries a fee and the office has set a
-  // UPI ID or uploaded a QR. The QR is generated here, on the server, with the
+  // Payment step: whenever the link carries a fee. The QR is generated here, on the server, with the
   // amount filled in — scanning it opens the UPI app ready to pay that sum.
   let payment: PaymentStep | undefined;
   if (link.amount) {
@@ -56,17 +55,18 @@ export default async function AdmissionLinkPage({
     const qrSrc = upiUri
       ? await QRCode.toDataURL(upiUri, { margin: 1, width: 480, errorCorrectionLevel: "M" })
       : upi.qrImageUrl;
-    if (upiUri || qrSrc) {
-      payment = {
-        amount: link.amount,
-        upiId: upi.upiId,
-        payeeName: upi.payeeName,
-        upiUri,
-        qrSrc,
-        qrHasAmount: Boolean(upiUri),
-        instructions: upi.instructions,
-      };
-    }
+    // A link with a fee always has the payment step. Without office UPI details
+    // the step still asks for the UTR, and tells the student to get the UPI ID
+    // from their counsellor.
+    payment = {
+      amount: link.amount,
+      upiId: upi.upiId,
+      payeeName: upi.payeeName,
+      upiUri,
+      qrSrc,
+      qrHasAmount: Boolean(upiUri),
+      instructions: upi.instructions,
+    };
   }
 
   return (

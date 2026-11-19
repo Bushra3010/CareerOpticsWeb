@@ -76,7 +76,7 @@ export function UpiPaymentStep({
         </p>
       </div>
 
-      <div className="grid items-center gap-4 sm:grid-cols-[176px_1fr]">
+      <div className={payment.qrSrc ? "grid items-center gap-4 sm:grid-cols-[176px_1fr]" : "grid gap-4"}>
         {payment.qrSrc ? (
           <div className="mx-auto rounded-lg border bg-white p-2">
             {/* eslint-disable-next-line @next/next/no-img-element -- data URL / storage URL, nothing for next/image to optimise */}
@@ -91,7 +91,12 @@ export function UpiPaymentStep({
         ) : null}
 
         <div className="grid gap-2.5 text-sm text-body">
-          <p>
+          {!payment.qrSrc && !payment.upiId ? (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-amber-900">
+              Ask your counsellor for the UPI ID or QR code, pay {amount}, then fill in the UTR and screenshot below.
+            </p>
+          ) : null}
+          <p className={!payment.qrSrc ? "hidden" : undefined}>
             {payment.qrHasAmount
               ? `Scan this QR in your UPI app — ${amount} is already filled in.`
               : `Scan this QR in your UPI app and enter ${amount}.`}
