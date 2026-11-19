@@ -27,17 +27,17 @@ export default async function StudentDocumentsPage() {
   const all = [...legacy, ...rows]
 
   return (
-    <PortalPage title="ID Cards & Marksheets" subtitle="Every ID card and marksheet issued to you, session by session" icon={IdCard}>
+    <PortalPage title="My Documents" subtitle="Allotment letter, registration, admit cards, ID card and marksheets — session by session" icon={IdCard}>
       <Link
         href="/crm/student/orders"
         className="flex items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-semibold text-blue-800 hover:bg-blue-100"
       >
-        <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4" /> Need a printed copy? Order a physical ID card or marksheet</span>
+        <span className="flex items-center gap-2"><ShoppingBag className="h-4 w-4" /> Need a printed copy? Order a physical copy by courier</span>
         <span>→</span>
       </Link>
       {all.length === 0 ? (
         <p className="rounded-xl border border-gray-100 bg-white p-8 text-center text-gray-500">
-          Nothing issued yet. Your ID cards and marksheets will appear here.
+          Nothing issued yet. Your documents will appear here.
         </p>
       ) : (
         CREDENTIAL_KINDS.map((k) => {

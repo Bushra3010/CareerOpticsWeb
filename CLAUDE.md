@@ -29,7 +29,7 @@ Full spec: [`PRD.md`](PRD.md). This file mirrors PRD §2, §6, §7 and §16 so t
 - **P9 — done.** `/search` + `/api/search`, `/blogs`, `/news`, `/gallery`, `/press-release`, `/placements`, `/scholarships`, and the static/legal pages. **Crawled the whole site: 147 internal URLs, zero dead links.**
 - **P10 — done.** Supabase Auth + middleware gate, role-gated admin shell, dashboard, leads inbox (filters, status, notes, CSV with phone masking), review moderation, and **full CRUD with image upload** across all eleven content tables.
 - **P11 — done.** Sitemap (147 URLs), robots, dynamic OG images, Organization/WebSite JSON-LD, redirects + security headers, 404/500, cookie consent, and a perf pass that took `/colleges` from 196 to **163 kB** and `/contact` from 267 to **151 kB**. Every route is inside the 180 kB §11 budget.
-- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031` and `0032` must be applied with `apply-migration.py` (parent folder), in order, before deploying the code that uses them. See the CRM section below.
+- **CRM — done (ported from HELLODOCTOR).** Full admission CRM, student portal and associate portal at `/crm`, on the `crm` schema. Migrations `0027`–`0029` are applied to the live project; `0031` and `0032` are applied to the live project; `0033` must be applied with `apply-migration.py` (parent folder) before deploying the code that uses it. See the CRM section below.
 - **P12 — next.** Domain, DNS, GA4/GTM live, Search Console, backup, launch checklist.
 
 `/style-guide` is temporary scaffolding — keep it as long as it's useful, it's `noindex`.
@@ -207,9 +207,13 @@ there can be carried across.
   UPI (QR with the amount, "Download QR to send", UTR + screenshot) / cash
   (stored as verified) / pay later (lead shows "Mark paid"). `upiPayUri` lives
   in `config/upi.ts` so both the server page and CRM client use it.
-- **ID cards / marksheets** — `crm.student_credentials`, many per student
-  (one per session); staff add them on the student page, students see them at
-  `/crm/student/documents`.
+- **Student documents** — `crm.student_credentials`, many per student
+  (one per session/semester): allotment letter, registration, admit card,
+  ID card, marksheet, certificate (kinds widened in 0033). Staff upload them
+  on the student page ("Student Documents"); students see them under
+  "My Documents" at `/crm/student/documents` and can order a physical copy.
+  The ID card will be generated in the CRM from the consultancy's design
+  (not built yet — waiting on the design); everything else is uploaded.
 - **Physical document orders** — `crm.document_orders`; students pay by UPI
   and submit the UTR at `/crm/student/orders`; staff verify and dispatch at
   `/crm/document-orders` (also where prices and the UPI ID are set). The price

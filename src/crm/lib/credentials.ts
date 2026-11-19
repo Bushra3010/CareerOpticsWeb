@@ -1,8 +1,10 @@
-/** Issued-document kinds — `crm.student_credentials.kind` (0031). */
+/** Issued-document kinds — `crm.student_credentials.kind` (0031, 0033). */
 export const CREDENTIAL_KINDS = [
+  { value: 'allotment_letter', label: 'Allotment Letter' },
+  { value: 'registration', label: 'Registration' },
+  { value: 'admit_card', label: 'Admit Card' },
   { value: 'id_card', label: 'ID Card' },
   { value: 'marksheet', label: 'Marksheet' },
-  { value: 'admit_card', label: 'Admit Card' },
   { value: 'certificate', label: 'Certificate' },
   { value: 'other', label: 'Other' },
 ] as const

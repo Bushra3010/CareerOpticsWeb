@@ -52,7 +52,7 @@ export function StudentDetailClient({ student: initialStudent, payments: initial
         <TabsList className="mb-4">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="fees">Fee Tracker</TabsTrigger>
-          <TabsTrigger value="credentials">ID Cards & Marksheets</TabsTrigger>
+          <TabsTrigger value="credentials">Student Documents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile">
@@ -66,7 +66,7 @@ export function StudentDetailClient({ student: initialStudent, payments: initial
 
         <TabsContent value="credentials">
           <Card>
-            <CardHeader><CardTitle>ID Cards & Marksheets</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Student Documents</CardTitle></CardHeader>
             <CardContent>
               <StudentCredentials studentId={student.id} />
             </CardContent>

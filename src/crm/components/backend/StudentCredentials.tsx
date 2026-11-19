@@ -14,14 +14,14 @@ import { createClient } from '@/crm/lib/supabase/client'
 type Row = { id: string; kind: string; session_label: string | null; title: string | null; file_url: string; created_at: string }
 
 /**
- * Issue any number of ID cards / marksheets to a student — one per session or
- * semester. Each shows up in the student's portal under "ID Cards & Marksheets".
+ * Issue any number of documents (allotment letter, registration, admit cards, ID card, marksheets) to a student — one per session or
+ * semester. Each shows up in the student's portal under "My Documents".
  */
 export function StudentCredentials({ studentId }: { studentId: string }) {
   const supabase = createClient()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
-  const [kind, setKind] = useState<string>('id_card')
+  const [kind, setKind] = useState<string>('allotment_letter')
   const [session, setSession] = useState('')
   const [title, setTitle] = useState('')
   const [fileUrl, setFileUrl] = useState('')
@@ -59,7 +59,7 @@ export function StudentCredentials({ studentId }: { studentId: string }) {
       await (supabase as any).from('student_notifications').insert({
         student_id: studentId,
         title: `New ${CREDENTIAL_LABEL[kind] ?? 'document'} issued`,
-        message: `Your ${CREDENTIAL_LABEL[kind] ?? 'document'}${session.trim() ? ` for ${session.trim()}` : ''} is ready to download under ID Cards & Marksheets.`,
+        message: `Your ${CREDENTIAL_LABEL[kind] ?? 'document'}${session.trim() ? ` for ${session.trim()}` : ''} is ready to download under My Documents.`,
         type: 'success',
         category: 'document',
         file_url: fileUrl,
@@ -116,7 +116,7 @@ export function StudentCredentials({ studentId }: { studentId: string }) {
       {loading ? (
         <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
       ) : rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-gray-500">No ID cards or marksheets issued yet.</p>
+        <p className="py-6 text-center text-sm text-gray-500">No documents issued yet.</p>
       ) : (
         <div className="space-y-2">
           {rows.map((r) => (
