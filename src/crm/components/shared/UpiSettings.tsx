@@ -49,6 +49,16 @@ export function UpiSettings() {
     toast.success('UPI details saved')
   }
 
+  /** The QR is saved the moment it is uploaded or removed — no separate Save press needed. */
+  async function saveQr(url: string | null) {
+    setSettings((s) => ({ ...s, qr_image_url: url }))
+    const { error } = await (supabase as any)
+      .from('payment_settings')
+      .upsert({ id: 1, qr_image_url: url, updated_at: new Date().toISOString() })
+    if (error) return toast.error(`QR not saved: ${error.message}`)
+    toast.success(url ? 'QR saved — forms will show it now' : 'QR removed')
+  }
+
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4">
       <p className="text-sm font-bold text-gray-800">Where students pay (UPI)</p>
@@ -75,10 +85,10 @@ export function UpiSettings() {
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={settings.qr_image_url} alt="UPI QR" className="h-24 w-24 rounded border object-contain" />
-              <Button size="sm" variant="outline" onClick={() => setSettings({ ...settings, qr_image_url: null })}>Remove</Button>
+              <Button size="sm" variant="outline" onClick={() => saveQr(null)}>Remove</Button>
             </div>
           ) : (
-            <FileUpload bucket="student-documents" accept="image/*" onUploadComplete={(url) => setSettings({ ...settings, qr_image_url: url })} />
+            <FileUpload bucket="student-documents" accept="image/*" onUploadComplete={(url) => saveQr(url)} />
           )}
         </div>
       </div>
